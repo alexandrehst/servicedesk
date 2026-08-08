@@ -1,0 +1,36 @@
+version: 2
+
+# Complementa os *security updates* (ja ativos nas configuracoes do repo, que
+# reagem a alertas de vulnerabilidade). Aqui sao *version updates*: mantem as
+# dependencias atualizadas preventivamente, para o pilar Seguro nao virar
+# corrida atras de CVE.
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    # Patch e minor de devDependencies num PR so: o Epic 0 inteiro roda sobre
+    # devDependencies, e um PR por pacote afogaria o repositorio.
+    groups:
+      dev-dependencies:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - '*'
+    commit-message:
+      prefix: chore
+      include: scope

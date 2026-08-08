@@ -4,7 +4,7 @@ baseline_commit: 3ff1ea78ea9b23cfdd35c5118313282a1d7cf538
 
 # Story 0.2: Gate de cobertura de testes
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
