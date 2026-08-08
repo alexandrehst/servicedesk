@@ -4,7 +4,7 @@ baseline_commit: 3ff1ea78ea9b23cfdd35c5118313282a1d7cf538
 
 # Story 0.2: Gate de cobertura de testes
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -40,34 +40,34 @@ so that "ampla cobertura de testes" seja não-negociável (pilar Testado).
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Provider de cobertura** (AC: #1)
-  - [ ] `pnpm add -D @vitest/coverage-v8@4.1.10` (versão **exata** — o pacote tem peer `vitest: 4.1.10`, sem faixa)
-  - [ ] Script `test:coverage` → `vitest run --coverage`
+- [x] **Task 1 — Provider de cobertura** (AC: #1)
+  - [x] `pnpm add -D @vitest/coverage-v8@4.1.10` (versão **exata** — o pacote tem peer `vitest: 4.1.10`, sem faixa)
+  - [x] Script `test:coverage` → `vitest run --coverage`
 
-- [ ] **Task 2 — Configurar cobertura no Vitest** (AC: #1, #2, #5)
-  - [ ] `coverage.provider: 'v8'`
-  - [ ] `coverage.include: ['src/**/*.ts']` — **obrigatório**: sem isso, arquivo nunca importado por teste não entra no cálculo e o gate vira decorativo
-  - [ ] `coverage.exclude`: `**/*.test.ts`, `**/.gitkeep`
-  - [ ] `coverage.reporters: ['text', 'lcov', 'json-summary', 'json']`
+- [x] **Task 2 — Configurar cobertura no Vitest** (AC: #1, #2, #5)
+  - [x] `coverage.provider: 'v8'`
+  - [x] `coverage.include: ['src/**/*.ts']` — **obrigatório**: sem isso, arquivo nunca importado por teste não entra no cálculo e o gate vira decorativo
+  - [x] `coverage.exclude`: `**/*.test.ts`, `**/.gitkeep`
+  - [x] `coverage.reporters: ['text', 'lcov', 'json-summary', 'json']`
         (`lcov` → Sonar na 0.7; `json-summary` + `json` → action de comentário no PR)
-  - [ ] `coverage.thresholds`: `lines`, `functions`, `branches`, `statements` = **80**
-  - [ ] Acrescentar `coverage/` ao `.gitignore` se ainda não estiver (já está — **conferir, não duplicar**)
+  - [x] `coverage.thresholds`: `lines`, `functions`, `branches`, `statements` = **80**
+  - [x] Acrescentar `coverage/` ao `.gitignore` se ainda não estiver (já está — **conferir, não duplicar**)
 
-- [ ] **Task 3 — CI: rodar cobertura no job `test`** (AC: #1, #5)
-  - [ ] Alterar o step do job `test` de `pnpm test` para `pnpm test:coverage`
-  - [ ] **Não criar um quarto job.** Os nomes `lint`/`typecheck`/`test` viram required checks na 0.7; um nome novo agora é dívida
-  - [ ] Publicar `coverage/` como artifact (`actions/upload-artifact@v4`), insumo da 0.7
+- [x] **Task 3 — CI: rodar cobertura no job `test`** (AC: #1, #5)
+  - [x] Alterar o step do job `test` de `pnpm test` para `pnpm test:coverage`
+  - [x] **Não criar um quarto job.** Os nomes `lint`/`typecheck`/`test` viram required checks na 0.7; um nome novo agora é dívida
+  - [x] Publicar `coverage/` como artifact (`actions/upload-artifact@v4`), insumo da 0.7
 
-- [ ] **Task 4 — Relatório visível no PR** (AC: #2)
-  - [ ] Adicionar `davelosert/vitest-coverage-report-action@v2.12.2` ao job `test`
-  - [ ] Conceder `pull-requests: write` **apenas ao job `test`**, não no `permissions` global do workflow
-  - [ ] Condicionar o step a `if: github.event_name == 'pull_request'` (em push na `main` não há PR para comentar)
+- [x] **Task 4 — Relatório visível no PR** (AC: #2)
+  - [x] Adicionar `davelosert/vitest-coverage-report-action@v2.12.2` ao job `test`
+  - [x] Conceder `pull-requests: write` **apenas ao job `test`**, não no `permissions` global do workflow
+  - [x] Condicionar o step a `if: github.event_name == 'pull_request'` (em push na `main` não há PR para comentar)
 
-- [ ] **Task 5 — Provar que o gate reprova** (AC: #3)
-  - [ ] Criar `src/domain/_prova-cobertura.ts` com uma função exportada **sem teste**
-  - [ ] Confirmar localmente que `pnpm test:coverage` falha por threshold, anotando o percentual
-  - [ ] Commitar **listando os arquivos explicitamente** (ver *Aprendizados da Story 0.1*), push, confirmar job `test` vermelho no CI
-  - [ ] Reverter; registrar link do run e percentual nas Completion Notes
+- [x] **Task 5 — Provar que o gate reprova** (AC: #3)
+  - [x] Criar `src/domain/_prova-cobertura.ts` com uma função exportada **sem teste**
+  - [x] Confirmar localmente que `pnpm test:coverage` falha por threshold, anotando o percentual
+  - [x] Commitar **listando os arquivos explicitamente** (ver *Aprendizados da Story 0.1*), push, confirmar job `test` vermelho no CI
+  - [x] Reverter; registrar link do run e percentual nas Completion Notes
 
 ## Dev Notes
 
@@ -150,8 +150,78 @@ Nenhum diretório novo. `coverage/` é gerado e ignorado pelo git.
 
 ### Agent Model Used
 
+claude-opus-5
+
 ### Debug Log References
+
+**`coverage.reporters` (plural) é descartado sem aviso.** Dentro do bloco `coverage`, a chave correta é **`reporter`** (singular). `reporters` é a opção de *reporters de teste* — válida noutro contexto, ignorada neste. Sintoma: `pnpm test:coverage` retornou `exit=0`, gerou `clover.xml`/`index.html`/`coverage-final.json` (o default do Vitest) e **nenhum `lcov.info` nem `coverage-summary.json`**. Nenhum erro, nenhum aviso.
+
+Consequência se tivesse passado: a Story 0.7 apontaria o scanner do SonarCloud para um `lcov` inexistente, e o quality gate reportaria 0% de cobertura indefinidamente — sem falhar em lugar nenhum. É o mesmo modo de falha que a Story 0.1 documentou duas vezes (SonarCloud com `0.0% Coverage on New Code`, `claude-review` verde sem revisar). Só apareceu porque a AC #5 exigia verificar **o arquivo gerado**, não o exit code. Comentário de alerta deixado no `vitest.config.ts`.
+
+**`Unknown% (0/0)` no estado atual (AC #4).** Com `src/` contendo apenas `.gitkeep`, o relatório sai como `Unknown% ( 0/0 )` e o threshold passa por não haver denominador. Gate **armado**, não **exercitado**. Passa a valer na Story 1.1.
+
+**`coverage.include` confirmado na prática.** O arquivo `_prova-cobertura.ts` apareceu no relatório com 0% **sem que nenhum teste o importasse** — comportamento que só existe por causa do `include`. Sem ele, o arquivo ficaria fora da conta e o gate teria passado verde com código não testado no repositório.
 
 ### Completion Notes List
 
+- **Task 1** — `@vitest/coverage-v8@4.1.10` fixado na versão exata (peer `vitest: 4.1.10` sem faixa). Script `test:coverage` adicionado; `test` mantido para iteração local rápida.
+- **Task 2** — `vitest.config.ts` com `provider: 'v8'`, `include: ['src/**/*.ts']`, `exclude: ['**/*.test.ts']`, `reporter: ['text','lcov','json-summary','json']`, `reportsDirectory: './coverage'` e thresholds globais de 80% nas quatro métricas. `coverage/` já constava no `.gitignore` — conferido, não duplicado.
+- **Task 3** — job `test` roda `pnpm test:coverage`; `coverage/` publicado via `actions/upload-artifact@v4` com `if: always()` e retenção de 7 dias. Nenhum job novo criado: os nomes `lint`/`typecheck`/`test` seguem estáveis para a Story 0.7.
+- **Task 4** — `davelosert/vitest-coverage-report-action@v2.12.2` no job `test`. `pull-requests: write` concedido **apenas neste job**; `lint` e `typecheck` seguem com o `contents: read` global. Step condicionado a `always() && github.event_name == 'pull_request'` — o `always()` é deliberado: a tabela precisa aparecer justamente quando o gate reprova.
+- **Task 5** — evidências abaixo.
+
+**AC #3 — prova local:**
+
+```
+File               | % Stmts | % Branch | % Funcs | % Lines
+ ...a-cobertura.ts |       0 |        0 |       0 |       0
+
+ERROR: Coverage for lines (0%) does not meet global threshold (80%)
+ERROR: Coverage for functions (0%) does not meet global threshold (80%)
+ERROR: Coverage for statements (0%) does not meet global threshold (80%)
+ERROR: Coverage for branches (0%) does not meet global threshold (80%)
+```
+
+`exit=1`.
+
+**AC #3 — prova no CI** (PR #4, commit `36e1c9b`, run `31281149955`):
+
+| Job | Conclusão | Duração |
+|---|---|---|
+| `lint` | pass | 12s |
+| `typecheck` | pass | 11s |
+| `test` | **fail** | 15s — [job 93162557039](https://github.com/alexandrehst/servicedesk/actions/runs/31281149955/job/93162557039) |
+
+Evidência mais forte que a da Story 0.1: `lint` e `typecheck` **passaram** no mesmo commit, isolando a reprovação ao gate de cobertura. Não foi erro genérico.
+
+**AC #2 — tabela no PR** (postada mesmo com o job vermelho, graças ao `always()`):
+
+| | Percentual | Coberto / Total |
+|---|---|---|
+| 🔴 Lines | 0% (🎯 80%) | 0 / 10 |
+| 🔴 Statements | 0% (🎯 80%) | 0 / 10 |
+| 🔴 Functions | 0% (🎯 80%) | 0 / 2 |
+| 🔴 Branches | 0% (🎯 80%) | 0 / 8 |
+
+Prova revertida em commit próprio. Commit de prova listou o arquivo explicitamente (`git add src/domain/_prova-cobertura.ts`), aplicando a lição da Story 0.1 — o Dev Agent Record sobreviveu ao revert desta vez.
+
+**AC #5 — `lcov.info` gerado:** `coverage/` contém `lcov.info`, `coverage-summary.json`, `coverage-final.json` e `lcov-report/`. Insumo pronto para o scanner do SonarCloud na Story 0.7.
+
 ### File List
+
+- `package.json` (modificado — `@vitest/coverage-v8`, script `test:coverage`)
+- `pnpm-lock.yaml` (modificado)
+- `vitest.config.ts` (modificado — bloco `coverage` completo)
+- `.github/workflows/ci.yml` (modificado — job `test`: permissions, `test:coverage`, artifact, comentário)
+- `_bmad-output/implementation-artifacts/0-2-gate-de-cobertura-de-testes.md` (modificado)
+- `_bmad-output/implementation-artifacts/0-1-toolchain-base-e-pipeline-de-ci.md` (modificado — status `done`)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modificado)
+
+## Change Log
+
+| Data | Evento |
+|---|---|
+| 2026-08-08 | Tasks 1–4 implementadas; achado do `reporter` singular corrigido |
+| 2026-08-08 | PR #4 aberto |
+| 2026-08-08 | Commit `36e1c9b` com módulo sem teste → job `test` vermelho por threshold, `lint`/`typecheck` verdes (AC #3 satisfeita) |
+| 2026-08-08 | Prova revertida; story para `review` |
