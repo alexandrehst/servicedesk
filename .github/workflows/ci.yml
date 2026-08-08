@@ -89,3 +89,50 @@ jobs:
       # e justamente nesse caso que o numero interessa.
       - uses: davelosert/vitest-coverage-report-action@v2.12.2
         if: always() && github.event_name == 'pull_request'
+
+  # SCA — CVEs nas dependencias. Nao precisa de Node nem de `pnpm install`:
+  # o Trivy le o pnpm-lock.yaml direto do disco.
+  security-deps:
+    name: security-deps
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          # OBRIGATORIO AQUI. O Trivy NAO escaneia devDependencies por padrao:
+          # sem esta variavel o pnpm-lock.yaml sequer e reconhecido como alvo
+          # ("Supported files for scanner(s) not found") e o job passa VERDE
+          # com CVE critica presente. Comprovado: com a flag exit=1, sem ela
+          # exit=0, mesmo lockfile. Todo o toolchain deste projeto vive em
+          # devDependencies, e uma dependencia de build comprometida e vetor
+          # de supply chain igual a uma de producao.
+          TRIVY_INCLUDE_DEV_DEPS: 'true'
+        with:
+          scan-type: fs
+          scanners: vuln
+          scan-ref: .
+          severity: 'CRITICAL,HIGH'
+          # SEM exit-code o Trivy apenas imprime a tabela de CVEs e o job fica
+          # VERDE com vulnerabilidade critica presente. O default e '0'.
+          exit-code: '1'
+          # CVE sem correcao publicada nao deve travar merge indefinidamente —
+          # nao ha acao possivel do nosso lado ate o upstream corrigir.
+          ignore-unfixed: true
+
+  # Segredos vazados, no diff e no historico.
+  security-secrets:
+    name: security-secrets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Sem fetch-depth: 0 o Gitleaks enxerga so o commit mais recente;
+          # um segredo que entrou commits atras passaria despercebido.
+          fetch-depth: 0
+
+      # Sem GITLEAKS_LICENSE: exigido apenas para contas de organizacao.
+      # alexandrehst e conta pessoal.
+      - uses: gitleaks/gitleaks-action@v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
