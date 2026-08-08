@@ -65,7 +65,12 @@ A action **[anthropics/claude-code-action](https://github.com/anthropics/claude-
 - **Setup:** no terminal, dentro do Claude Code, rodar `/install-github-app` (instala o GitHub App e configura o secret de auth).
 - **Disparo:** automático a cada PR aberto **e** sob demanda via `@claude` em comentário.
 - **Escopo do prompt de review:** focar nos pilares de julgamento — **auditável, observável, escalável, performático** — e sinalizar violações dos ADs da spine.
-- **Custo:** consome créditos de API **ou** a cota da assinatura Claude. **Decisão:** usar **créditos de API** (`ANTHROPIC_API_KEY` como secret do repositório). Este é o único item não-OSS-grátis do gateway — custo pequeno por PR, aceito pelo dono do projeto.
+- **Custo — DECISÃO REVISADA (2026-08-08):** usar o **token da assinatura Claude**, não créditos de API.
+  - Secret do repositório: **`CLAUDE_CODE_OAUTH_TOKEN`** (gerado com `claude setup-token`).
+  - *Decisão anterior, substituída:* `ANTHROPIC_API_KEY` com créditos de API pagos.
+  - *Motivo:* não há créditos de API provisionados; o token da assinatura entrega o mesmo review sem custo incremental nem cartão.
+  - *Trade-off aceito:* o review consome a **cota do plano Claude** do dono do projeto, que é compartilhada com o uso interativo. Em volume alto de PRs isso pode esbarrar em limite de uso — se acontecer, o caminho de volta é provisionar créditos de API e trocar o secret.
+  - Com isso o gateway passa a ser **inteiramente sem custo incremental**.
 
 ## 5. Regra de merge (branch protection)
 

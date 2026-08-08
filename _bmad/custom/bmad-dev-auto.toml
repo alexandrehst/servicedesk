@@ -1,0 +1,111 @@
+# Override de time para bmad-dev-auto — ServiceDesk
+#
+# Fecha o arco entre o commit local do dev-auto e o gateway de CI:
+# push -> PR -> espera o gate -> colhe o veredito -> escreve handoff.
+#
+# NAO reinvoca o dev-auto. Quem decide reinvocar e o loop externo,
+# lendo o arquivo de handoff. Isso evita recursao dentro do workflow.
+#
+# Contrato de governanca: _bmad-output/planning-artifacts/QUALITY-GATE.md
+
+[workflow]
+
+persistent_facts = [
+  "O repositorio remoto e alexandrehst/servicedesk. A branch main e protegida: PR obrigatorio, historico linear, sem force-push, enforce_admins ativo. Nunca faca push direto para main.",
+  "file:{project-root}/_bmad-output/planning-artifacts/QUALITY-GATE.md",
+]
+
+on_complete = """
+# Publicacao e coleta do gateway de CI
+
+Execute na ordem. Nao pule etapas. Nao peca confirmacao ao humano — esta rodando sem supervisao.
+
+## 0. Definicoes
+
+- `{handoff}` = `{implementation_artifacts}/ci-handoff-{slug}.md`, onde `{slug}` e o mesmo slug de `{spec_file}` (o nome sem o prefixo `spec-` e sem `.md`).
+- `{issue}` = numero da GitHub Issue desta unidade de trabalho. Extraia do slug quando ele comecar com `gh-<N>-`; senao, do frontmatter `issue:` de `{spec_file}`. Se nenhum existir, `{issue}` = vazio.
+- Sempre escreva `{handoff}` antes de encerrar, em qualquer um dos caminhos abaixo. O loop externo depende dele.
+
+## 1. Caminho BLOQUEADO
+
+Se o status terminal for `blocked`:
+
+1. Escreva `{handoff}` com frontmatter `outcome: blocked`, `issue: {issue}`, `spec: {spec_file}` e, no corpo, a blocking condition literal e o que ja foi implementado.
+2. Se `{issue}` nao for vazio: `gh issue edit {issue} --add-label needs-human` (crie a label antes com `gh label create needs-human --color B60205 --description "Bloqueado: exige decisao humana" 2>/dev/null || true`) e poste um comentario com a blocking condition via `gh issue comment {issue} --body-file -`.
+3. NAO faca push. NAO abra PR. Encerre.
+
+## 2. Caminho CONCLUIDO — preparar a branch
+
+Se o status terminal for `done`:
+
+1. Descubra a branch atual: `git rev-parse --abbrev-ref HEAD`.
+2. **Se a branch atual for `main`**, o commit do step-04 caiu na main local, que e protegida no remoto. Corrija com seguranca:
+   - Leia `baseline_revision` do frontmatter de `{spec_file}`.
+   - Rode `git fetch origin main` e compare: `git rev-parse origin/main`.
+   - **So prossiga se `baseline_revision` for identico a `origin/main`.** Isso prova que os unicos commits na main local sao os desta run.
+   - Entao: `git branch story/{slug}` e `git reset --hard origin/main` e `git checkout story/{slug}`.
+   - **Se `baseline_revision` divergir de `origin/main`**, NAO resete nada. Escreva `{handoff}` com `outcome: blocked` e a condicao `main local divergente — resolucao manual necessaria`, e encerre.
+3. Se a branch atual ja nao for `main`, siga com ela.
+
+## 3. Publicar
+
+1. `git push -u origin HEAD`.
+2. Verifique se ja existe PR para esta branch: `gh pr view --json number,url,state`.
+   - Se existir e estiver `OPEN`, reutilize.
+   - Senao, abra: `gh pr create --fill`. No corpo, inclua obrigatoriamente:
+     - `Closes #{issue}` quando `{issue}` nao for vazio (fecha a issue no merge — nao atualize a issue na mao).
+     - A referencia a Story/FR coberta, exigida pelo pilar Auditavel (QUALITY-GATE secao 3).
+     - Um resumo do `## Auto Run Result` de `{spec_file}`.
+
+## 4. Colher o veredito do gate
+
+1. Aguarde os checks: `gh pr checks --watch --interval 30` com timeout de 20 minutos.
+   - Se nenhum check estiver configurado no repositorio, o comando retorna sem checks. Trate como `outcome: no-gate` e siga para o passo 5 registrando isso explicitamente — nao interprete ausencia de checks como aprovacao.
+2. Colete, independentemente do resultado:
+   - `gh pr checks` (tabela final de status)
+   - Para cada check vermelho: `gh run view <run-id> --log-failed` (trunque cada log em ~200 linhas)
+   - `gh pr view --comments` — inclui o review por IA do `claude-code-review.yml`, que cobre os pilares de julgamento
+3. Do review por IA, extraia apenas apontamentos acionaveis. Ignore elogios e resumos.
+
+## 5. Escrever o handoff
+
+Escreva `{handoff}` com este formato:
+
+```markdown
+---
+outcome: green | red | no-gate | blocked
+issue: {issue}
+spec: {spec_file}
+pr: <url do PR>
+branch: <nome da branch>
+ci_repair_attempts: <N>
+---
+
+# CI Handoff — {slug}
+
+## Status dos checks
+<tabela do `gh pr checks`>
+
+## Falhas determinísticas
+<por check vermelho: nome, causa raiz e trecho relevante do log>
+
+## Apontamentos do review por IA
+<lista acionavel, ou "nenhum">
+
+## Intent de correcao sugerido
+<uma instrucao objetiva, pronta para ser passada a uma nova invocacao do bmad-dev-auto,
+descrevendo o que corrigir. Omita se outcome for green.>
+```
+
+Para `ci_repair_attempts`: leia o valor do `{handoff}` anterior se ele existir e some 1; senao, `1`.
+
+## 6. Encerrar
+
+- `outcome: green` — deixe o PR **aberto**. NAO mergeie.
+  > Merge automatico esta desligado por padrao. Para ligar, troque esta linha por:
+  > `gh pr merge --auto --squash --delete-branch`
+  > So faca isso depois que os required status checks existirem na branch protection —
+  > sem eles o `--auto` mergeia sem gate, o oposto do QUALITY-GATE secao 5.
+- `outcome: red` ou `no-gate` — deixe o PR aberto e encerre. O loop externo decide reinvocar.
+- Em qualquer caso, encerre sem pedir input humano.
+"""
