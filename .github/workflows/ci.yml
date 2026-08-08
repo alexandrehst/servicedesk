@@ -99,6 +99,15 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          # OBRIGATORIO AQUI. O Trivy NAO escaneia devDependencies por padrao:
+          # sem esta variavel o pnpm-lock.yaml sequer e reconhecido como alvo
+          # ("Supported files for scanner(s) not found") e o job passa VERDE
+          # com CVE critica presente. Comprovado: com a flag exit=1, sem ela
+          # exit=0, mesmo lockfile. Todo o toolchain deste projeto vive em
+          # devDependencies, e uma dependencia de build comprometida e vetor
+          # de supply chain igual a uma de producao.
+          TRIVY_INCLUDE_DEV_DEPS: 'true'
         with:
           scan-type: fs
           scanners: vuln
