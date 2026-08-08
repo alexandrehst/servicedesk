@@ -1,0 +1,32 @@
+# Dependências
+node_modules/
+.pnpm-store/
+
+# Build / saída
+dist/
+build/
+*.tsbuildinfo
+
+# Testes / cobertura
+coverage/
+.vitest/
+
+# Ambiente — NUNCA commitar
+.env
+.env.*
+!.env.example
+
+# Config local do Claude Code (por máquina)
+.claude/settings.local.json
+
+# Python (scripts do BMad)
+__pycache__/
+*.py[cod]
+.venv/
+
+# Sistema operacional / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

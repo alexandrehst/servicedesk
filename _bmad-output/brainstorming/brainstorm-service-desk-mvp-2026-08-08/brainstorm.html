@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Console de Chamados · Brainstorm MVP</title>
+<style>
+  :root{
+    --bg:#0b0f14; --bg2:#111823; --panel:#0e1620; --line:#1e2b3a;
+    --ink:#e6edf3; --dim:#8aa0b6; --faint:#5b7086;
+    --accent:#38bdf8; --ok:#34d399; --warn:#fbbf24; --hot:#fb7185; --grape:#a78bfa;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 600px at 80% -10%, #12324a33, transparent 60%),
+      radial-gradient(900px 500px at -10% 20%, #2a184a33, transparent 55%),
+      var(--bg);
+    color:var(--ink); font-family:var(--sans); line-height:1.5;
+    -webkit-font-smoothing:antialiased; padding:0 20px 90px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+  a{color:var(--accent)}
+  code{font-family:var(--mono);font-size:.9em;color:var(--ok);background:#0a1512;border:1px solid #14312a;border-radius:5px;padding:1px 6px}
+  @media (prefers-color-scheme: light){code{background:#eafaf4;border-color:#bfe8db;color:#0a7a5c}}
+
+  /* ---- top bar ---- */
+  .topbar{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:12.5px;color:var(--dim);
+    border-bottom:1px solid var(--line);padding:14px 4px;margin-bottom:34px;
+    position:sticky;top:0;background:linear-gradient(var(--bg),var(--bg) 70%,transparent);z-index:5;
+  }
+  .dot{width:10px;height:10px;border-radius:50%;box-shadow:0 0 12px currentColor}
+  .dot.r{color:#ff5f56;background:#ff5f56}.dot.y{color:#ffbd2e;background:#ffbd2e}.dot.g{color:#27c93f;background:#27c93f}
+  .topbar .path{color:var(--faint)}
+  .topbar .live{margin-left:auto;color:var(--ok)}
+  .blink{animation:blink 1.4s steps(2,start) infinite}@keyframes blink{50%{opacity:.25}}
+
+  /* ---- hero ---- */
+  header.hero{padding:14px 4px 8px}
+  .kicker{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:clamp(30px,6vw,58px);line-height:1.02;margin:.28em 0 .1em;letter-spacing:-.02em}
+  h1 .hl{color:var(--accent)}
+  .sub{color:var(--dim);max-width:60ch;font-size:16px}
+  .tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
+  .tag{font-family:var(--mono);font-size:11.5px;color:var(--dim);border:1px solid var(--line);
+    border-radius:999px;padding:4px 11px;background:#0d151f}
+
+  /* ---- stats ---- */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:34px 0 8px}
+  @media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+  .stat{border:1px solid var(--line);border-radius:14px;background:linear-gradient(180deg,#101a26,#0c141d);padding:16px 16px 14px}
+  .stat b{display:block;font-family:var(--mono);font-size:34px;line-height:1;color:var(--ink)}
+  .stat span{color:var(--faint);font-size:12px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.12em}
+  .stat.a b{color:var(--accent)}.stat.g b{color:var(--ok)}.stat.p b{color:var(--grape)}.stat.w b{color:var(--warn)}
+
+  /* ---- section shell ---- */
+  section{margin-top:56px}
+  .shead{display:flex;align-items:baseline;gap:12px;margin-bottom:16px;border-left:3px solid var(--tc,var(--accent));padding-left:14px}
+  .shead .no{font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .shead h2{font-size:20px;margin:0;letter-spacing:-.01em}
+  .shead .method{font-family:var(--mono);font-size:11px;color:var(--tc,var(--accent));border:1px solid var(--tc,var(--accent));
+    border-radius:6px;padding:2px 8px;margin-left:auto;opacity:.9;white-space:nowrap}
+  .lede{color:var(--dim);font-size:14px;margin:-6px 0 16px;padding-left:17px}
+
+  /* ---- ticket rows ---- */
+  .tickets{display:grid;gap:9px}
+  .tk{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;
+    background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 15px;
+    transition:transform .12s ease,border-color .12s ease,background .12s ease}
+  .tk:hover{transform:translateX(4px);border-color:var(--tc,var(--accent));background:#0f1a26}
+  .tk .id{font-family:var(--mono);font-size:12px;color:var(--faint)}
+  .tk .txt{font-size:14.5px}
+  .tk .badge{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    padding:3px 8px;border-radius:6px;white-space:nowrap;border:1px solid transparent}
+  .b-must{color:#052e1a;background:var(--ok)}
+  .b-should{color:#3a2c05;background:var(--warn)}
+  .b-could{color:#05222e;background:var(--accent)}
+  .b-wont{color:var(--faint);border-color:var(--line);background:#0c141d}
+  .b-core{color:#2a0a1a;background:var(--hot)}
+  .b-idea{color:var(--dim);border-color:var(--line);background:#0c141d}
+  @media(max-width:600px){.tk{grid-template-columns:auto 1fr;}.tk .badge{grid-column:2;justify-self:start}}
+
+  /* ---- roadmap ---- */
+  .road{position:relative;margin:8px 0 0;padding-left:26px}
+  .road::before{content:"";position:absolute;left:8px;top:6px;bottom:6px;width:2px;
+    background:linear-gradient(var(--ok),var(--accent),var(--grape),var(--faint))}
+  .ph{position:relative;padding:9px 0}
+  .ph::before{content:"";position:absolute;left:-22px;top:15px;width:11px;height:11px;border-radius:50%;
+    background:var(--pc,var(--accent));box-shadow:0 0 0 4px var(--bg),0 0 12px var(--pc,var(--accent))}
+  .ph b{font-family:var(--mono);font-size:12px;color:var(--pc,var(--accent))}
+  .ph .d{color:var(--dim);font-size:14px}
+  .ph.now b::after{content:" ◀ VOCÊ ESTÁ AQUI";color:var(--ok);font-size:10.5px;letter-spacing:.1em}
+
+  /* ---- synthesis climax ---- */
+  .climax{border:1px solid #24405a;border-radius:20px;padding:30px 26px;
+    background:
+      radial-gradient(600px 240px at 20% -20%,#0ea5e922,transparent),
+      radial-gradient(500px 220px at 100% 120%,#a78bfa22,transparent),
+      linear-gradient(180deg,#0d1826,#0a121b);
+    box-shadow:0 0 60px #0ea5e910 inset}
+  .climax .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--ok)}
+  .climax h2{font-size:26px;margin:.3em 0 .1em}
+  .climax p.k{color:var(--dim);max-width:64ch}
+  .spine{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:22px 0 6px}
+  @media(max-width:720px){.spine{grid-template-columns:1fr 1fr}}
+  @media(max-width:460px){.spine{grid-template-columns:1fr}}
+  .must{border:1px solid #2a4258;border-radius:13px;padding:15px;background:#0c1620;position:relative;overflow:hidden}
+  .must::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent,#38bdf80a);pointer-events:none}
+  .must .n{font-family:var(--mono);font-size:11px;color:var(--hot)}
+  .must .t{font-weight:600;margin-top:4px}
+  .must .s{color:var(--faint);font-size:12.5px;margin-top:3px}
+
+  .links{margin-top:26px;display:grid;gap:12px}
+  .lk{display:flex;gap:13px;align-items:flex-start;background:#0c141d;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+  .lk .em{font-size:20px;line-height:1.2}
+  .lk b{color:var(--ink)}.lk span{color:var(--dim);font-size:14px}
+
+  footer{margin-top:64px;border-top:1px solid var(--line);padding-top:20px;
+    font-family:var(--mono);font-size:12px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+  @media (prefers-color-scheme: light){
+    :root{--bg:#f5f8fc;--bg2:#fff;--panel:#fff;--line:#dbe4ee;--ink:#0f1b28;--dim:#4a5b6d;--faint:#8296a8}
+    body{background:radial-gradient(1000px 500px at 80% -10%,#38bdf822,transparent),var(--bg)}
+    .stat,.tk,.must,.lk{background:#fff}
+    .b-wont,.b-idea{background:#eef3f8}
+    .topbar{background:linear-gradient(var(--bg),var(--bg) 70%,transparent)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="path">~/ServiceDesk/brainstorm — modo: ideate-for-me</span>
+    <span class="live">● sessão encerrada <span class="blink">_</span></span>
+  </div>
+
+  <header class="hero">
+    <div class="kicker">Brainstorm · 08 ago 2026</div>
+    <h1>Console de <span class="hl">Chamados</span><br>o MVP, destilado.</h1>
+    <p class="sub">Um service desk interno enxuto — os conceitos fortes do ServiceNow, reduzidos ao osso que já roda semana que vem. E <b class="hl">MCP-first</b>: as funcionalidades centrais viram ferramentas que você opera de dentro de uma IA. 125 ideias, 14 técnicas, uma espinha dorsal.</p>
+    <div class="tags">
+      <span class="tag">🎯 MVP enxuto</span>
+      <span class="tag">🧭 ref: ServiceNow</span>
+      <span class="tag">🏢 uso interno</span>
+      <span class="tag">🤖 MCP-first</span>
+      <span class="tag">🔮 substituir o contratado</span>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat a"><b>125</b><span>ideias</span></div>
+    <div class="stat p"><b>14</b><span>técnicas</span></div>
+    <div class="stat g"><b>6+1</b><span>must-haves</span></div>
+    <div class="stat w"><b>7</b><span>fases até substituir</span></div>
+  </div>
+
+  <!-- 1 -->
+  <section style="--tc:#38bdf8">
+    <div class="shead"><span class="no">01</span><h2>Anatomia de um chamado</h2><span class="method">Decomposição Funcional</span></div>
+    <p class="lede">Abri o ServiceNow em blocos e marquei o que é osso e o que é gordura.</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">#01</span><span class="txt">Número único sequencial e legível <b style="color:var(--accent)">(#1042)</b></span><span class="badge b-core">átomo</span></div>
+      <div class="tk"><span class="id">#02</span><span class="txt">Título curto + descrição do problema</span><span class="badge b-idea">campo</span></div>
+      <div class="tk"><span class="id">#03</span><span class="txt">Solicitante por e-mail/login corporativo</span><span class="badge b-idea">campo</span></div>
+      <div class="tk"><span class="id">#04</span><span class="txt">Categoria com lista fixa (Hardware, Software, Rede, Acesso)</span><span class="badge b-idea">campo</span></div>
+      <div class="tk"><span class="id">#05</span><span class="txt">Subcategoria opcional</span><span class="badge b-idea">campo</span></div>
+      <div class="tk"><span class="id">#06</span><span class="txt">Prioridade em 4 níveis (Baixa→Crítica)</span><span class="badge b-idea">campo</span></div>
+      <div class="tk"><span class="id">#07</span><span class="txt">Status: Aberto · Em andamento · Aguardando · Resolvido · Fechado</span><span class="badge b-core">estado</span></div>
+      <div class="tk"><span class="id">#08</span><span class="txt">Atribuição a um técnico responsável — <b style="color:var(--hot)">dono único</b></span><span class="badge b-core">dono</span></div>
+      <div class="tk"><span class="id">#09</span><span class="txt">Filas/grupos de atendimento (N1, Infra, Sistemas)</span><span class="badge b-idea">campo</span></div>
+      <div class="tk"><span class="id">#10</span><span class="txt">Thread de comentários/andamento</span><span class="badge b-idea">campo</span></div>
+      <div class="tk"><span class="id">#11</span><span class="txt">Comentário interno separado do público</span><span class="badge b-idea">campo</span></div>
+      <div class="tk"><span class="id">#12</span><span class="txt">Anexos: prints, logs, documentos</span><span class="badge b-idea">campo</span></div>
+      <div class="tk"><span class="id">#13</span><span class="txt">Datas: abertura, atualização, fechamento</span><span class="badge b-idea">campo</span></div>
+      <div class="tk"><span class="id">#14</span><span class="txt">Histórico/auditoria de mudanças</span><span class="badge b-idea">campo</span></div>
+      <div class="tk"><span class="id">#15</span><span class="txt">Notificação por e-mail na mudança de status</span><span class="badge b-idea">campo</span></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section style="--tc:#34d399">
+    <div class="shead"><span class="no">02</span><h2>O corte brutal</h2><span class="method">MoSCoW</span></div>
+    <p class="lede">O que <em>precisa</em> existir no dia 1 — e o que fica de fora sem dó.</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">#16</span><span class="txt">Abrir chamado: título, descrição, categoria, solicitante</span><span class="badge b-must">must</span></div>
+      <div class="tk"><span class="id">#17</span><span class="txt">Solicitante vê "meus chamados"</span><span class="badge b-must">must</span></div>
+      <div class="tk"><span class="id">#18</span><span class="txt">Agente vê a fila de chamados abertos</span><span class="badge b-must">must</span></div>
+      <div class="tk"><span class="id">#19</span><span class="txt">Mudar status e atribuir responsável</span><span class="badge b-must">must</span></div>
+      <div class="tk"><span class="id">#20</span><span class="txt">Thread de comentários públicos</span><span class="badge b-must">must</span></div>
+      <div class="tk"><span class="id">#21</span><span class="txt">E-mail na abertura e na resolução</span><span class="badge b-must">must</span></div>
+      <div class="tk"><span class="id">#22</span><span class="txt">Prioridade e categoria com valores fixos</span><span class="badge b-should">should</span></div>
+      <div class="tk"><span class="id">#23</span><span class="txt">Filtro/busca simples por status e texto</span><span class="badge b-should">should</span></div>
+      <div class="tk"><span class="id">#24</span><span class="txt">Comentário interno separado do público</span><span class="badge b-should">should</span></div>
+      <div class="tk"><span class="id">#25</span><span class="txt">Anexos</span><span class="badge b-could">could</span></div>
+      <div class="tk"><span class="id">#26</span><span class="txt">Dashboard com contadores (abertos, resolvidos hoje)</span><span class="badge b-could">could</span></div>
+      <div class="tk"><span class="id">#27</span><span class="txt">SLA automatizado e motor de automações</span><span class="badge b-wont">won't</span></div>
+      <div class="tk"><span class="id">#28</span><span class="txt">Base de conhecimento</span><span class="badge b-wont">won't</span></div>
+      <div class="tk"><span class="id">#29</span><span class="txt">Catálogo de serviços / self-service completo</span><span class="badge b-wont">won't</span></div>
+      <div class="tk"><span class="id">#30</span><span class="txt">CMDB / gestão de ativos</span><span class="badge b-wont">won't</span></div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section style="--tc:#a78bfa">
+    <div class="shead"><span class="no">03</span><h2>A essência, sem software</h2><span class="method">First Principles</span></div>
+    <p class="lede">Se apagar tudo e perguntar "o que é um chamado, de verdade?"</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">#31</span><span class="txt">Um chamado = uma promessa de resolver algo, com dono e estado</span><span class="badge b-core">verdade</span></div>
+      <div class="tk"><span class="id">#32</span><span class="txt">Só 3 perguntas importam: qual o problema · quem cuida · em que pé está</span><span class="badge b-core">verdade</span></div>
+      <div class="tk"><span class="id">#33</span><span class="txt">O valor não é o software — é <b style="color:var(--hot)">nada cair no esquecimento</b></span><span class="badge b-core">verdade</span></div>
+      <div class="tk"><span class="id">#34</span><span class="txt">Todo chamado precisa de um dono único a qualquer instante</span><span class="badge b-idea">·</span></div>
+      <div class="tk"><span class="id">#35</span><span class="txt">O estado é a fonte da verdade — não a memória do técnico</span><span class="badge b-idea">·</span></div>
+      <div class="tk"><span class="id">#36</span><span class="txt">Sucesso mínimo: solicitante sabe "em que pé está" sem perguntar</span><span class="badge b-idea">·</span></div>
+      <div class="tk"><span class="id">#37</span><span class="txt">Sem número, não há conversa rastreável — o ID é o átomo</span><span class="badge b-idea">·</span></div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section style="--tc:#fbbf24">
+    <div class="shead"><span class="no">04</span><h2>Primeiro dia de uso</h2><span class="method">Role Play</span></div>
+    <p class="lede">Solicitante, agente e gestor — cada um vivendo a primeira semana.</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">#38</span><span class="txt">🙋 Solicitante abre chamado em &lt;60s num formulário de 4 campos</span><span class="badge b-idea">solicitante</span></div>
+      <div class="tk"><span class="id">#39</span><span class="txt">🙋 Recebe e-mail com número e link pra acompanhar</span><span class="badge b-idea">solicitante</span></div>
+      <div class="tk"><span class="id">#40</span><span class="txt">🙋 Responde no portal e vira comentário no chamado</span><span class="badge b-idea">solicitante</span></div>
+      <div class="tk"><span class="id">#41</span><span class="txt">🛠️ Agente vê fila priorizada ao logar: o meu e o sem dono</span><span class="badge b-idea">agente</span></div>
+      <div class="tk"><span class="id">#42</span><span class="txt">🛠️ "Pega" um chamado sem dono com 1 clique (self-assign)</span><span class="badge b-idea">agente</span></div>
+      <div class="tk"><span class="id">#43</span><span class="txt">🛠️ Registra o que fez e muda para Resolvido</span><span class="badge b-idea">agente</span></div>
+      <div class="tk"><span class="id">#44</span><span class="txt">🛠️ Reabre se o solicitante disser que não resolveu</span><span class="badge b-idea">agente</span></div>
+      <div class="tk"><span class="id">#45</span><span class="txt">📊 Gestor vê abertos por categoria e por técnico</span><span class="badge b-idea">gestor</span></div>
+      <div class="tk"><span class="id">#46</span><span class="txt">📊 Identifica gargalo (técnico ou categoria que explode)</span><span class="badge b-idea">gestor</span></div>
+      <div class="tk"><span class="id">#47</span><span class="txt">🆕 Novo no suporte entende tudo em 10 min sem treinamento</span><span class="badge b-idea">onboarding</span></div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section style="--tc:#fb7185">
+    <div class="shead"><span class="no">05</span><h2>E se... não?</h2><span class="method">Assumption Reversal</span></div>
+    <p class="lede">Virar cada premissa de cabeça pra baixo pra achar o que é mesmo necessário.</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">#48</span><span class="txt">E se não houvesse prioridade? Talvez FIFO baste no MVP</span><span class="badge b-idea">?</span></div>
+      <div class="tk"><span class="id">#49</span><span class="txt">E se todo agente visse tudo? Sem permissões complexas no dia 1</span><span class="badge b-idea">?</span></div>
+      <div class="tk"><span class="id">#50</span><span class="txt">E se o solicitante não precisasse de login? Abrir por e-mail reconhecido</span><span class="badge b-idea">?</span></div>
+      <div class="tk"><span class="id">#51</span><span class="txt">E se as categorias fossem tags livres? (risco de bagunça)</span><span class="badge b-idea">?</span></div>
+      <div class="tk"><span class="id">#52</span><span class="txt">E se fechasse sozinho após X dias resolvido sem resposta? (futuro)</span><span class="badge b-idea">?</span></div>
+      <div class="tk"><span class="id">#53</span><span class="txt">E se só houvesse 2 status? Provavelmente enxuto demais</span><span class="badge b-idea">?</span></div>
+      <div class="tk"><span class="id">#54</span><span class="txt">E se a atribuição fosse sempre manual? Sim — evita motor de regras</span><span class="badge b-idea">?</span></div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section style="--tc:#22d3ee">
+    <div class="shead"><span class="no">06</span><h2>Torcendo o modelo</h2><span class="method">SCAMPER</span></div>
+    <p class="lede">Substituir, Combinar, Adaptar, Modificar, Pôr-outro-uso, Eliminar, Reverter.</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">#55</span><span class="txt"><b>S</b>ubstituir: SLA rígido → campo informativo "prazo esperado"</span><span class="badge b-idea">S</span></div>
+      <div class="tk"><span class="id">#56</span><span class="txt"><b>C</b>ombinar: categoria + fila → um só "time responsável"</span><span class="badge b-core">C ✦</span></div>
+      <div class="tk"><span class="id">#57</span><span class="txt"><b>A</b>daptar: Incident vs Request do ServiceNow como campo "tipo"</span><span class="badge b-idea">A</span></div>
+      <div class="tk"><span class="id">#58</span><span class="txt"><b>M</b>odificar: ~15 campos de incident → 5 essenciais</span><span class="badge b-idea">M</span></div>
+      <div class="tk"><span class="id">#59</span><span class="txt"><b>P</b>ôr outro uso: mesmo sistema para RH/Facilities, não só TI</span><span class="badge b-idea">P</span></div>
+      <div class="tk"><span class="id">#60</span><span class="txt"><b>E</b>liminar: workflow engine, aprovações, designer de fluxos</span><span class="badge b-idea">E</span></div>
+      <div class="tk"><span class="id">#61</span><span class="txt"><b>R</b>everter: sistema sugere o próximo chamado por antiguidade</span><span class="badge b-idea">R</span></div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section style="--tc:#f97316">
+    <div class="shead"><span class="no">07</span><h2>Como sabotar isso</h2><span class="method">Inversão</span></div>
+    <p class="lede">Listar tudo que faria o sistema fracassar — e cada falha revela um must-have.</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">#62</span><span class="txt">Chamado sem dono some da vista → "sem dono" tem que ser <b style="color:var(--hot)">visível</b></span><span class="badge b-core">→ must</span></div>
+      <div class="tk"><span class="id">#63</span><span class="txt">Notificação demais → todos ignoram → notificar só o que importa</span><span class="badge b-idea">→</span></div>
+      <div class="tk"><span class="id">#64</span><span class="txt">Formulário longo → volta pro WhatsApp → manter 4 campos</span><span class="badge b-idea">→</span></div>
+      <div class="tk"><span class="id">#65</span><span class="txt">Status confuso → agente paralisa → no máximo 5 status</span><span class="badge b-idea">→</span></div>
+      <div class="tk"><span class="id">#66</span><span class="txt">Sem busca → reabre problema já resolvido → busca é quase-must</span><span class="badge b-idea">→</span></div>
+      <div class="tk"><span class="id">#67</span><span class="txt">Migração impossível → dados presos → planejar import CSV já</span><span class="badge b-idea">→</span></div>
+      <div class="tk"><span class="id">#68</span><span class="txt">Depender de 1 pessoa → bus factor → manter simples e documentado</span><span class="badge b-idea">→</span></div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section style="--tc:#60a5fa">
+    <div class="shead"><span class="no">08</span><h2>O que os outros fariam</h2><span class="method">What-would-X-do</span></div>
+    <p class="lede">Roubar o melhor de cada produto — sem carregar o peso de nenhum.</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">#69</span><span class="txt"><b>Zendesk</b> — a simplicidade de "ticket = conversa por e-mail"</span><span class="badge b-idea">benchmark</span></div>
+      <div class="tk"><span class="id">#70</span><span class="txt"><b>Jira SM</b> — "request type" com formulário próprio por tipo</span><span class="badge b-idea">benchmark</span></div>
+      <div class="tk"><span class="id">#71</span><span class="txt"><b>GLPI</b> — resolve TI interno com pouco (escopo enxuto)</span><span class="badge b-idea">benchmark</span></div>
+      <div class="tk"><span class="id">#72</span><span class="txt"><b>Trello</b> — kanban de chamados por status, arrastar colunas</span><span class="badge b-idea">benchmark</span></div>
+      <div class="tk"><span class="id">#73</span><span class="txt"><b>Linear</b> — velocidade de teclado e atalhos (futuro)</span><span class="badge b-idea">benchmark</span></div>
+      <div class="tk"><span class="id">#74</span><span class="txt"><b>osTicket</b> — help desk interno maduro e minimalista</span><span class="badge b-idea">benchmark</span></div>
+      <div class="tk"><span class="id">#75</span><span class="txt"><b>Freshdesk</b> — portal do solicitante limpo e amigável</span><span class="badge b-idea">benchmark</span></div>
+    </div>
+  </section>
+
+  <!-- 9 : roadmap -->
+  <section style="--tc:#34d399">
+    <div class="shead"><span class="no">09</span><h2>Do MVP até aposentar o contratado</h2><span class="method">Time Horizons</span></div>
+    <p class="lede">A ponte em 7 fases — construir os 20% que cobrem 80% do uso, e provar em paralelo.</p>
+    <div class="road">
+      <div class="ph now" style="--pc:#2dd4bf"><b>Fase 1 · MVP (núcleo MCP)</b> <span class="d">— API + servidor MCP: chamados, fila, status, comentários, e-mail — <b style="color:var(--ok)">operar de dentro da IA</b></span></div>
+      <div class="ph" style="--pc:#34d399"><b>Fase 1.5 · UI web</b> <span class="d">— portal do solicitante + fila do agente, sobre a mesma API</span></div>
+      <div class="ph" style="--pc:#4ade80"><b>Fase 2</b> <span class="d">— SLA e prazos com alerta de vencimento</span></div>
+      <div class="ph" style="--pc:#38bdf8"><b>Fase 3</b> <span class="d">— base de conhecimento e respostas prontas</span></div>
+      <div class="ph" style="--pc:#22d3ee"><b>Fase 4</b> <span class="d">— automações (roteamento por categoria, auto-atribuição)</span></div>
+      <div class="ph" style="--pc:#818cf8"><b>Fase 5</b> <span class="d">— catálogo de serviços / self-service</span></div>
+      <div class="ph" style="--pc:#a78bfa"><b>Fase 6</b> <span class="d">— relatórios e dashboards gerenciais robustos</span></div>
+      <div class="ph" style="--pc:#c084fc"><b>Fase 7</b> <span class="d">— integrações (AD/SSO, e-mail bidirecional, Teams/Slack)</span></div>
+      <div class="ph" style="--pc:#fb7185"><b>Corte</b> <span class="d">— rodar em paralelo ~1 mês → paridade nos 20/80 → aposentar o contratado</span></div>
+    </div>
+  </section>
+
+  <!-- 10 -->
+  <section style="--tc:#94a3b8">
+    <div class="shead"><span class="no">10</span><h2>Enxuto por dentro</h2><span class="method">Constraints</span></div>
+    <p class="lede">Decisões de implementação que mantêm o esforço pequeno e o futuro aberto.</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">#85</span><span class="txt">Schema mínimo: 1 tabela <b>tickets</b> + comentários + usuários</span><span class="badge b-idea">arq</span></div>
+      <div class="tk"><span class="id">#86</span><span class="txt">Auth via login corporativo simples ou magic link por e-mail</span><span class="badge b-idea">arq</span></div>
+      <div class="tk"><span class="id">#87</span><span class="txt">Só 2 papéis: agente e solicitante — sem matriz de permissões</span><span class="badge b-idea">arq</span></div>
+      <div class="tk"><span class="id">#88</span><span class="txt">E-mail transacional via serviço simples (SMTP/Resend/SES)</span><span class="badge b-idea">arq</span></div>
+      <div class="tk"><span class="id">#89</span><span class="txt">Numeração sequencial legível (#1042), sem expor UUID</span><span class="badge b-idea">arq</span></div>
+      <div class="tk"><span class="id">#90</span><span class="txt">Soft-delete e log de auditoria desde o dia 1</span><span class="badge b-idea">arq</span></div>
+      <div class="tk"><span class="id">#91</span><span class="txt">Export CSV — relatório + saída de dados, evita lock-in próprio</span><span class="badge b-idea">arq</span></div>
+    </div>
+  </section>
+
+  <!-- 11 -->
+  <section style="--tc:#e879f9">
+    <div class="shead"><span class="no">11</span><h2>As bordas que mordem</h2><span class="method">Edge Case Hunt</span></div>
+    <p class="lede">Casos pequenos que, ignorados, viram dor grande.</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">#92</span><span class="txt">Chamado aberto por engano → status "Cancelado"</span><span class="badge b-idea">edge</span></div>
+      <div class="tk"><span class="id">#93</span><span class="txt">Dois agentes no mesmo chamado → avisar/travar edição concorrente</span><span class="badge b-idea">edge</span></div>
+      <div class="tk"><span class="id">#94</span><span class="txt">Solicitante desligado com chamado aberto → reatribuir ou fechar</span><span class="badge b-idea">edge</span></div>
+      <div class="tk"><span class="id">#95</span><span class="txt">Chamado que não é de TI → encaminhar / mudar time responsável</span><span class="badge b-idea">edge</span></div>
+      <div class="tk"><span class="id">#96</span><span class="txt">Anexo gigante → limite de tamanho e tipos</span><span class="badge b-idea">edge</span></div>
+      <div class="tk"><span class="id">#97</span><span class="txt">E-mail cai no spam → link também visível no portal</span><span class="badge b-idea">edge</span></div>
+      <div class="tk"><span class="id">#98</span><span class="txt">Fuso/horário → padronizar timezone único da empresa</span><span class="badge b-idea">edge</span></div>
+    </div>
+  </section>
+
+  <!-- 12 -->
+  <section style="--tc:#facc15">
+    <div class="shead"><span class="no">12</span><h2>Encantos baratos</h2><span class="method">Quick Wins</span></div>
+    <p class="lede">Pequenos toques de alta percepção de valor, quase de graça.</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">#99</span><span class="txt">Sugerir "chamados parecidos" na abertura → evita duplicados</span><span class="badge b-idea">win</span></div>
+      <div class="tk"><span class="id">#100</span><span class="txt">"Seu chamado é o nº X na fila" → transparência</span><span class="badge b-idea">win</span></div>
+      <div class="tk"><span class="id">#101</span><span class="txt">Nota de satisfação de 1 clique no e-mail de resolução 👍/👎</span><span class="badge b-idea">win</span></div>
+      <div class="tk"><span class="id">#102</span><span class="txt">E-mail de fechamento com quem resolveu + tempo total</span><span class="badge b-idea">win</span></div>
+      <div class="tk"><span class="id">#103</span><span class="txt">Interface limpa com modo escuro → adoção interna agradece</span><span class="badge b-idea">win</span></div>
+      <div class="tk"><span class="id">#104</span><span class="txt">Abrir chamado enviando e-mail pra suporte@ (futuro próximo)</span><span class="badge b-idea">win</span></div>
+      <div class="tk"><span class="id">#105</span><span class="txt">Template de descrição por categoria ("Impressora: informe andar e modelo")</span><span class="badge b-idea">win</span></div>
+    </div>
+  </section>
+
+  <!-- 13 : MCP layer -->
+  <section style="--tc:#2dd4bf">
+    <div class="shead"><span class="no">13</span><h2>Service desk MCP-first</h2><span class="method">Tool Surface + Estratégia</span></div>
+    <p class="lede">A nova característica do produto: as funcionalidades centrais viram <b>ferramentas MCP</b> — você (e agentes de IA) operam o sistema por linguagem natural.</p>
+    <div class="tickets">
+      <div class="tk"><span class="id">tool</span><span class="txt"><code>abrir_chamado</code>(titulo, descricao, categoria, solicitante) → nº</span><span class="badge b-should">escrita</span></div>
+      <div class="tk"><span class="id">tool</span><span class="txt"><code>buscar_chamados</code>(status, responsavel, categoria, texto) → lista</span><span class="badge b-must">leitura</span></div>
+      <div class="tk"><span class="id">tool</span><span class="txt"><code>ver_chamado</code>(numero) → detalhe + thread</span><span class="badge b-must">leitura</span></div>
+      <div class="tk"><span class="id">tool</span><span class="txt"><code>comentar_chamado</code>(numero, texto, interno?)</span><span class="badge b-should">escrita</span></div>
+      <div class="tk"><span class="id">tool</span><span class="txt"><code>mudar_status</code> · <code>atribuir_chamado</code> · <code>mudar_prioridade</code></span><span class="badge b-should">escrita</span></div>
+      <div class="tk"><span class="id">tool</span><span class="txt"><code>reabrir</code> / <code>fechar</code> / <code>cancelar_chamado</code> — <b style="color:var(--hot)">com confirmação</b></span><span class="badge b-core">guardrail</span></div>
+      <div class="tk"><span class="id">tool</span><span class="txt"><code>resumo_fila</code>() → contadores (abertos, por técnico, por categoria)</span><span class="badge b-must">leitura</span></div>
+      <div class="tk"><span class="id">tool</span><span class="txt"><code>chamados_parecidos</code>(texto) → duplicados na abertura</span><span class="badge b-must">leitura</span></div>
+      <div class="tk"><span class="id">rsrc</span><span class="txt"><b>Resources</b>: "chamado" e "fila" como leitura barata de contexto</span><span class="badge b-idea">mcp</span></div>
+      <div class="tk"><span class="id">prpt</span><span class="txt"><b>Prompts</b>: template "triagem de chamado" pronto pra IA</span><span class="badge b-idea">mcp</span></div>
+    </div>
+    <div class="tickets" style="margin-top:9px">
+      <div class="tk"><span class="id">arq</span><span class="txt"><b>API-first:</b> MCP e UI web consomem a <b>mesma camada de domínio</b> — zero lógica duplicada</span><span class="badge b-core">pilar</span></div>
+      <div class="tk"><span class="id">arq</span><span class="txt">Gerar o schema das tools da mesma spec da API (evita dessincronia)</span><span class="badge b-idea">·</span></div>
+      <div class="tk"><span class="id">arq</span><span class="txt">Auth com token escopado por identidade; ações atribuídas no log de auditoria</span><span class="badge b-idea">·</span></div>
+      <div class="tk"><span class="id">arq</span><span class="txt">Escrita via IA sempre com human-in-the-loop em ações irreversíveis + rate limit</span><span class="badge b-idea">·</span></div>
+      <div class="tk"><span class="id">uso</span><span class="txt">Abrir/triar por linguagem natural · copiloto do técnico ("o que faço com o #1042?") · resumo do dia</span><span class="badge b-idea">·</span></div>
+      <div class="tk"><span class="id">fut</span><span class="txt">As mesmas tools alimentam bots de Teams/Slack — antecipa a Fase 7</span><span class="badge b-idea">·</span></div>
+    </div>
+  </section>
+
+  <!-- SYNTHESIS -->
+  <section>
+    <div class="climax">
+      <div class="eyebrow">Síntese · o clímax</div>
+      <h2>A espinha dorsal do MVP</h2>
+      <p class="k">Doze técnicas, cento e cinco ideias — e todas convergem para <b>seis</b>. Se o dia 1 acertar só isto, o sistema já vence o "volta pro WhatsApp".</p>
+      <div class="spine">
+        <div class="must"><div class="n">MUST 1</div><div class="t">Abrir chamado</div><div class="s">Formulário de 4 campos, &lt;60s, número legível na hora</div></div>
+        <div class="must"><div class="n">MUST 2</div><div class="t">Fila com dono visível</div><div class="s">O que é meu · o que está sem dono · self-assign 1 clique</div></div>
+        <div class="must"><div class="n">MUST 3</div><div class="t">Status = fonte da verdade</div><div class="s">Máx. 5 estados claros; nada mora na cabeça do técnico</div></div>
+        <div class="must"><div class="n">MUST 4</div><div class="t">Thread de comentários</div><div class="s">Conversa rastreável presa ao número do chamado</div></div>
+        <div class="must"><div class="n">MUST 5</div><div class="t">E-mail nos eventos-chave</div><div class="s">Abertura e resolução — só o que importa, nunca ruído</div></div>
+        <div class="must"><div class="n">MUST 6</div><div class="t">Busca simples</div><div class="s">Por status e texto — pra não reabrir o já resolvido</div></div>
+      </div>
+
+      <div class="links">
+        <div class="lk"><span class="em">🧲</span><span><b>Uma alavanca governa metade das ideias.</b> "Nada cair no esquecimento" (#33), "chamado sem dono some" (#62) e "o que está sem dono" (#41) são a mesma coisa: <b>dono único + status sempre visíveis</b>.</span></div>
+        <div class="lk"><span class="em">🧩</span><span><b>Uma ideia simplifica o sistema inteiro.</b> Fundir categoria + fila em "time responsável" (#56) resolve o schema mínimo (#85) de graça — menos conceitos, menos telas, sem perder roteamento.</span></div>
+        <div class="lk"><span class="em">🌉</span><span><b>O plano de aposentar o contratado já está montado.</b> "Rodar em paralelo ~1 mês" + "paridade nos 20/80" = critério objetivo de corte. Não clone o ServiceNow; cubra os 20% que importam e prove em paralelo.</span></div>
+        <div class="lk" style="border-color:#2dd4bf55;background:#0b1a1c"><span class="em">🤖</span><span><b>O MCP dispensa o motor de automações.</b> Expor as funcionalidades como ferramentas MCP faz a <b>IA virar a camada de automação</b> — externa, sem workflow engine interno. Você pode <b>pular a Fase 4</b>. E como o software contratado quase certamente não expõe MCP, isto vira o "porquê construir em vez de comprar". <b>O preço</b>: <span style="color:var(--ok)">API-first / camada de domínio limpa</span> sobe para prioridade de dia 1 — é o 7º pilar do MVP.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>ServiceDesk · brainstorm-service-desk-mvp · 08 ago 2026</span>
+    <span>BMad Method · Ideate-for-me · 105 ideias / 12 técnicas</span>
+  </footer>
+
+</div>
+</body>
+</html>
