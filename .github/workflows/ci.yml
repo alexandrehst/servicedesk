@@ -55,6 +55,11 @@ jobs:
   test:
     name: test
     runs-on: ubuntu-latest
+    # Elevado apenas neste job: o comentario de cobertura escreve no PR.
+    # Os jobs lint e typecheck seguem com o `contents: read` global.
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -67,4 +72,20 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm test
+      # Falha quando a cobertura fica abaixo do limite de 80%
+      # (thresholds em vitest.config.ts).
+      - run: pnpm test:coverage
+
+      # Insumo do scanner do SonarCloud na Story 0.7.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
+      # Em push na main nao existe PR para comentar.
+      # `always()` para que a tabela apareca tambem quando o gate reprova —
+      # e justamente nesse caso que o numero interessa.
+      - uses: davelosert/vitest-coverage-report-action@v2.12.2
+        if: always() && github.event_name == 'pull_request'

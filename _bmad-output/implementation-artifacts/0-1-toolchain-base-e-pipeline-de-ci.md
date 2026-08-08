@@ -4,7 +4,7 @@ baseline_commit: 8cb0612545aaa9b26ded88b244e5c690077dff07
 
 # Story 0.1: Toolchain base e pipeline de CI
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -227,3 +227,4 @@ Run no estado limpo (commit `9f05ab5`): `lint` pass 14s · `typecheck` pass 11s 
 | 2026-08-08 | PR #3 aberto; run limpo verde nos três jobs |
 | 2026-08-08 | Commit `69d1420` com violações deliberadas → três jobs vermelhos no CI (AC #2 satisfeita) |
 | 2026-08-08 | Commit `97ba6ca` reverte as violações; story para `review` |
+| 2026-08-08 | PR #3 mergeado em `main` (`3ff1ea7`), 6 checks verdes; story para `done` |
