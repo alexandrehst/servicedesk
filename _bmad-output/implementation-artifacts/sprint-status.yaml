@@ -1,0 +1,113 @@
+# generated: 2026-08-08
+# last_updated: 2026-08-08
+# project: ServiceDesk
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: {project-root}/_bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; sprint-status surfaces open ones
+
+generated: 2026-08-08
+last_updated: 2026-08-08 (story 0.1 -> ready-for-dev)
+project: ServiceDesk
+project_key: NOKEY
+tracking_system: file-system
+story_location: "{project-root}/_bmad-output/implementation-artifacts"
+
+development_status:
+  # ---------------------------------------------------------------
+  # Epic 0: Governanca de CI & Guardrails (sprint 0 — o gateway)
+  # ---------------------------------------------------------------
+  epic-0: in-progress
+  0-1-toolchain-base-e-pipeline-de-ci: review
+  0-2-gate-de-cobertura-de-testes: backlog
+  0-3-seguranca-sast-sca-e-segredos: backlog
+  0-4-fronteiras-da-arquitetura-dependency-cruiser: backlog
+  0-5-rastreabilidade-commits-e-prs: backlog
+  0-6-code-review-por-ia-claude-code: backlog
+  0-7-quality-gate-agregado-e-branch-protection: backlog
+  epic-0-retrospective: optional
+
+  # ---------------------------------------------------------------
+  # Epic 1: Fundacao segura & o primeiro Chamado
+  # ---------------------------------------------------------------
+  epic-1: backlog
+  1-1-abrir-um-chamado-via-mcp-tracer-bullet: backlog
+  1-2-ver-um-chamado-via-mcp: backlog
+  1-3-autenticacao-e-identidade: backlog
+  1-4-papeis-e-autorizacao: backlog
+  1-5-seguranca-do-adapter-mcp-token-escopado-rate-limit: backlog
+  1-6-e-mail-de-abertura: backlog
+  1-7-soft-delete-base: backlog
+  1-8-revisao-do-log-de-auditoria-acoes-mcp: backlog
+  1-9-abrir-chamado-por-e-mail-intake-do-solicitante: backlog
+  epic-1-retrospective: optional
+
+  # ---------------------------------------------------------------
+  # Epic 2: Ciclo de vida do Chamado
+  # ---------------------------------------------------------------
+  epic-2: backlog
+  2-1-comentar-chamado-publico-interno: backlog
+  2-2-mudar-status-maquina-de-estados: backlog
+  2-3-atribuir-dono-self-assign: backlog
+  2-4-mudar-prioridade: backlog
+  2-5-resolver-chamado-e-mail-de-resolucao: backlog
+  2-6-acoes-irreversiveis-com-confirmacao: backlog
+  epic-2-retrospective: optional
+
+  # ---------------------------------------------------------------
+  # Epic 3: Fila, triagem e busca
+  # ---------------------------------------------------------------
+  epic-3: backlog
+  3-1-filtrar-a-fila: backlog
+  3-2-recortes-meus-e-sem-dono: backlog
+  3-3-resumo-da-fila: backlog
+  3-4-busca-simples: backlog
+  3-5-sugerir-chamados-parecidos: backlog
+  3-6-mcp-resources-e-prompt-de-triagem: backlog
+  epic-3-retrospective: optional
+
+  # ---------------------------------------------------------------
+  # Epic 4: Portabilidade & Migracao de dados
+  # NOTA: no epics.md a Story 4.4 aparece antes da 4.3; aqui estao
+  # em ordem numerica. Ver relatorio de sprint planning 2026-08-08.
+  # ---------------------------------------------------------------
+  epic-4: backlog
+  4-1-export-csv: backlog
+  4-2-import-csv-de-migracao: backlog
+  4-3-soft-delete-completo: backlog
+  4-4-corte-baseline-validacao-de-paridade: backlog
+  epic-4-retrospective: optional
