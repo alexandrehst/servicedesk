@@ -1,6 +1,10 @@
+---
+baseline_commit: 8cb0612545aaa9b26ded88b244e5c690077dff07
+---
+
 # Story 0.1: Toolchain base e pipeline de CI
 
-Status: ready-for-dev
+Status: in-progress
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
