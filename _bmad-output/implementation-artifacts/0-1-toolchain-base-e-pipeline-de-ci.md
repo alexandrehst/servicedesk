@@ -162,54 +162,8 @@ A árvore segue literalmente a *Árvore de fontes mínima* da spine. Criar as pa
 
 ### Agent Model Used
 
-claude-opus-5
-
 ### Debug Log References
-
-**`tsc` reprova árvore vazia.** Ao final da Task 2, `pnpm typecheck` falhou com `TS18003: No inputs were found`. Não é defeito de configuração: é o `tsc` recusando um `include` sem correspondência. A Task 2 só pôde ser validada depois da Task 4 criar o primeiro `.ts`. **Dependência não prevista na ordem das tasks** — se o Epic 0 for repetido em outro projeto, Vitest + teste de fumaça devem vir antes da validação do typecheck.
-
-**`@types/node` resolveu para major errada.** `pnpm add -D @types/node` trouxe a **26.2.0** com runtime em Node 24. Tipos de APIs inexistentes no runtime passariam no `tsc` e quebrariam só em execução — falha silenciosa exatamente do tipo que esta story existe para impedir. Fixado em `^24` (24.13.3).
-
-**Depreciação do Biome.** `linter.rules.recommended` está deprecado na 2.5.7 e sai na próxima major. Migrado via `biome migrate --write` para `linter.rules.preset`. O `pnpm lint` passava com o campo antigo — foi corrigido para não virar dívida.
 
 ### Completion Notes List
 
-- **Task 1** — `package.json` (`type: module`, `engines.node >=24`, scripts `lint`/`format`/`typecheck`/`test`), `.nvmrc` com `24`, árvore hexagonal da spine com `.gitkeep`. `.gitignore` preexistente estendido, não substituído. `src/adapters/web/` deliberadamente ausente (Fase 1.5).
-- **Task 2** — `tsconfig.json` strict, `module`/`moduleResolution: nodenext`, `target: es2024`, `noEmit`, mais `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes` e `verbatimModuleSyntax`. Validado após a Task 4: `exit=0`.
-- **Task 3** — `biome.json` com linter e formatter, `useIgnoreFile` respeitando o `.gitignore`. `lint` usa `biome ci .` (não escreve); `format` usa `--write` para uso local.
-- **Task 4** — `vitest.config.ts` com `environment: node` e **`passWithNoTests: false`** (suíte vazia reprova). `tests/toolchain.test.ts` com 2 testes: runtime é Node ≥ 24, e execução como ES module. Ambos passam.
-- **Task 5** — `.github/workflows/ci.yml` com **três jobs independentes** (`lint`, `typecheck`, `test`), `pnpm/action-setup@v4` antes de `actions/setup-node@v4` (ordem obrigatória para `cache: pnpm`), `node-version-file: .nvmrc`, `pnpm install --frozen-lockfile`, sem `continue-on-error`. Jobs separados para que cada check possa ser exigido individualmente na Story 0.7.
-- **Task 6** — evidências abaixo.
-
-**AC #2 — prova de que cada gate reprova (local):**
-
-| Gate | Violação | Exit | Diagnóstico |
-|---|---|---|---|
-| `lint` | `a == b` | 1 | `lint/suspicious/noDoubleEquals` |
-| `typecheck` | `const total: number = 'texto'` | 2 | `error TS2322` |
-| `test` | `expect(1).toBe(2)` | 1 | `Tests 1 failed` |
-
-Estado limpo após reverter as três: `lint=0`, `typecheck=0`, `test=0`.
-
-*(Prova no CI: PR #3 — ver Change Log.)*
-
 ### File List
-
-- `package.json` (novo)
-- `pnpm-lock.yaml` (novo)
-- `.nvmrc` (novo)
-- `tsconfig.json` (novo)
-- `biome.json` (novo)
-- `vitest.config.ts` (novo)
-- `tests/toolchain.test.ts` (novo)
-- `.github/workflows/ci.yml` (novo)
-- `src/domain/.gitkeep`, `src/application/{contracts,commands,queries,ports}/.gitkeep`, `src/adapters/{mcp,http,persistence,email}/.gitkeep`, `src/platform/.gitkeep`, `drizzle/.gitkeep` (novos)
-- `_bmad-output/implementation-artifacts/0-1-toolchain-base-e-pipeline-de-ci.md` (modificado)
-- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modificado)
-
-## Change Log
-
-| Data | Evento |
-|---|---|
-| 2026-08-08 | Implementação das Tasks 1–5; validação local dos três gates (limpo e sob violação) |
-| 2026-08-08 | PR #3 aberto |
