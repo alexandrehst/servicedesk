@@ -4,7 +4,7 @@ baseline_commit: 5b3d154af55dc91e7fc5ac60957cb9e1c3e11c7e
 
 # Story 0.3: Segurança — SAST, SCA e segredos
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -38,37 +38,37 @@ so that nada inseguro chegue à main (pilar Seguro).
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Reconciliar o que já existe** (AC: #1, #4)
-  - [ ] **Não reconfigurar o CodeQL.** O default setup já está `configured` e detectou `javascript-typescript` sozinho quando o TS chegou (Story 0.2). Apenas registrar o estado nas Completion Notes
-  - [ ] **Não reativar** Dependabot alerts nem security updates — ambos já ativos desde o setup inicial
-  - [ ] Registrar no Debug Log o que já estava pronto **antes** desta story, para o Change Log do épico não sugerir trabalho que não houve
+- [x] **Task 1 — Reconciliar o que já existe** (AC: #1, #4)
+  - [x] **Não reconfigurar o CodeQL.** O default setup já está `configured` e detectou `javascript-typescript` sozinho quando o TS chegou (Story 0.2). Apenas registrar o estado nas Completion Notes
+  - [x] **Não reativar** Dependabot alerts nem security updates — ambos já ativos desde o setup inicial
+  - [x] Registrar no Debug Log o que já estava pronto **antes** desta story, para o Change Log do épico não sugerir trabalho que não houve
 
-- [ ] **Task 2 — Dependabot version updates** (AC: #4)
-  - [ ] Criar `.github/dependabot.yml` com dois ecosystems: `npm` e `github-actions`
-  - [ ] Agenda `weekly`; `open-pull-requests-limit` baixo (5) para não afogar o repositório
-  - [ ] Agrupar atualizações de patch/minor de devDependencies num PR só (`groups`), reduzindo ruído
+- [x] **Task 2 — Dependabot version updates** (AC: #4)
+  - [x] Criar `.github/dependabot.yml` com dois ecosystems: `npm` e `github-actions`
+  - [x] Agenda `weekly`; `open-pull-requests-limit` baixo (5) para não afogar o repositório
+  - [x] Agrupar atualizações de patch/minor de devDependencies num PR só (`groups`), reduzindo ruído
 
-- [ ] **Task 3 — Trivy (SCA)** (AC: #1, #2, #5)
-  - [ ] Novo job `security-deps` no `ci.yml` usando `aquasecurity/trivy-action@v0.36.0`
-  - [ ] `scan-type: fs`, `scanners: vuln`, lendo o `pnpm-lock.yaml` do repositório
-  - [ ] `severity: 'CRITICAL,HIGH'` e **`exit-code: '1'`** — sem o exit-code o Trivy só reporta e o job fica verde com CVE crítica presente
-  - [ ] `ignore-unfixed: true` (CVE sem correção disponível não deve travar merge indefinidamente)
+- [x] **Task 3 — Trivy (SCA)** (AC: #1, #2, #5)
+  - [x] Novo job `security-deps` no `ci.yml` usando `aquasecurity/trivy-action@v0.36.0`
+  - [x] `scan-type: fs`, `scanners: vuln`, lendo o `pnpm-lock.yaml` do repositório
+  - [x] `severity: 'CRITICAL,HIGH'` e **`exit-code: '1'`** — sem o exit-code o Trivy só reporta e o job fica verde com CVE crítica presente
+  - [x] `ignore-unfixed: true` (CVE sem correção disponível não deve travar merge indefinidamente)
 
-- [ ] **Task 4 — Gitleaks (segredos)** (AC: #1, #3, #5)
-  - [ ] Novo job `security-secrets` usando `gitleaks/gitleaks-action@v3.0.0`
-  - [ ] `fetch-depth: 0` no checkout — sem isso o Gitleaks vê só o último commit e não varre o histórico
-  - [ ] **Sem `GITLEAKS_LICENSE`**: exigido apenas para contas de organização; `alexandrehst` é conta pessoal
+- [x] **Task 4 — Gitleaks (segredos)** (AC: #1, #3, #5)
+  - [x] Novo job `security-secrets` usando `gitleaks/gitleaks-action@v3.0.0`
+  - [x] `fetch-depth: 0` no checkout — sem isso o Gitleaks vê só o último commit e não varre o histórico
+  - [x] **Sem `GITLEAKS_LICENSE`**: exigido apenas para contas de organização; `alexandrehst` é conta pessoal
 
-- [ ] **Task 5 — Provar que o SCA reprova** (AC: #2)
-  - [ ] Instalar temporariamente `minimist@1.2.0` (CVE-2021-44906, Critical — prototype pollution)
-  - [ ] Confirmar job `security-deps` vermelho no CI, anotando o CVE do log
-  - [ ] Reverter (commit listando os arquivos explicitamente)
+- [x] **Task 5 — Provar que o SCA reprova** (AC: #2)
+  - [x] Instalar temporariamente `minimist@1.2.0` (CVE-2021-44906, Critical — prototype pollution)
+  - [x] Confirmar job `security-deps` vermelho no CI, anotando o CVE do log
+  - [x] Reverter (commit listando os arquivos explicitamente)
 
-- [ ] **Task 6 — Provar que o gate de segredos reprova** (AC: #3)
-  - [ ] Introduzir um segredo **sintético** em arquivo temporário (chave inventada, nunca uma real)
-  - [ ] Confirmar job `security-secrets` vermelho, anotando a regra que disparou
-  - [ ] Reverter
-  - [ ] **Se o push protection do GitHub bloquear o push**, registrar isso como resultado válido (é uma camada a mais de proteção) e provar o Gitleaks localmente com `docker run` ou binário
+- [x] **Task 6 — Provar que o gate de segredos reprova** (AC: #3)
+  - [x] Introduzir um segredo **sintético** em arquivo temporário (chave inventada, nunca uma real)
+  - [x] Confirmar job `security-secrets` vermelho, anotando a regra que disparou
+  - [x] Reverter
+  - [x] **Se o push protection do GitHub bloquear o push**, registrar isso como resultado válido (é uma camada a mais de proteção) e provar o Gitleaks localmente com `docker run` ou binário
 
 ## Dev Notes
 
@@ -159,8 +159,88 @@ Nenhum teste de produto nesta story. Os "testes" são os próprios jobs, validad
 
 ### Agent Model Used
 
+claude-opus-5
+
 ### Debug Log References
+
+**🔴 O Trivy não escaneava nada — gate 100% decorativo.** Com `minimist@1.2.0` (CVE-2021-44906, Critical) no lockfile, o job `security-deps` passou **verde em 13s**. O log revelava:
+
+```
+WARN [report] Supported files for scanner(s) not found.  scanners=[vuln]
+- '0': Clean (no security findings detected)
+```
+
+Causa: **o Trivy não inclui devDependencies por padrão**, e como *todas* as dependências deste projeto são de desenvolvimento, o `pnpm-lock.yaml` sequer foi reconhecido como alvo. Não é que ele olhou e não achou — ele não olhou.
+
+Diagnosticado localmente com trivy 0.73.0, mesmo lockfile:
+
+| Comando | Resultado |
+|---|---|
+| `trivy fs --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 .` | `exit=0`, `pnpm-lock.yaml` "Not scanned" |
+| idem **`--include-dev-deps`** | `exit=1`, `CVE-2021-44906 CRITICAL` detectada |
+
+Corrigido com `TRIVY_INCLUDE_DEV_DEPS: 'true'`. **O `exit-code: '1'` já estava correto** — a armadilha antecipada na story era real, mas insuficiente. Havia uma segunda camada que só a prova por execução revelou.
+
+**🟡 Gitleaks tem allowlist para chaves de exemplo.** A primeira tentativa usou `AKIAIOSFODNN7EXAMPLE`, o exemplo canônico da documentação da AWS — está na allowlist padrão e passou verde (`no leaks found`, 5s). Segredo sintético precisa ser **aleatório**, não um exemplo conhecido.
+
+**🟢 Push protection bloqueou antes do CI.** Com a chave aleatória, o `git push` foi recusado:
+
+```
+GH013: Repository rule violations found
+- GITHUB PUSH PROTECTION — Push cannot contain secrets
+  —— Amazon AWS Access Key ID ——
+     path: _prova-segredo.txt:9
+```
+
+Conforme previsto na Task 6, isso é **resultado válido e superior**: existe uma camada de proteção *anterior* ao CI. O commit foi removido localmente (nunca chegou ao remoto) e o Gitleaks foi provado localmente com o binário 8.30.1:
+
+| Regra | Arquivo | exit |
+|---|---|---|
+| `aws-access-token` | `_prova-segredo.txt:9` | 1 |
+| `generic-api-key` | `_prova-segredo.txt:10` | 1 |
+
+**🟡 A prova contaminava outro gate.** O arquivo de prova estava em `src/platform/`, e um `.ts` sem teste em `src/` dispara o gate de **cobertura** da Story 0.2 — o job `test` ficou vermelho junto. Efeito colateral positivo: comprovou que o gate da 0.2 morde de verdade. Mas contamina a evidência, então o arquivo foi movido para a raiz, isolando a prova ao gate certo.
+
+**🟡 Falso positivo real encontrado.** `gitleaks dir .` acusou `_bmad/_config/files-manifest.csv:47` como `generic-api-key` — é um checksum SHA-256 de conteúdo de arquivo, não credencial. O job do CI não pegou porque no modo PR ele varre só os commits do PR, mas mudaria de escopo a qualquer momento. Criado `.gitleaks.toml` com allowlist para `_bmad/_config/*.csv`.
+
+**Cuidado no `.gitleaks.toml`:** sem `[extend] useDefault = true`, uma config própria **substitui** todo o conjunto de regras padrão e o gate fica verde para sempre. Validado nos dois sentidos: repo limpo → `exit=0`; segredo real reintroduzido → `exit=1`. A allowlist não cegou a ferramenta.
 
 ### Completion Notes List
 
+- **Task 1** — Nada configurado, apenas verificado. CodeQL `configured` com `actions`, `javascript`, `javascript-typescript`, `python`, `typescript`. Dependabot alerts e security updates ativos. 0 alertas Dependabot abertos, 0 de secret scanning. **O `javascript-typescript` entrou sozinho** quando a Story 0.2 mergeou — a nota da Story 0.1 dizendo que a 0.3 precisaria adicioná-lo manualmente estava obsoleta.
+- **Task 2** — `.github/dependabot.yml` com `npm` e `github-actions`, semanal, limite de 5 PRs, devDependencies de patch/minor agrupadas, `commit-message.prefix: chore` (preparando o commitlint da Story 0.5).
+- **Task 3** — job `security-deps` com `aquasecurity/trivy-action@v0.36.0`, `scan-type: fs`, `scanners: vuln`, `severity: CRITICAL,HIGH`, `exit-code: '1'`, `ignore-unfixed: true` e **`TRIVY_INCLUDE_DEV_DEPS: 'true'`**.
+- **Task 4** — job `security-secrets` com `gitleaks/gitleaks-action@v3.0.0` e `fetch-depth: 0`. Sem `GITLEAKS_LICENSE` (conta pessoal). `.gitleaks.toml` com `useDefault = true` e allowlist do falso positivo.
+- Nenhum dos dois jobs instala Node ou dependências — operam sobre os arquivos do repositório.
+
+**AC #2 — prova no CI** (PR #5, run `31283093826`):
+
+| Job | Conclusão |
+|---|---|
+| `security-deps` | **fail** — [job 93167431478](https://github.com/alexandrehst/servicedesk/actions/runs/31283093826/job/93167431478) |
+| `lint` / `typecheck` / `test` / `security-secrets` | pass |
+
+Reprovação isolada ao gate de SCA. Antes da correção do `TRIVY_INCLUDE_DEV_DEPS`, o mesmo lockfile passava verde (run `31282842852`) — os dois runs juntos são a evidência de que a correção é o que faz o gate existir.
+
+**AC #3 — prova em duas camadas:** push protection do GitHub recusou o push (`GH013`), e o Gitleaks local detectou `aws-access-token` + `generic-api-key` com `exit=1`.
+
 ### File List
+
+- `.github/dependabot.yml` (novo)
+- `.gitleaks.toml` (novo)
+- `.github/workflows/ci.yml` (modificado — jobs `security-deps` e `security-secrets`)
+- `_bmad-output/implementation-artifacts/0-3-seguranca-sast-sca-e-segredos.md` (modificado)
+- `_bmad-output/implementation-artifacts/0-2-gate-de-cobertura-de-testes.md` (modificado — status `done`)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modificado)
+
+## Change Log
+
+| Data | Evento |
+|---|---|
+| 2026-08-08 | Tasks 1–4: Dependabot version updates, jobs `security-deps` e `security-secrets` |
+| 2026-08-08 | PR #5 aberto |
+| 2026-08-08 | Prova do SCA revelou que o Trivy ignorava devDependencies; gate era decorativo. Corrigido com `TRIVY_INCLUDE_DEV_DEPS` |
+| 2026-08-08 | AC #2 satisfeita: `security-deps` vermelho com os demais jobs verdes |
+| 2026-08-08 | AC #3 satisfeita: push protection (`GH013`) + Gitleaks local (`exit=1`) |
+| 2026-08-08 | `.gitleaks.toml` criado para falso positivo em `_bmad/_config/*.csv` |
+| 2026-08-08 | Provas revertidas; story para `review` |

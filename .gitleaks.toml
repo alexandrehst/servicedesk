@@ -1,0 +1,25 @@
+# Configuracao do Gitleaks — ServiceDesk
+#
+# Estende o conjunto de regras padrao em vez de substitui-lo: sem `useDefault`
+# o Gitleaks rodaria SEM regra nenhuma e o gate ficaria verde sempre.
+
+[extend]
+useDefault = true
+
+[[rules]]
+# Regra vazia nao e permitida; a allowlist global abaixo e o que importa.
+id = 'placeholder-nao-usar'
+description = 'Placeholder — a configuracao real vive na allowlist global'
+regex = '''^\x00NUNCA_CASA\x00$'''
+
+[allowlist]
+description = 'Falsos positivos conhecidos'
+paths = [
+  # Manifestos do BMad: colunas de hash SHA-256 de conteudo de arquivo, que a
+  # regra generic-api-key confunde com credencial. Detectado ao rodar
+  # `gitleaks dir .` durante a Story 0.3 (arquivo files-manifest.csv, linha 47).
+  # Nao sao segredos: sao checksums de arquivos versionados publicamente.
+  '''_bmad/_config/.*\.csv$''',
+  # Relatorio do proprio Gitleaks, quando gerado localmente.
+  '''gitleaks-results\.sarif$''',
+]
