@@ -52,8 +52,8 @@ development_status:
   # Epic 0: Governanca de CI & Guardrails (sprint 0 — o gateway)
   # ---------------------------------------------------------------
   epic-0: in-progress
-  0-1-toolchain-base-e-pipeline-de-ci: review
-  0-2-gate-de-cobertura-de-testes: backlog
+  0-1-toolchain-base-e-pipeline-de-ci: done
+  0-2-gate-de-cobertura-de-testes: in-progress
   0-3-seguranca-sast-sca-e-segredos: backlog
   0-4-fronteiras-da-arquitetura-dependency-cruiser: backlog
   0-5-rastreabilidade-commits-e-prs: backlog
