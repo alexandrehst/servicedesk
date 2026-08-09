@@ -2,6 +2,12 @@ name: CI
 
 on:
   pull_request:
+    # `edited` e obrigatorio por causa do job traceability. O default do
+    # GitHub e [opened, synchronize, reopened] — sem `edited`, bastava abrir
+    # o PR com titulo valido, esperar o verde, trocar o titulo por qualquer
+    # coisa e mergear: como o merge e squash, o titulo novo iria para a main
+    # sem passar por checagem nenhuma. O gate era contornavel em dois cliques.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
 
@@ -89,6 +95,70 @@ jobs:
       # e justamente nesse caso que o numero interessa.
       - uses: davelosert/vitest-coverage-report-action@v2.12.2
         if: always() && github.event_name == 'pull_request'
+
+  # Rastreabilidade (pilar Auditavel): commits convencionais, titulo de PR
+  # convencional e referencia a Story/FR no corpo.
+  #
+  # So roda em pull_request: em push na main nao existe PR para inspecionar.
+  traceability:
+    name: traceability
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # commitlint precisa do range de commits do PR.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # 1. Commits do PR. Mensagens de revert sao ignoradas pelo commitlint
+      #    (defaultIgnores), o que preserva o metodo de prova do Epic 0.
+      - name: commits convencionais
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: pnpm exec commitlint --from "$BASE_SHA" --to "$HEAD_SHA" --verbose
+
+      # 2. Titulo do PR. ESTA e a checagem que protege o historico da main:
+      #    o merge e squash, entao o titulo do PR vira a mensagem do commit.
+      #    Commits individuais nao chegam la.
+      #
+      #    PR_TITLE vai por env, NUNCA interpolado dentro do run: o titulo e
+      #    conteudo controlado por quem abre o PR e seria substituido no script
+      #    antes do shell executar — script injection.
+      - name: titulo do PR convencional
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: echo "$PR_TITLE" | pnpm exec commitlint --verbose
+
+      # 3. Corpo referencia Story ou FR. Exige referencia PREENCHIDA
+      #    (ex.: "Story 0.5", "FR-14"), nao o rotulo vazio do template.
+      - name: PR referencia Story ou FR
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # Comentarios HTML fazem parte do corpo do PR. O template de PR
+          # explica o formato esperado dentro deles, e um exemplo ali daria
+          # falso verde num PR onde ninguem preencheu nada. Remover antes
+          # de procurar a referencia.
+          CORPO=$(printf '%s' "$PR_BODY" | perl -0pe 's/<!--.*?-->//gs')
+
+          if printf '%s' "$CORPO" | grep -qE '(Story[[:space:]]+[0-9]+\.[0-9]+|FR-[0-9]+)'; then
+            printf '%s' "$CORPO" | grep -oE '(Story[[:space:]]+[0-9]+\.[0-9]+|FR-[0-9]+)' | sort -u | sed 's/^/  referencia encontrada: /'
+            exit 0
+          fi
+          echo "::error::O corpo do PR nao referencia nenhuma Story nem FR."
+          echo "Inclua uma referencia preenchida, por exemplo: 'Story 0.5' ou 'FR-14'."
+          echo "Pilar Auditavel — QUALITY-GATE secao 3: toda mudanca rastreavel a uma Story/FR."
+          exit 1
 
   # Fronteiras hexagonais (AD-1). Precisa de Node e das dependencias: o
   # dependency-cruiser e um pacote npm e resolve imports via tsconfig.json.

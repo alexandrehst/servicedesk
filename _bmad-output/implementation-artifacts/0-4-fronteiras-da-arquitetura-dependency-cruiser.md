@@ -4,7 +4,7 @@ baseline_commit: 886a6321caba4fbf6e6f7626e7fccc312c0b3962
 
 # Story 0.4: Fronteiras da arquitetura (dependency-cruiser)
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
