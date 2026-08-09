@@ -96,6 +96,50 @@ jobs:
       - uses: davelosert/vitest-coverage-report-action@v2.12.2
         if: always() && github.event_name == 'pull_request'
 
+  # Quality gate agregado. Depende do job `test`: consome o mesmo lcov.info
+  # que o gate de cobertura validou, em vez de rodar a suite de novo. Assim o
+  # numero que o Sonar reporta e exatamente o que o CI verificou.
+  sonar:
+    name: sonar
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # O Sonar usa o historico para blame e para calcular "new code".
+          fetch-depth: 0
+
+      # SEM este download o scanner le um coverage/lcov.info inexistente e
+      # reporta 0.0% de cobertura — sem erro, sem aviso, job verde. Foi
+      # exatamente isso que aconteceu no PR #2 com a Automatic Analysis.
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+
+      # O arquivo precisa EXISTIR sempre. Vazio e legitimo enquanto src/ nao
+      # tem codigo (Epic 0), mas deixa de ser a partir da Story 1.1 — daqui
+      # em diante um lcov vazio significa que o Sonar mediria 0% em silencio.
+      - name: conferir que o lcov chegou
+        run: |
+          if [ ! -f coverage/lcov.info ]; then
+            echo "::error::coverage/lcov.info nao chegou do job test — o Sonar reportaria 0% sem falhar."
+            exit 1
+          fi
+          LINHAS=$(wc -l < coverage/lcov.info)
+          echo "lcov.info presente: $LINHAS linhas"
+          if [ "$LINHAS" -eq 0 ]; then
+            if [ -n "$(find src -name '*.ts' -not -name '*.test.ts' -print -quit)" ]; then
+              echo "::error::Existe codigo em src/ mas o lcov esta vazio. O Sonar reportaria 0% de cobertura."
+              exit 1
+            fi
+            echo "::notice::lcov vazio e src/ sem codigo — esperado ate a Story 1.1."
+          fi
+
+      - uses: SonarSource/sonarqube-scan-action@v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   # Rastreabilidade (pilar Auditavel): commits convencionais, titulo de PR
   # convencional e referencia a Story/FR no corpo.
   #
