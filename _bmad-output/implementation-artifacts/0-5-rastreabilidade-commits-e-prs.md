@@ -4,7 +4,7 @@ baseline_commit: 247fafc02e567f4b22251e2e0436da80889ef7b7
 
 # Story 0.5: Rastreabilidade — commits e PRs
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -38,29 +38,29 @@ so that toda mudança seja auditável (pilar Auditável).
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — commitlint** (AC: #1, #2)
-  - [ ] `pnpm add -D @commitlint/cli@21.2.1 @commitlint/config-conventional@21.2.0`
-  - [ ] `commitlint.config.js` estendendo `@commitlint/config-conventional` (ESM — o `package.json` tem `"type": "module"`)
-  - [ ] Script `commitlint` para uso local
+- [x] **Task 1 — commitlint** (AC: #1, #2)
+  - [x] `pnpm add -D @commitlint/cli@21.2.1 @commitlint/config-conventional@21.2.0`
+  - [x] `commitlint.config.js` estendendo `@commitlint/config-conventional` (ESM — o `package.json` tem `"type": "module"`)
+  - [x] Script `commitlint` para uso local
 
-- [ ] **Task 2 — Job `traceability`** (AC: #1, #2, #3)
-  - [ ] Novo job no `ci.yml`, **apenas** em `pull_request` (em push na `main` não há PR)
-  - [ ] `fetch-depth: 0` no checkout — o commitlint precisa do range de commits
-  - [ ] Passo 1: validar os commits do PR (`--from origin/main --to HEAD`)
-  - [ ] Passo 2: validar o **título do PR** — o mais importante, por causa do squash
-  - [ ] Passo 3: validar que o corpo referencia `Story` ou `FR-`
-  - [ ] **Passar título e corpo via `env:`, nunca interpolar `${{ }}` dentro do `run:`** (ver *Segurança* abaixo)
+- [x] **Task 2 — Job `traceability`** (AC: #1, #2, #3)
+  - [x] Novo job no `ci.yml`, **apenas** em `pull_request` (em push na `main` não há PR)
+  - [x] `fetch-depth: 0` no checkout — o commitlint precisa do range de commits
+  - [x] Passo 1: validar os commits do PR (`--from origin/main --to HEAD`)
+  - [x] Passo 2: validar o **título do PR** — o mais importante, por causa do squash
+  - [x] Passo 3: validar que o corpo referencia `Story` ou `FR-`
+  - [x] **Passar título e corpo via `env:`, nunca interpolar `${{ }}` dentro do `run:`** (ver *Segurança* abaixo)
 
-- [ ] **Task 3 — Template de PR** (AC: #4)
-  - [ ] `.github/PULL_REQUEST_TEMPLATE.md` com seções: o que muda, por quê, Story/FR referenciada, como foi verificado
-  - [ ] O template deve produzir, por padrão, um corpo que **passa** na checagem da AC #3
+- [x] **Task 3 — Template de PR** (AC: #4)
+  - [x] `.github/PULL_REQUEST_TEMPLATE.md` com seções: o que muda, por quê, Story/FR referenciada, como foi verificado
+  - [x] O template deve produzir, por padrão, um corpo que **passa** na checagem da AC #3
 
-- [ ] **Task 4 — Provar as três checagens** (AC: #5)
-  - [ ] Violação de commit não-convencional → `traceability` vermelho
-  - [ ] Violação de título de PR não-convencional → `traceability` vermelho
-  - [ ] Violação de corpo sem Story/FR → `traceability` vermelho
-  - [ ] Confirmar demais jobs **verdes** em cada caso
-  - [ ] Reverter (commits listando arquivos explicitamente)
+- [x] **Task 4 — Provar as três checagens** (AC: #5)
+  - [x] Violação de commit não-convencional → `traceability` vermelho
+  - [x] Violação de título de PR não-convencional → `traceability` vermelho
+  - [x] Violação de corpo sem Story/FR → `traceability` vermelho
+  - [x] Confirmar demais jobs **verdes** em cada caso
+  - [x] Reverter (commits listando arquivos explicitamente)
 
 ## Dev Notes
 
@@ -176,8 +176,72 @@ Nenhum teste de produto. As "provas" são as três violações da Task 4. A suí
 
 ### Agent Model Used
 
+claude-opus-5
+
 ### Debug Log References
+
+**🔴 O gate era contornável em dois cliques.** `on: pull_request` sem `types` usa o default `[opened, synchronize, reopened]` — **`edited` não está incluído**. Consequência: bastava abrir o PR com título válido, esperar o verde, **editar o título para qualquer coisa** e mergear. Como o merge é squash, o título novo iria para a `main` sem revalidação.
+
+As checagens #2 e #3 — as que dependem de metadados do PR, não de commits — eram burláveis por completo. Corrigido com `types: [opened, synchronize, reopened, edited]`. Custo aceito: edições de PR redisparam os demais jobs; evento raro, ~20s por run.
+
+**Este é um modo de falha novo no épico.** Os cinco anteriores eram *ferramentas configuradas que não mordiam*. Este é diferente: a ferramenta funcionava, mas **o gatilho não cobria o caminho de ataque**. Um gate correto no lugar errado.
+
+**🔴 `git revert` não limpa a prova do commitlint.** As stories 0.1–0.4 estabeleceram o padrão "commit que viola → CI vermelho → `git revert`". Aqui isso **não funciona**: o commitlint valida o range `base..head`, ou seja, o **histórico inteiro do PR**, não o estado final da árvore. O commit ruim continua no range depois do revert e o job segue vermelho para sempre.
+
+Sintoma observado: a prova #3 (corpo sem referência) falhou no step **errado** — reprovou em `commits convencionais` por causa do commit ruim da prova #1, que já tinha sido revertido. Evidência contaminada.
+
+Solução aplicada: `git reset --hard` até antes dos commits de prova + `git push --force-with-lease`. A evidência da prova #1 sobrevive nos logs do CI (run `31286136314`), que são imutáveis.
+
+**Regra para as stories seguintes:** provas que envolvem **mensagem de commit** exigem remoção do histórico, não revert. Provas que envolvem **conteúdo de arquivo** (todas as anteriores) o revert resolve.
+
+**🟡 Comentários HTML contam como corpo do PR.** A primeira versão do template trazia o exemplo `"Story 1.1"` dentro de um comentário `<!-- -->`. Como comentários fazem parte do corpo, a regex casaria e **aprovaria um PR onde ninguém preencheu nada** — falso verde clássico. Corrigido nos dois lados: a checagem remove comentários antes de procurar (via `perl -0pe 's/<!--.*?-->//gs'`), e o placeholder passou a ser `Story _._`, que não casa.
+
+Validado nos cinco casos: template puro **reprova**, template preenchido passa, `FR-14` passa, corpo vazio **reprova**, só-comentário **reprova**.
+
+**🟢 `gh pr edit` falhou com erro de Projects (classic).** A CLI retornou erro de GraphQL não relacionado ao que se pedia. Contornado com `gh api -X PATCH /repos/.../pulls/10`, que funcionou. Sem impacto no gate — apenas registrado para poupar diagnóstico futuro.
+
+**Verificação de artefato, não de exit code.** O log do job confirma processamento real: `found 0 problems, 0 warnings` nos dois passos de commitlint e as referências listadas uma a uma (`referencia encontrada: Story 0.5`). Não é verde por omissão.
 
 ### Completion Notes List
 
+- **Task 1** — `@commitlint/cli@21.2.1` + `@commitlint/config-conventional@21.2.0`. `commitlint.config.js` em ESM, com `header-max-length: 100`. `defaultIgnores` **mantido** — inclui `/^(R|r)evert (.*)/`, sem o qual o método de prova do próprio épico reprovaria.
+- **Task 2** — job `traceability`, `if: github.event_name == 'pull_request'`, `fetch-depth: 0`. Três steps: commits (`--from base --to head`), título do PR, corpo do PR. Título e corpo via `env:`, nunca interpolados no `run:`.
+- **Task 3** — `.github/PULL_REQUEST_TEMPLATE.md` com seções o-que-muda / por-quê / Story-FR / como-foi-verificado / riscos. O placeholder **não** satisfaz a checagem, de propósito.
+- **Task 4** — evidências abaixo.
+
+**AC #5 — três provas, cada uma isolada:**
+
+| Prova | Step que reprovou | Demais jobs | Run |
+|---|---|---|---|
+| Commit não-convencional | `commits convencionais` | 6 verdes | `31286136314` |
+| Título de PR inválido | `titulo do PR convencional` | 6 verdes | `31286192943` |
+| Corpo sem Story/FR | `PR referencia Story ou FR` | 6 verdes | `31286390369` |
+
+Na prova #3, o log mostra a sequência exata esperada: commits ✔, título ✔, corpo ✖ com a mensagem `O corpo do PR nao referencia nenhuma Story nem FR`.
+
+A prova #2 tem valor duplo: além de exercitar a checagem de título, **comprova que o `edited` dispara o workflow** — ou seja, valida a correção do trigger.
+
+**Limitação conhecida — checagem #3 é permissiva.** Qualquer menção a `Story <n>.<n>` ou `FR-<n>` em qualquer lugar do corpo satisfaz, inclusive de passagem. No log deste próprio PR ela encontrou `Story 0.5`, `Story 1.1` e `FR-14`, sendo que as duas últimas eram exemplos no texto explicativo. Verificar que a referência está **na seção correta** exigiria parsing do template, que quem usa `gh pr create --body` não recebe. **Registrado, não corrigido.**
+
 ### File List
+
+- `commitlint.config.js` (novo)
+- `.github/PULL_REQUEST_TEMPLATE.md` (novo)
+- `.github/workflows/ci.yml` (modificado — job `traceability` + `types` no trigger)
+- `package.json` (modificado — 2 devDependencies + script `commitlint`)
+- `pnpm-lock.yaml` (modificado)
+- `_bmad-output/implementation-artifacts/0-5-rastreabilidade-commits-e-prs.md` (modificado)
+- `_bmad-output/implementation-artifacts/0-4-fronteiras-da-arquitetura-dependency-cruiser.md` (modificado — status `done`)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modificado)
+
+## Change Log
+
+| Data | Evento |
+|---|---|
+| 2026-08-08 | Tasks 1–3: commitlint, job `traceability`, template de PR |
+| 2026-08-08 | PR #10 aberto — o próprio PR já exercita o gate |
+| 2026-08-08 | Falso verde corrigido: comentários HTML do template casavam com a regex |
+| 2026-08-08 | **Gate contornável corrigido**: `edited` acrescentado ao trigger |
+| 2026-08-08 | Três provas isoladas no CI (ACs #1, #2, #3, #5) |
+| 2026-08-08 | Commits de prova removidos do histórico com `--force-with-lease` (revert não basta para commitlint) |
+| 2026-08-08 | Story para `review` |
