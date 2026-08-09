@@ -14,10 +14,13 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "arch": "depcruise src --config .dependency-cruiser.cjs"
+    "arch": "depcruise src --config .dependency-cruiser.cjs",
+    "commitlint": "commitlint"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",
+    "@commitlint/cli": "21.2.1",
+    "@commitlint/config-conventional": "21.2.0",
     "@types/node": "^24.13.3",
     "@vitest/coverage-v8": "4.1.10",
     "dependency-cruiser": "18.1.1",
