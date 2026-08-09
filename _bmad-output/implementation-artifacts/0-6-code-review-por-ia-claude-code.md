@@ -1,6 +1,6 @@
 # Story 0.6: Code Review por IA (Claude Code)
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -49,13 +49,13 @@ so that os pilares de julgamento (auditável, observável, escalável, performá
   - [x] Remover os blocos comentados de exemplo deixados pelo `/install-github-app`
   - [x] Considerar `claude_args` com `--allowedTools` restrito a leitura (o review não deve editar código)
 
-- [ ] **Task 3 — Provar que o review aponta violação de pilar** (AC: #3) — **BLOQUEADA NESTE PR**
+- [x] **Task 3 — Provar que o review aponta violação de pilar** (AC: #3) — **executada; resultado negativo, documentado**
   - [x] Criar código que viola um pilar de julgamento **sem** violar nenhuma ferramenta:
         um handler que muta estado **sem registro de auditoria** (viola AD-3 e o pilar Auditável)
   - [x] O arquivo precisa passar em `tsc`, Biome, cobertura (com teste), dependency-cruiser e Trivy — só o review por IA pode pegá-lo
-  - [ ] Confirmar que o Claude comentou apontando a ausência de auditoria — **impossível neste PR**: a action se recusa a rodar quando o próprio workflow foi modificado (ver Debug Log). Exige PR separado, após o merge
+  - [x] Confirmar que o Claude comentou apontando a ausência de auditoria — **executado no PR #12; resultado NEGATIVO**, ver *Resultado da AC #3*
   - [x] Reverter
-  - [ ] **Se o Claude não apontar:** registrar como resultado e ajustar o prompt; repetir no máximo 2 vezes. Se ainda assim não apontar, documentar a limitação em vez de forçar
+  - [x] **Se o Claude não apontar:** registrar como resultado e ajustar o prompt; repetir no máximo 2 vezes. Se ainda assim não apontar, documentar a limitação em vez de forçar — **duas tentativas feitas, limitação documentada**
 
 - [x] **Task 4 — Registrar a natureza do gate** (AC: #3)
   - [x] Documentar no Dev Agent Record que este é o único gate **probabilístico** do épico
@@ -260,3 +260,50 @@ Exiting due to workflow validation skip
 | 2026-08-08 | Prova da AC #3 bloqueada: a action pula o review quando o próprio workflow é modificado, concluindo verde |
 | 2026-08-08 | Confirmado que os 6 silêncios anteriores têm outra causa — nenhum PR anterior tocou no workflow |
 | 2026-08-08 | Prova revertida; AC #3 pendente de PR separado pós-merge |
+| 2026-08-08 | PR #12 (prova isolada): review não comentou. Causa identificada — plugin removido e `allowedTools` restrito deixaram o revisor sem canal de saída |
+| 2026-08-08 | PR #13 corrige: plugin restaurado, restrição removida |
+| 2026-08-08 | PR #12 redisparado com plugin ativo: **ainda sem comentário**. AC #3 **NÃO satisfeita** — ver Resultado da AC #3 abaixo |
+
+## Resultado da AC #3 — o gate NÃO apontou a violação
+
+**Não satisfeita.** Registro completo, porque a conclusão muda o peso da Story 0.7.
+
+### O experimento
+
+`src/application/commands/_prova-sem-auditoria.ts` — command handler que muta o estado de um Chamado (prioridade) **sem gravar registro de auditoria**: sem principal, sem origem `api|mcp`, sem transação. Viola **AD-3**, **AD-9** e o pilar **Auditável** de forma direta.
+
+Desenhado para ser invisível a toda a maquinaria determinística — e foi:
+
+| Gate | Resultado |
+|---|---|
+| `typecheck` (tsc strict) | pass |
+| `lint` (Biome) | pass |
+| `test` (Vitest) | pass — **cobertura 100%** |
+| `arch` (dependency-cruiser) | pass |
+| `security-deps` / `security-secrets` | pass |
+
+### Duas execuções, dois motivos diferentes
+
+**Execução 1** (run `31287913106`) — `num_turns: 8`, `is_error: false`, `total_cost_usd: 0.202`, `No buffered inline comments`.
+Causa: **erro de configuração meu no PR #11.** Removi o plugin `code-review@claude-code-plugins` e restringi `claude_args` a `--allowedTools Read,Grep,Glob`. O plugin é quem fornece a ferramenta de buffer que o step `post-buffered-inline-comments.ts` consome. O Claude analisou e **não tinha canal de saída**. Corrigido no PR #13.
+
+**Execução 2** (run `31289868069`) — plugin carregado (`Successfully added marketplace: claude-code-plugins`), sem restrição de ferramentas, workflow **idêntico ao da `main`** (a action não se pulou), `num_turns: 6`, `is_error: false`, `total_cost_usd: 0.168`, `No buffered inline comments`.
+
+Nesta segunda execução **não há erro de configuração**: o revisor tinha o prompt correto (confirmado no log), a ferramenta de comentar e o diff. Analisou, consumiu cota, e **escolheu não comentar** uma violação explícita de AD-3.
+
+### O que isso significa — e o que não significa
+
+**Não significa** que o review por IA seja inútil: ele não produziu falso positivo, obedeceu a instrução de não inventar achado, e este é um único caso.
+
+**Significa** que ele **não é confiável como cobertura dos quatro pilares de julgamento**. A hipótese mais provável é que o arquivo, isolado e com nome `_prova-`, pareça exemplo ou stub descartável — sem os módulos vizinhos (repositório, port de auditoria) que dariam contexto de que ali *deveria* haver auditoria. Um PR real do Epic 1 teria esse contexto. Mas isso é hipótese, não evidência, e a evidência disponível é: **violação plantada, gate silencioso**.
+
+### Consequências obrigatórias para a Story 0.7
+
+1. `claude-review` **pode** virar required check — garante que o review roda —, mas **não** conta como cobertura dos pilares Auditável, Observável, Escalável e Performático.
+2. O QUALITY-GATE §1 diz que os pilares de julgamento são cobertos por "ferramenta **+** review por IA". Hoje, para esses quatro pilares, **não há ferramenta e o reforço por IA falhou no único teste feito**. Eles estão efetivamente **descobertos**.
+3. Isso eleva o peso da **revisão humana** dos PRs do Epic 1 — em especial nas stories que tocam auditoria (1.8) e no tracer bullet (1.1), que define o padrão copiado pelas demais.
+4. **Retestar na Story 1.1**, com código real e contexto vizinho. Se o review apontar lá, revisar esta conclusão.
+
+### Limitação adicional já conhecida
+
+A action **pula o review e conclui `success`** quando o PR modifica o próprio `claude-code-review.yml` (documentado no Debug Log). Como required check, isso significa: todo PR que mexe no workflow de review satisfaz o check automaticamente. Sem correção possível do nosso lado.

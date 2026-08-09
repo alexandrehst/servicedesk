@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-08
-last_updated: 2026-08-08 (story 0.5 done; story 0.6 ready-for-dev)
+last_updated: 2026-08-08 (story 0.5 done; story 0.6 review — AC #3 nao satisfeita)
 project: ServiceDesk
 project_key: NOKEY
 tracking_system: file-system
@@ -57,7 +57,7 @@ development_status:
   0-3-seguranca-sast-sca-e-segredos: done
   0-4-fronteiras-da-arquitetura-dependency-cruiser: done
   0-5-rastreabilidade-commits-e-prs: done
-  0-6-code-review-por-ia-claude-code: in-progress
+  0-6-code-review-por-ia-claude-code: review
   0-7-quality-gate-agregado-e-branch-protection: backlog
   epic-0-retrospective: optional
 
