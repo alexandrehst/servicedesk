@@ -13,12 +13,14 @@
     "format": "biome format --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "arch": "depcruise src --config .dependency-cruiser.cjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",
     "@types/node": "^24.13.3",
     "@vitest/coverage-v8": "4.1.10",
+    "dependency-cruiser": "18.1.1",
     "typescript": "5.9.3",
     "vitest": "4.1.10"
   }
