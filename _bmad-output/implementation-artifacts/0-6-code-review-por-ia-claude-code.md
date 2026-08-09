@@ -36,30 +36,30 @@ so that os pilares de julgamento (auditável, observável, escalável, performá
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Reescrever o prompt** (AC: #2)
-  - [ ] Substituir `/code-review:code-review ...` por prompt que nomeia os 4 pilares de julgamento
-  - [ ] Incluir a lista de ADs da spine (AD-1 a AD-11) como referência de violação
-  - [ ] Incluir **lista explícita do que NÃO revisar** — o que já é gateado por ferramenta
-  - [ ] Instruir a citar arquivo e linha, e a **não comentar quando não houver achado** (silêncio é resultado válido)
+- [x] **Task 1 — Reescrever o prompt** (AC: #2)
+  - [x] Substituir `/code-review:code-review ...` por prompt que nomeia os 4 pilares de julgamento
+  - [x] Incluir a lista de ADs da spine (AD-1 a AD-11) como referência de violação
+  - [x] Incluir **lista explícita do que NÃO revisar** — o que já é gateado por ferramenta
+  - [x] Instruir a citar arquivo e linha, e a **não comentar quando não houver achado** (silêncio é resultado válido)
 
-- [ ] **Task 2 — Ajustar o workflow** (AC: #1, #4, #5)
-  - [ ] Manter `name: claude-review` do job (vira required check na 0.7)
-  - [ ] Manter `CLAUDE_CODE_OAUTH_TOKEN`
-  - [ ] Avaliar `fetch-depth`: hoje é `1`; o review precisa do diff completo do PR
-  - [ ] Remover os blocos comentados de exemplo deixados pelo `/install-github-app`
-  - [ ] Considerar `claude_args` com `--allowedTools` restrito a leitura (o review não deve editar código)
+- [x] **Task 2 — Ajustar o workflow** (AC: #1, #4, #5)
+  - [x] Manter `name: claude-review` do job (vira required check na 0.7)
+  - [x] Manter `CLAUDE_CODE_OAUTH_TOKEN`
+  - [x] Avaliar `fetch-depth`: hoje é `1`; o review precisa do diff completo do PR
+  - [x] Remover os blocos comentados de exemplo deixados pelo `/install-github-app`
+  - [x] Considerar `claude_args` com `--allowedTools` restrito a leitura (o review não deve editar código)
 
-- [ ] **Task 3 — Provar que o review aponta violação de pilar** (AC: #3)
-  - [ ] Criar código que viola um pilar de julgamento **sem** violar nenhuma ferramenta:
+- [ ] **Task 3 — Provar que o review aponta violação de pilar** (AC: #3) — **BLOQUEADA NESTE PR**
+  - [x] Criar código que viola um pilar de julgamento **sem** violar nenhuma ferramenta:
         um handler que muta estado **sem registro de auditoria** (viola AD-3 e o pilar Auditável)
-  - [ ] O arquivo precisa passar em `tsc`, Biome, cobertura (com teste), dependency-cruiser e Trivy — só o review por IA pode pegá-lo
-  - [ ] Confirmar que o Claude comentou apontando a ausência de auditoria
-  - [ ] Reverter
+  - [x] O arquivo precisa passar em `tsc`, Biome, cobertura (com teste), dependency-cruiser e Trivy — só o review por IA pode pegá-lo
+  - [ ] Confirmar que o Claude comentou apontando a ausência de auditoria — **impossível neste PR**: a action se recusa a rodar quando o próprio workflow foi modificado (ver Debug Log). Exige PR separado, após o merge
+  - [x] Reverter
   - [ ] **Se o Claude não apontar:** registrar como resultado e ajustar o prompt; repetir no máximo 2 vezes. Se ainda assim não apontar, documentar a limitação em vez de forçar
 
-- [ ] **Task 4 — Registrar a natureza do gate** (AC: #3)
-  - [ ] Documentar no Dev Agent Record que este é o único gate **probabilístico** do épico
-  - [ ] Registrar o que ele **não** garante, para a Story 0.7 não tratá-lo como determinístico
+- [x] **Task 4 — Registrar a natureza do gate** (AC: #3)
+  - [x] Documentar no Dev Agent Record que este é o único gate **probabilístico** do épico
+  - [x] Registrar o que ele **não** garante, para a Story 0.7 não tratá-lo como determinístico
 
 ## Dev Notes
 
@@ -195,8 +195,68 @@ Nenhum teste de produto. O arquivo de violação da Task 3 vem **com teste** que
 
 ### Agent Model Used
 
+claude-opus-5
+
 ### Debug Log References
+
+**🔴 A action pula o review quando o próprio workflow é modificado — e conclui VERDE.**
+
+Ao commitar a violação de pilar neste PR, o `claude-review` terminou em **8 segundos** (antes: 49s a 10m). O log:
+
+```
+##[warning]Skipping action due to workflow validation: Workflow validation failed.
+The workflow file must exist and have identical content to the version on the
+repository's default branch.
+Exiting due to workflow validation skip
+##[end-action id=claude-review.run;outcome=success;conclusion=success]
+```
+
+É uma **proteção de segurança legítima** da action: impede que um PR modifique o workflow de review para exfiltrar segredos. O problema não é a proteção, é o desfecho: `conclusion=success`. **O job fica verde sem ter revisado nada.**
+
+**Implicação direta para a Story 0.7:** se `claude-review` virar *required status check*, qualquer PR que toque em `.github/workflows/claude-code-review.yml` satisfaz o check automaticamente. O gate existe, mas tem um buraco previsível — e é justamente nos PRs que mexem no próprio review que ele desliga. **Registrar como limitação conhecida na 0.7; não há como corrigir do nosso lado, é comportamento da action.**
+
+**Consequência para esta story:** a AC #3 **não pôde ser provada neste PR**. O prompt novo só entra em vigor depois que ele chegar à `main`. A prova exige um PR separado que **não toque em workflow**.
+
+**🟡 Os seis silêncios anteriores têm outra causa.** Verifiquei se os PRs #3, #4, #5, #9 e #10 tocaram em `claude-code-review.yml`: **nenhum tocou**. Ou seja, o review rodou de verdade neles e não achou nada — o que aponta para o prompt inadequado (ou ausência real de achado), não para o skip de validação. **São dois problemas distintos**, e confundi-los levaria a "corrigir" a coisa errada.
+
+**🟢 `fetch-depth: 1` investigado e mantido.** Era minha suspeita para os silêncios. O log mostra que a action faz fetch próprio (`Restoring .claude, .mcp.json ... from origin/main (PR head is untrusted)`) e acessa o PR via MCP. Sem evidência de diff truncado, e é o default do gerador da Anthropic. **Não alterado** — não se conserta o que não está comprovadamente quebrado.
+
+**🟢 `permissions: pull-requests: read` mantido.** Parece insuficiente para quem posta comentários, mas funciona: a action troca OIDC por app token (`App token successfully obtained`). Menos privilégio é melhor; elevar para `write` sem necessidade seria piorar.
+
+**⚠️ Este é o único gate probabilístico do épico.** Os cinco anteriores são determinísticos: mesma entrada, mesmo resultado. Aqui o mesmo diff pode gerar comentários diferentes a cada execução. Portanto:
+
+- A prova (quando feita) demonstrará que o gate **é capaz** de apontar, não que **sempre** apontará
+- **Silêncio não é aprovação**
+- A Story 0.7 **não pode** tratá-lo como garantia dos quatro pilares — é reforço, conforme QUALITY-GATE §1
 
 ### Completion Notes List
 
+- **Task 1** — prompt reescrito: nomeia os quatro pilares com o significado que têm neste projeto, lista os onze ADs para citação por número, lista explicitamente o que **não** revisar (oito itens já gateados de forma determinística) e instrui a não comentar sem achado.
+- **Task 2** — workflow limpo: removidos os blocos comentados de exemplo do `/install-github-app`; `claude_args: --allowedTools Read,Grep,Glob --max-turns 30` (o review aponta, não corrige); `name: claude-review`, `CLAUDE_CODE_OAUTH_TOKEN`, `permissions` e `fetch-depth` mantidos com justificativa. `types` sem `edited` de propósito — o review analisa o diff, e editar título ou corpo não muda o que revisar (diferente do `traceability` da Story 0.5).
+- **Task 3** — **incompleta por impedimento técnico.** O arquivo de violação foi criado e validado localmente: passa em `lint=0`, `typecheck=0`, `arch=0` e cobertura **100% (2/2)** — isolamento confirmado, nenhuma ferramenta o detecta. Mas a verificação no CI é impossível neste PR (ver Debug Log). Revertido.
+- **Task 4** — natureza probabilística do gate registrada acima, com as três consequências para a Story 0.7.
+
+**AC #1** — satisfeita: a action roda e está autenticada (comprovado nos seis PRs anteriores).
+**AC #2** — satisfeita: prompt inspecionável no arquivo, nomeia pilares e ADs, e lista o que ignorar.
+**AC #3** — **NÃO satisfeita.** Requer PR separado após o merge deste.
+**AC #4** — satisfeita: `CLAUDE_CODE_OAUTH_TOKEN`, sem `ANTHROPIC_API_KEY` (log confirma o campo vazio).
+**AC #5** — satisfeita: job segue nomeado `claude-review`.
+
+**Pendência explícita:** a story **não deve ir para `done`** antes de a AC #3 ser provada num PR que não toque em workflow. Marcá-la como concluída agora seria exatamente o tipo de falso verde que este épico existe para impedir.
+
 ### File List
+
+- `.github/workflows/claude-code-review.yml` (modificado — prompt, `claude_args`, limpeza)
+- `_bmad-output/implementation-artifacts/0-6-code-review-por-ia-claude-code.md` (modificado)
+- `_bmad-output/implementation-artifacts/0-5-rastreabilidade-commits-e-prs.md` (modificado — status `done`)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modificado)
+
+## Change Log
+
+| Data | Evento |
+|---|---|
+| 2026-08-08 | Tasks 1, 2 e 4: prompt reescrito para os 4 pilares, workflow limpo, natureza do gate registrada |
+| 2026-08-08 | PR #11 aberto |
+| 2026-08-08 | Prova da AC #3 bloqueada: a action pula o review quando o próprio workflow é modificado, concluindo verde |
+| 2026-08-08 | Confirmado que os 6 silêncios anteriores têm outra causa — nenhum PR anterior tocou no workflow |
+| 2026-08-08 | Prova revertida; AC #3 pendente de PR separado pós-merge |
