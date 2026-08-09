@@ -4,7 +4,7 @@ baseline_commit: 886a6321caba4fbf6e6f7626e7fccc312c0b3962
 
 # Story 0.4: Fronteiras da arquitetura (dependency-cruiser)
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -41,30 +41,30 @@ so that o AD-1 seja cumprido por máquina, não por disciplina (pilar Escalável
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Instalar e configurar** (AC: #1, #2)
-  - [ ] `pnpm add -D dependency-cruiser@18.1.1`
-  - [ ] Script `arch` → `depcruise src --config .dependency-cruiser.cjs`
-  - [ ] `.dependency-cruiser.cjs` (extensão `.cjs` obrigatória: o `package.json` tem `"type": "module"`)
+- [x] **Task 1 — Instalar e configurar** (AC: #1, #2)
+  - [x] `pnpm add -D dependency-cruiser@18.1.1`
+  - [x] Script `arch` → `depcruise src --config .dependency-cruiser.cjs`
+  - [x] `.dependency-cruiser.cjs` (extensão `.cjs` obrigatória: o `package.json` tem `"type": "module"`)
 
-- [ ] **Task 2 — Codificar o AD-1 em regras** (AC: #2)
-  - [ ] `no-domain-to-outer`: `src/domain` não depende de `application`, `adapters` nem `platform` — severity `error`
-  - [ ] `no-application-to-adapters`: `src/application` não depende de `adapters` — severity `error`
-  - [ ] `no-circular`: dependência circular em qualquer camada — severity `error`
-  - [ ] `no-cross-adapter`: um adapter não depende de outro adapter — severity `error` (ver *Questão em aberto*)
-  - [ ] `tsConfig` apontando para `tsconfig.json`, para o resolver entender os imports TypeScript
-  - [ ] `doNotFollow: node_modules` — o objetivo é a arquitetura interna, não a árvore de dependências
+- [x] **Task 2 — Codificar o AD-1 em regras** (AC: #2)
+  - [x] `no-domain-to-outer`: `src/domain` não depende de `application`, `adapters` nem `platform` — severity `error`
+  - [x] `no-application-to-adapters`: `src/application` não depende de `adapters` — severity `error`
+  - [x] `no-circular`: dependência circular em qualquer camada — severity `error`
+  - [x] `no-cross-adapter`: um adapter não depende de outro adapter — severity `error` (ver *Questão em aberto*)
+  - [x] `tsConfig` apontando para `tsconfig.json`, para o resolver entender os imports TypeScript
+  - [x] `doNotFollow: node_modules` — o objetivo é a arquitetura interna, não a árvore de dependências
 
-- [ ] **Task 3 — Job de CI** (AC: #1, #5)
-  - [ ] Novo job `arch` no `ci.yml`, com o mesmo preâmbulo dos jobs que precisam de Node (checkout → pnpm → setup-node → install)
-  - [ ] `run: pnpm arch`
-  - [ ] Sem `continue-on-error`
+- [x] **Task 3 — Job de CI** (AC: #1, #5)
+  - [x] Novo job `arch` no `ci.yml`, com o mesmo preâmbulo dos jobs que precisam de Node (checkout → pnpm → setup-node → install)
+  - [x] `run: pnpm arch`
+  - [x] Sem `continue-on-error`
 
-- [ ] **Task 4 — Provar que cada regra reprova** (AC: #3, #4)
-  - [ ] Criar violação de `no-domain-to-outer`: `src/domain/_prova-ad1.ts` importando de `src/adapters/`
-  - [ ] Criar violação de `no-application-to-adapters`
-  - [ ] **Acompanhar cada arquivo de prova de um `.test.ts` que o cubra 100%** — sem isso o gate de cobertura reprova junto e a evidência fica ambígua (lição da Story 0.3)
-  - [ ] Confirmar no CI: job `arch` **vermelho**, `test` **verde**
-  - [ ] Reverter (commit listando os arquivos explicitamente)
+- [x] **Task 4 — Provar que cada regra reprova** (AC: #3, #4)
+  - [x] Criar violação de `no-domain-to-outer`: `src/domain/_prova-ad1.ts` importando de `src/adapters/`
+  - [x] Criar violação de `no-application-to-adapters`
+  - [x] **Acompanhar cada arquivo de prova de um `.test.ts` que o cubra 100%** — sem isso o gate de cobertura reprova junto e a evidência fica ambígua (lição da Story 0.3)
+  - [x] Confirmar no CI: job `arch` **vermelho**, `test` **verde**
+  - [x] Reverter (commit listando os arquivos explicitamente)
 
 ## Dev Notes
 
@@ -180,8 +180,65 @@ Os `.test.ts` que acompanham os arquivos de prova são **temporários e revertid
 
 ### Agent Model Used
 
+claude-opus-5
+
 ### Debug Log References
+
+**A tática de isolamento funcionou — evidência limpa pela primeira vez.** Na Story 0.3 o arquivo de prova ficou em `src/` sem teste, e dois jobs reprovaram juntos (`test` por cobertura e o gate sob teste), tornando ambíguo qual falhou por quê. Aqui cada arquivo de prova veio com seu `.test.ts` cobrindo 100%, e o resultado no CI foi:
+
+| Job | Resultado |
+|---|---|
+| `arch` | **fail** |
+| `lint`, `typecheck`, `test`, `security-deps`, `security-secrets` | pass |
+
+Cinco gates verdes, um vermelho. Padrão a repetir nas stories 0.5–0.7 e no Epic 1.
+
+**Verificação de artefato, não de exit code.** No estado limpo o `depcruise` reporta `0 modules, 0 dependencies cruised` — confirmando que o verde vem de **ausência de alvo**, não de análise bem-sucedida. Com as provas: `3 modules, 2 dependencies cruised`. Conferir a contagem é o que distingue "analisou e aprovou" de "não olhou".
+
+**`severity: warn` seria gate decorativo.** Regras `warn` do dependency-cruiser são impressas no relatório mas **não alteram o exit code**. Todas as quatro regras foram declaradas como `error`. É o quinto caso do mesmo modo de falha neste épico — junto com SonarCloud com 0% de cobertura, `coverage.reporters` plural do Vitest, `exit-code: 0` do Trivy e devDependencies ignoradas pelo Trivy. **Em todos, a configuração parecia correta e o gate não mordia.**
+
+**`exclude: '\\.test\\.ts$'` na config.** Arquivos de teste não fazem parte da arquitetura de produção e importam livremente entre camadas — sem essa exclusão, os próprios `.test.ts` das provas apareceriam como violação, poluindo o relatório com ruído.
+
+**pnpm removeu `minimist` órfão.** Ao instalar o dependency-cruiser, o pnpm reconciliou o lockfile e retirou o `minimist@1.2.0` que havia sobrado da prova da Story 0.3. Sem efeito colateral — apenas registrado para explicar a linha `- minimist 1.2.0` no output.
 
 ### Completion Notes List
 
+- **Task 1** — `dependency-cruiser@18.1.1`, script `arch`, config em `.dependency-cruiser.cjs` (CommonJS obrigatório, dado `"type": "module"`).
+- **Task 2** — quatro regras, todas `severity: error`: `no-domain-to-outer`, `no-application-to-adapters`, `no-cross-adapter` (com capturing group para comparar adapters distintos) e `no-circular`. `tsConfig` apontado, `tsPreCompilationDeps: true`, `doNotFollow: node_modules`, `exclude` dos testes.
+- **Task 3** — job `arch` no `ci.yml` com o preâmbulo dos jobs que precisam de Node. Sem `continue-on-error`. Total: **6 jobs** no CI.
+- **Task 4** — evidências abaixo.
+
+**AC #3 — prova local:**
+
+```
+error no-domain-to-outer:         src/domain/_prova-ad1.ts → src/adapters/persistence/_prova-repo.ts
+error no-application-to-adapters: src/application/_prova-app.ts → src/adapters/persistence/_prova-repo.ts
+
+x 2 dependency violations (2 errors, 0 warnings). 3 modules, 2 dependencies cruised.
+exit=2
+```
+
+**AC #3 — prova no CI** (PR #9, commit `0be3204`, run `31285571711`): job `arch` **fail** em 8s — [job 93173623927](https://github.com/alexandrehst/servicedesk/actions/runs/31285571711/job/93173623927).
+
+**AC #4 — isolamento:** localmente `lint=0`, `typecheck=0`, `test:coverage=0` com cobertura **100% (6/6)**. No CI, os cinco demais jobs verdes no mesmo commit.
+
+**Regras não exercitadas:** `no-cross-adapter` e `no-circular` foram declaradas mas **não provadas por violação deliberada** — exigiriam dois adapters e um ciclo, que não existem com `src/` vazio. Ficam para a retrospectiva do Epic 0 ou para a primeira story do Epic 1 que crie estrutura suficiente. **Registrado para não parecer verificado.**
+
 ### File List
+
+- `.dependency-cruiser.cjs` (novo)
+- `package.json` (modificado — devDependency + script `arch`)
+- `pnpm-lock.yaml` (modificado)
+- `.github/workflows/ci.yml` (modificado — job `arch`)
+- `_bmad-output/implementation-artifacts/0-4-fronteiras-da-arquitetura-dependency-cruiser.md` (modificado)
+- `_bmad-output/implementation-artifacts/0-3-seguranca-sast-sca-e-segredos.md` (modificado — status `done`)
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` (modificado)
+
+## Change Log
+
+| Data | Evento |
+|---|---|
+| 2026-08-08 | Tasks 1–3: dependency-cruiser, 4 regras do AD-1, job `arch` |
+| 2026-08-08 | PR #9 aberto |
+| 2026-08-08 | Commit `0be3204` com violações deliberadas → `arch` vermelho, 5 jobs verdes (ACs #3 e #4 satisfeitas) |
+| 2026-08-08 | Provas revertidas; story para `review` |
