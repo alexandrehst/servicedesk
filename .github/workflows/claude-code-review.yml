@@ -32,8 +32,17 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # Somente leitura: o review aponta, nao corrige.
-          claude_args: '--allowedTools Read,Grep,Glob --max-turns 30'
+          # O plugin fornece a mecanica de inline comments que o step
+          # `post-buffered-inline-comments` consome no fim do job. Sem ele o
+          # Claude analisa e NAO tem como reportar: comprovado no PR #12, onde
+          # rodou 8 turns, is_error false, e terminou em
+          # "No buffered inline comments".
+          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugins: 'code-review@claude-code-plugins'
+          # NAO restringir allowedTools aqui: a lista precisaria incluir as
+          # ferramentas de comentario do plugin, cujos nomes nao sao estaveis.
+          # `--allowedTools Read,Grep,Glob` deixou o revisor mudo no PR #12.
+          claude_args: '--max-turns 30'
           prompt: |
             Voce e o revisor dos PILARES DE JULGAMENTO do ServiceDesk, um service
             desk interno MCP-first com arquitetura hexagonal.
