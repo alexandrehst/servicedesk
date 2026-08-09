@@ -4,7 +4,7 @@ baseline_commit: 5b3d154af55dc91e7fc5ac60957cb9e1c3e11c7e
 
 # Story 0.3: Segurança — SAST, SCA e segredos
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

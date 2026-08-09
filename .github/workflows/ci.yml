@@ -90,6 +90,25 @@ jobs:
       - uses: davelosert/vitest-coverage-report-action@v2.12.2
         if: always() && github.event_name == 'pull_request'
 
+  # Fronteiras hexagonais (AD-1). Precisa de Node e das dependencias: o
+  # dependency-cruiser e um pacote npm e resolve imports via tsconfig.json.
+  arch:
+    name: arch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm arch
+
   # SCA — CVEs nas dependencias. Nao precisa de Node nem de `pnpm install`:
   # o Trivy le o pnpm-lock.yaml direto do disco.
   security-deps:
