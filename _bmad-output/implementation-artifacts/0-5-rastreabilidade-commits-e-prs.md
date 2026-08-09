@@ -4,7 +4,7 @@ baseline_commit: 247fafc02e567f4b22251e2e0436da80889ef7b7
 
 # Story 0.5: Rastreabilidade — commits e PRs
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
