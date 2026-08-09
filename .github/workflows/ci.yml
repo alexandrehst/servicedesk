@@ -2,6 +2,12 @@ name: CI
 
 on:
   pull_request:
+    # `edited` e obrigatorio por causa do job traceability. O default do
+    # GitHub e [opened, synchronize, reopened] — sem `edited`, bastava abrir
+    # o PR com titulo valido, esperar o verde, trocar o titulo por qualquer
+    # coisa e mergear: como o merge e squash, o titulo novo iria para a main
+    # sem passar por checagem nenhuma. O gate era contornavel em dois cliques.
+    types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
 
