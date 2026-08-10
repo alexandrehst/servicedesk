@@ -9,12 +9,12 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7).** **Stories 1.1 e 1.2 mergeadas.** Próximo: **Story 1.3** — autenticação e identidade.
+**Epic 0 completo (7/7).** **Stories 1.1, 1.2 e 1.3 mergeadas.** Próximo: **Story 1.4** — papéis e autorização.
 
 | Épico | Estado |
 | --- | --- |
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
-| Epic 1 — Fundação segura | 1.1 e 1.2 `done`; 1.3 a 1.9 `backlog` |
+| Epic 1 — Fundação segura | 1.1 a 1.3 `done`; 1.4 a 1.9 `backlog` |
 | Epics 2–4 | `backlog` |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
@@ -50,6 +50,13 @@ linhas) a primeira execução morreu em `error_max_turns` com 31 turns e o re-ru
 sem mudança nenhuma, terminou em 26. Teto subido para 60. Se falhar de novo por
 orçamento, **re-run antes de investigar** — pode ser só variação.
 
+**E tem um quarto modo de falha, visto no PR #31 (Story 1.3):** executa,
+conclui `is_error: false`, fica verde e **não comenta nada** — nem inline, nem
+geral, nem "nenhuma violação encontrada". Aconteceu duas vezes no mesmo PR (5
+turns/14 s e depois 1m42s), justamente no PR de autenticação. Verde do
+`claude-review` **não é evidência de que houve review**: confira
+`/pulls/N/comments` antes de tratá-lo como opinião.
+
 ## ⚠️ PRs do Dependabot abertos — NÃO mergear sem ler
 
 | PR | Proposta | Decisão do projeto |
@@ -63,6 +70,7 @@ orçamento, **re-run antes de investigar** — pode ser só variação.
 - Paradigma hexagonal; domínio é único ponto de mutação; MCP e API consomem a mesma camada.
 - Stack: Node **24**, PostgreSQL **18** (via Docker), `@modelcontextprotocol/server` **2.0.0**, Zod 4.4.3, Drizzle 0.45.2, pnpm 10.
 - Auth do review por IA: **token da assinatura** (`CLAUDE_CODE_OAUTH_TOKEN`), não créditos de API.
+- **Autenticação do produto (FR-19/Q7, decidida em 2026-08-10):** magic link por e-mail; sessão em tabela no Postgres com o token só em hash SHA-256; link de 15 min de uso único; sessão de 8 h. O papel vive em `users` e é lido a cada resolução. PRD e spine atualizados — a questão não está mais aberta.
 - Migração: número antigo entra como `numero_legado`; Número nativo sempre da sequence (AD-4).
 - `src/platform/` não é mencionado no AD-1. Adotado `[SUPOSIÇÃO]`: `domain` não importa dele; `application` e `adapters` podem. Ajuste vai na **spine primeiro**, não no `.dependency-cruiser.cjs`.
 
@@ -107,6 +115,27 @@ Mais um modo distinto: **gate correto no lugar errado** — `traceability` sem `
 - `await promessa.catch((e) => e as Error)` **não devolve `Error`**: devolve a união com a saída de sucesso, e `.message` não existe nela. Usar um helper que estreita com `ehDomainError` e falha quando não há erro.
 - Cobertura **global esconde arquivo descoberto**: 87,5% passava o gate de 80% com o adapter MCP em 72% e uma função sem nenhum teste. Ler a tabela por arquivo, não só o total.
 - Script de migration itera sobre `drizzle/migrations/*.sql` — nome fixo deixaria a `0002` fora do CI.
+
+## Padrão estabelecido pela Story 1.3 — copiar
+
+- **O principal vem de `McpDeps.autenticar`**, uma função resolvida a cada
+  chamada de tool. Resolver uma vez na montagem faria a expiração de 8 h não
+  ter efeito sobre uma conexão MCP longa.
+- **Autenticar antes do caso de uso.** Chamado gravado antes de saber o autor
+  violaria o AD-3 e ficaria no banco.
+- **Um erro só** (`CredencialInvalida`) para inexistente, expirado, usado,
+  vazio e usuário fora do cadastro — e um teste que varre a mensagem atrás das
+  palavras que distinguiriam os casos.
+- **Uso único é garantia do banco**, não da ordem do código:
+  `UPDATE ... WHERE usado_em IS NULL RETURNING`, com teste de duas trocas
+  simultâneas.
+- **Sessão não guarda papel** — `INNER JOIN users` na resolução faz
+  rebaixamento e remoção valerem na hora.
+- **Relógio injetado** (`agora: () => Date`): expiração testada sem `sleep`.
+- **`papelSchema.parse` em vez de `as`** em fronteira que decide visibilidade:
+  cast errado cai silencioso no ramo "não é agente".
+- **Contrato Zod sem teste fica com 0% e a média global esconde** — foi o que
+  aconteceu com `contracts/autenticacao.ts` (schemas usados só como tipo).
 
 ## Sem cobertura automática
 

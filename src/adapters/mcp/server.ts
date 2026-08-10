@@ -30,11 +30,17 @@ import { ehDomainError } from '../../domain/errors.js'
 export type McpDeps = {
   readonly repositorio: TicketRepository
   /**
-   * Autenticacao real e a Story 1.3. Ate la o principal vem de configuracao,
-   * mas JA no formato final — a 1.3 troca so a origem do valor, sem tocar em
-   * dominio, aplicacao nem persistencia.
+   * Story 1.3: onde antes havia um principal de configuracao, agora ha COMO
+   * obte-lo — tipicamente `resolverPrincipal(deps)(tokenDaSessao)`.
+   *
+   * A funcao e chamada a cada tool, nao uma vez na montagem do servidor: uma
+   * conexao MCP dura horas, e resolver uma unica vez faria a sessao de 8 horas
+   * valer para sempre depois de aberta. Se ela lanca, a tool nao executa.
+   *
+   * O que mudou foi so a ORIGEM do valor. Dominio, casos de uso e o
+   * repositorio de Chamados seguem exatamente como estavam.
    */
-  readonly principal: Omit<Principal, 'origin'>
+  readonly autenticar: () => Promise<Omit<Principal, 'origin'>>
 }
 
 /**
@@ -42,13 +48,15 @@ export type McpDeps = {
  * Sem isso, cobrir o caminho de erro exigiria subir um cliente MCP inteiro —
  * e o SDK nao expoe o callback registrado.
  */
-export const criarHandlerAbrirChamado = ({ repositorio, principal }: McpDeps) => {
+export const criarHandlerAbrirChamado = ({ repositorio, autenticar }: McpDeps) => {
   const executar = abrirChamado({ repositorio })
 
   return async (input: AbrirChamadoInput) => {
-    const autor: Principal = { ...principal, origin: 'mcp' }
-
     try {
+      // Autenticar PRIMEIRO: um Chamado gravado antes de saber quem o abriu
+      // ficaria no banco com autoria indefinida, contra o AD-3.
+      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }
+
       const saida = await executar(input, autor)
       return {
         content: [
@@ -72,13 +80,13 @@ export const criarHandlerAbrirChamado = ({ repositorio, principal }: McpDeps) =>
 }
 
 /** Handler da tool de leitura, extraido para ser testavel sem transporte. */
-export const criarHandlerVerChamado = ({ repositorio, principal }: McpDeps) => {
+export const criarHandlerVerChamado = ({ repositorio, autenticar }: McpDeps) => {
   const executar = verChamado({ repositorio })
 
   return async (input: VerChamadoInput) => {
-    const quem: Principal = { ...principal, origin: 'mcp' }
-
     try {
+      const quem: Principal = { ...(await autenticar()), origin: 'mcp' }
+
       const saida = await executar(input, quem)
       return {
         content: [

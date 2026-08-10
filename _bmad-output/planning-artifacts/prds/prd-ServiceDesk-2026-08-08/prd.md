@@ -191,7 +191,7 @@ O sistema envia e-mail ao Solicitante na abertura e na resolução do Chamado. R
 ### 4.6 Identidade e Papéis
 
 #### FR-19: Autenticação simples
-Usuários autenticam por login corporativo simples ou magic link por e-mail. `[SUPOSIÇÃO: sem SSO/AD no MVP]`
+Usuários autenticam por **magic link por e-mail** (decidido em 2026-08-10, Q7). `[SUPOSIÇÃO: sem SSO/AD no MVP]`
 **Consequências (testáveis):**
 - Sessão identifica unicamente o usuário para atribuição de autoria.
 
@@ -319,7 +319,7 @@ O sistema pode importar Chamados do software atual via CSV.
 4. Existe multa/carência na rescisão do contrato atual?
 5. Formato de export/migração do software contratado (FR-25).
 6. Meta concreta de % de Chamados operados via MCP (SM-4).
-7. Autenticação: magic link vs. login corporativo — qual no MVP (FR-19)?
+7. ~~Autenticação: magic link vs. login corporativo — qual no MVP (FR-19)?~~ **Respondida em 2026-08-10:** magic link por e-mail, sessão em tabela no Postgres (token só em hash), link de 15 min de uso único, sessão de 8 h. Implementada na Story 1.3.
 
 ## 14. Índice de Suposições
 
