@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "arch": "depcruise src --config .dependency-cruiser.cjs",
-    "commitlint": "commitlint"
+    "commitlint": "commitlint",
+    "db:migrate": "psql \"$DATABASE_URL\" -f drizzle/migrations/0001_inicial.sql"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",
@@ -26,5 +27,11 @@
     "dependency-cruiser": "18.1.1",
     "typescript": "5.9.3",
     "vitest": "4.1.10"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.0.0",
+    "drizzle-orm": "0.45.2",
+    "postgres": "3.4.9",
+    "zod": "4.4.3"
   }
 }

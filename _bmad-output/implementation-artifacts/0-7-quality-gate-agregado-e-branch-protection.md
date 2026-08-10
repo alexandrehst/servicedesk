@@ -4,7 +4,7 @@ baseline_commit: 4860b0d3b9732795a260e4fc814fc75dec33483e
 
 # Story 0.7: Quality gate agregado e branch protection
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 

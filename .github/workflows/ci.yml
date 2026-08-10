@@ -66,6 +66,26 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+    # A suite de integracao precisa de Postgres REAL: a sequence do Numero
+    # (AD-4) e a atomicidade da transacao (AD-3) nao sao mockaveis. Versao 18
+    # para casar com o compose.yaml local — divergencia de major entre local e
+    # CI seria falha silenciosa.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: servicedesk
+          POSTGRES_PASSWORD: servicedesk
+          POSTGRES_DB: servicedesk
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U servicedesk"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgres://servicedesk:servicedesk@localhost:5432/servicedesk
     steps:
       - uses: actions/checkout@v4
 
@@ -77,6 +97,9 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - name: aplicar migrations
+        run: pnpm db:migrate
 
       # Falha quando a cobertura fica abaixo do limite de 80%
       # (thresholds em vitest.config.ts).
