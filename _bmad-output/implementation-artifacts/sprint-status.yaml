@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-08
-last_updated: 2026-08-10 (epic 0 fechado; story 1.1 ready-for-dev)
+last_updated: 2026-08-10 (epic 0 completo; story 1.1 review)
 project: ServiceDesk
 project_key: NOKEY
 tracking_system: file-system
@@ -51,13 +51,13 @@ development_status:
   # ---------------------------------------------------------------
   # Epic 0: Governanca de CI & Guardrails (sprint 0 — o gateway)
   # ---------------------------------------------------------------
-  epic-0: in-progress
+  epic-0: done
   0-1-toolchain-base-e-pipeline-de-ci: done
   0-2-gate-de-cobertura-de-testes: done
   0-3-seguranca-sast-sca-e-segredos: done
   0-4-fronteiras-da-arquitetura-dependency-cruiser: done
   0-5-rastreabilidade-commits-e-prs: done
-  0-6-code-review-por-ia-claude-code: review
+  0-6-code-review-por-ia-claude-code: done
   0-7-quality-gate-agregado-e-branch-protection: done
   epic-0-retrospective: optional
 

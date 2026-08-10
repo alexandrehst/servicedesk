@@ -64,33 +64,38 @@ Todo código que chega à `main` precisa ser:
 | --- | --- | --- |
 | Funcional | `typecheck` (tsc strict) + `test` (Vitest) | — |
 | Testado | `test` — cobertura ≥ **80%** global, quatro métricas `[SUPOSIÇÃO: limite inicial 80%, ajustável]` | — |
-| Seguro | CodeQL + `security-deps` (Trivy, **inclui devDependencies**) + `security-secrets` (Gitleaks, histórico completo) | ⚠️ não comprovado |
-| Auditável | `traceability` (commitlint em commits **e no título do PR** + referência a Story/FR) + `lint` | ❌ **falhou no teste** |
-| Observável | *(nenhum)* | ❌ **falhou no teste** |
-| Escalável | `arch` (dependency-cruiser, AD-1) | ❌ **falhou no teste** |
-| Performático | *(nenhum)* | ❌ **falhou no teste** |
+| Seguro | CodeQL + `security-deps` (Trivy, **inclui devDependencies**) + `security-secrets` (Gitleaks, histórico completo) | não exercitado |
+| Auditável | `traceability` (commitlint em commits **e no título do PR** + referência a Story/FR) + `lint` | ✅ **comprovado** — apontou AD-3 |
+| Observável | *(nenhum)* | não exercitado |
+| Escalável | `arch` (dependency-cruiser, AD-1) | ✅ **comprovado** — apontou AD-2 |
+| Performático | *(nenhum)* | não exercitado |
 
 Agregado: `sonar` (SonarCloud via CI, consome o `lcov.info` do job `test`).
 
-### 3.1 O que NÃO está coberto — leitura honesta
+### 3.1 Cobertura dos pilares de julgamento
 
-O desenho original previa os quatro pilares de julgamento cobertos por
-"ferramenta **+** review por IA". Ao fim do Epic 0, a situação real é:
+`[CORRIGIDO 2026-08-10 — este texto afirmava o oposto; ver §4.1]`
 
-- **Escalável** tem cobertura parcial e determinística: o `arch` faz cumprir o
-  AD-1, mas acoplamento fora da direção de dependências não é verificado.
-- **Auditável** tem cobertura de *rastreabilidade* (commit e PR ligados a
-  Story/FR), mas **não** de auditoria em runtime: nada garante que uma mutação
-  de estado grave registro com autor e origem (AD-3, AD-9).
-- **Observável** e **Performático** não têm gate algum.
+O desenho previa os quatro pilares de julgamento cobertos por "ferramenta **+**
+review por IA". Situação verificada:
 
-O reforço por IA, que deveria fechar essa lacuna, **não está operante — mas
-por defeito de canal, não de detecção**. Ver §4.1 para o diagnóstico completo.
+- **Auditável** — cobertura em duas camadas. Determinística para
+  *rastreabilidade* (`traceability`: commit e PR ligados a Story/FR) e por IA
+  para *auditoria em runtime*: o review apontou uma mutação de estado sem
+  registro com autor e origem, citando o AD-3 e comparando com o handler
+  correto do repositório.
+- **Escalável** — `arch` faz cumprir a direção de dependências (AD-1), e o
+  review cobre o que ele não vê: apontou mutação fora do domínio (AD-2) e
+  validação ausente, comparando com o padrão estabelecido na Story 1.1.
+- **Observável** e **Performático** — sem gate determinístico. O review por IA
+  os cobre por prompt, mas **isso ainda não foi exercitado por violação
+  plantada**. Não confundir "instruído a olhar" com "provado que enxerga".
 
-**Consequência prática:** enquanto o canal não for consertado, para esses
-pilares a **revisão humana do PR é a camada real**, não um complemento. Isso
-pesa especialmente nas stories que tocam auditoria (1.8) e nas que copiam o
-padrão do tracer bullet.
+**Natureza do gate:** o review é **probabilístico**. Detectou com precisão nos
+casos testados, mas não há garantia de que sempre detectará. Ausência de
+comentário não é evidência de código correto — é reforço, não substituto da
+revisão humana. Essa distinção continua valendo; o que mudou é que o reforço
+existe de fato.
 
 ## 4. Review por IA (Claude Code)
 
@@ -108,9 +113,41 @@ A action **[anthropics/claude-code-action](https://github.com/anthropics/claude-
 
 ### 4.1 Limitações comprovadas
 
-**1. O review nunca conseguiu postar comentário neste repositório — defeito de
-canal, não de detecção.** `[DIAGNOSTICADO 2026-08-10, corrige conclusão
-anterior]`
+**1. RESOLVIDO — a ferramenta de comentário faltava em `allowedTools`.**
+`[2026-08-10]`
+
+O plugin `code-review` posta achados com
+`mcp__github_inline_comment__create_inline_comment` (confirmado no fonte, em
+`anthropics/claude-code/plugins/code-review/commands/code-review.md`). Essa
+ferramenta **precisa estar em `allowedTools`** — omitir a flag não libera
+tudo: em execução não interativa, ferramenta que escreve é negada por padrão.
+
+O sintoma estava no log desde sempre, num campo que não foi lido:
+`permission_denials_count` — 4 no teste de canal, e **10** depois de elevar
+`pull-requests` para `write`. Foi o *aumento* que revelou que as negações
+vinham do runtime do Claude Code, não do GitHub Actions.
+
+**Verificação (PR #23, run `31385030022`):** com a ferramenta permitida, o
+review postou **dois comentários inline** num arquivo com violações plantadas:
+
+| Linha | Achado |
+| --- | --- |
+| 31 | `[AD-3]` mutação de estado sem registro de auditoria, citando `abrir-chamado.ts:30` e `ticket-repository.ts:21-45` como o padrão correto |
+| 28 | `[AD-2]` mutação fora do domínio **— achado não plantado** —, notando ainda que `novaPrioridade` aceita qualquer string, sem `ehPrioridade` análogo ao `ehCategoria` de `domain/ticket.ts:22` |
+
+O segundo é o mais relevante: encontrou uma violação que **não fazia parte do
+experimento**, lendo o padrão que a Story 1.1 estabeleceu.
+
+**Erros encadeados que atrasaram este diagnóstico:** PR #11 restringiu
+`allowedTools` a `Read,Grep,Glob`, retirando a ferramenta; PR #13 removeu a
+flag inteira supondo que ausência de restrição fosse permissão total; PR #22
+elevou `pull-requests` para `write` — correto, mas insuficiente sozinho. Cada
+correção parecia plausível e nenhuma resolvia, porque se tratava o sintoma sem
+ler o número que apontava a causa. É o mesmo padrão que o Epic 0 combate —
+**verificar o artefato, não o exit code** — não aplicado à própria configuração.
+
+**Histórico do que cada observação realmente provava** (mantido como registro
+de como uma conclusão errada se sustentou por quatro experimentos):
 
 Histórico do que foi observado e do que cada observação realmente provava:
 
@@ -122,28 +159,15 @@ Histórico do que foi observado e do que cada observação realmente provava:
 | Story 1.1, código real (PR #17) | 4m38s, mudo | Hipótese "faltava contexto real" descartada |
 | Diagnóstico (run `31383183377`) | **28 turns**, `$0.705`, mudo | Ver abaixo |
 
-O diagnóstico foi desenhado para separar duas explicações que antes estavam
-confundidas. Duas mudanças: o prompt passou a **exigir comentário sempre**
-(*"se não encontrou violação, diga isso explicitamente"*), e o PR plantou
-**duas** violações — uma de pilar de julgamento (auditoria ausente) e um bug
-de correção óbvio (off-by-one).
+| Teste de canal (run `31383807624`) | prompt trivial, 5 turns, mudo, `permission_denials_count: 4` | primeira pista real da causa |
+| Teste final (run `31384461053`) | 26 turns, mudo, `permission_denials_count: **10**` | o aumento revelou: as negações eram do runtime, não do GitHub |
+| **Com a ferramenta em `allowedTools`** (run `31385030022`) | **2 comentários inline** | ✅ o gate funciona |
 
-Resultado: **28 turns de análise — 3,5× o custo das tentativas anteriores — e
-nem o comentário "nenhuma violação encontrada" foi postado.**
-
-Um modelo que analisa por 28 turns e desobedece uma instrução de output direta
-e trivial não está exercendo julgamento sobre o que vale reportar. **Ele não
-tem como escrever no PR.** A ferramenta de buffer que o entrypoint
-`post-buffered-inline-comments.ts` consome não está sendo alcançada.
-
-**O que isso invalida:** a afirmação de que "o review não detecta violações de
-pilar" **nunca foi testada**. Não houve observação possível de detecção, porque
-nenhuma saída chegou ao PR. A capacidade do gate segue **desconhecida**, não
-refutada.
-
-**O que permanece verdadeiro:** enquanto o canal não funcionar, os quatro
-pilares de julgamento não têm cobertura automática. A ação prática é a mesma —
-revisão humana —, mas a causa é outra, e a correção também.
+**A lição que fica:** durante quatro experimentos, "o review não comentou" foi
+lido como afirmação sobre a **capacidade do modelo**, quando era afirmação
+sobre a **configuração**. Ausência de evidência foi tratada como evidência de
+ausência, e a conclusão errada chegou a ser registrada em dois documentos do
+projeto.
 
 **2. Conclui `success` quando é pulado.** Se o PR modifica
 `.github/workflows/claude-code-review.yml`, a action se recusa a rodar
