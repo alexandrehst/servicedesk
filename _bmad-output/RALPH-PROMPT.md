@@ -28,7 +28,13 @@ uma volta interrompida.
 ```
 main atualizada  →  branch story/<chave>  →  bmad-create-story <n.n>
                  →  bmad-dev-story <arquivo>  →  PR  →  gate verde  →  merge
+                 →  rearma este prompt para a próxima story
 ```
+
+O último passo não é enfeite: **você não lembra desta volta**. O que a story
+mediu — armadilha nova, decisão tomada, modo de falha inédito do CI — só chega
+à próxima se estiver escrito **aqui**, na seção 6, num PR `docs:` separado.
+Toda story do Epic 1 foi fechada assim (PRs #36, #38, #40, #42).
 
 - Sempre parta da `main` atualizada (`git checkout main && git pull --ff-only`).
 - Nome da branch: `story/<chave-da-story>`, igual à chave do sprint-status.
@@ -113,15 +119,28 @@ pnpm db:migrate               # aplica TODAS as migrations, em ordem
 
 Se o daemon do Docker estiver parado, **isso é bloqueio** — veja a seção 5.
 
-#### Quando o `claude-review` falhar por `error_max_turns`
+#### Quando o `claude-review` falhar
 
-**Re-run antes de investigar.** O teto é 60 desde o PR #29, mas o check já se
-mostrou instável na margem: no PR #28 morreu com 31 turns e o re-run, sem
-mudança nenhuma, passou com 26. Só trate como bloqueio se falhar duas vezes.
+**Re-run antes de investigar, sempre.** O check é instável e já falhou de duas
+formas diferentes, ambas resolvidas por um re-run sem mudança nenhuma:
+
+| Sintoma no log | Onde | O que era |
+| --- | --- | --- |
+| `error_max_turns` | PR #28 | morreu com 31 turns; re-run passou com 26. Teto subido para 60 no #29 |
+| `subtype: success` **com** `is_error: true` | PR #41 | 42/60 turns e **16 `permission_denials`** — não é orçamento. O modelo insistiu em ferramenta fora da `allowedTools` até estourar. Re-run passou limpo |
+
+O segundo engana: o log diz `success` na mesma linha em que diz `is_error`.
+Olhe `num_turns` **e** `permission_denials_count` antes de concluir que é teto
+de turnos — se `num_turns` está longe de 60, não é.
 
 ```bash
 gh run rerun <run-id> --failed
+# a causa fica no JSON do resultado, não no ##[error]:
+gh api repos/alexandrehst/servicedesk/actions/jobs/<job-id>/logs \
+  | grep -E 'num_turns|is_error|permission_denials'
 ```
+
+Só trate como bloqueio se falhar **duas vezes**.
 
 ### 5. Quando bloquear
 
@@ -147,59 +166,74 @@ tomada por delegação. O que ele quer preservado é o registro, não a consulta
 que já foi feito, o que falta), rode `/ralph-loop:cancel-ralph` e encerre com
 um resumo do bloqueio.
 
-### 6. Atenção redobrada na Story 1.8
+### 6. Atenção redobrada na Story 1.9 — a última do Epic 1
 
-A 1.8 é **revisão do Log de auditoria / ações MCP**: um Agente ou Gestor
-consulta o histórico de um Chamado, vê autor, timestamp e `origin`, e consegue
-filtrar por `origin=mcp` para revisar o que a IA executou.
+A 1.9 é **abrir Chamado por e-mail**: o Solicitante manda uma mensagem para o
+endereço de suporte e um Chamado nasce, com Solicitante = remetente, Título =
+assunto, Descrição = corpo — e ele recebe o e-mail de abertura da 1.6 de volta.
 
-É a primeira **leitura nova** desde a 1.2 — e a primeira depois de o gargalo do
-domínio existir. Isso muda tudo sobre como ela deve ser escrita:
+Tudo que veio antes tratou de entradas **autenticadas por token**. Esta é a
+primeira escrita que chega de **fora**, por um canal que ninguém controla, e
+onde a identidade vem de um cabeçalho. É o ponto mais exposto do Epic 1:
 
-- **Passe pelo gargalo.** Toda leitura de Chamado sai por `visivelPara`
-  (Story 1.4), que já filtra alheio e excluído (1.7). O histórico é de um
-  Chamado: quem não pode ver o Chamado não pode ver o histórico dele. Se você
-  precisar reimplementar autorização aqui, parou no lugar errado.
-- **Cuidado com o que o Log revela.** `audit_entries` guarda identidade de
-  quem agiu. Um Solicitante que enxergasse o histórico veria nomes de Agentes e
-  o ritmo interno do time. O epics diz "Agente/Gestor" — decida se Solicitante
-  vê algo e **registre**; a matriz de `papeis.ts` é onde isso mora.
-- **O Log é append-only** (FR-22) e não tem soft-delete, por decisão da 1.7.
-  Nenhuma leitura pode sugerir que uma entrada seja editável.
-- **Ordem cronológica precisa de `ORDER BY` explícito**, com desempate — a
-  Story 1.2 provou isso inserindo fora de ordem.
-- **Datas em ISO 8601 UTC** no contrato de saída.
-- **Verifique por mutação**: remova o filtro de `origin` e confirme que um
-  teste reprova.
+- **O `From` é falsificável.** Sem SPF/DKIM verificados, "e-mail corporativo
+  reconhecido" é só uma string que combina com um domínio — qualquer um a
+  escreve. A AC diz "a origem é tratada com segurança"; decida **como** se
+  verifica o remetente e registre. Confiar na verificação do provedor de
+  recepção é resposta legítima; confiar no `From` cru não é.
+- **Passe pelo mesmo command.** A AC é explícita: o intake usa o command de
+  FR-1 (AD-2), não um caminho paralelo. O adapter de e-mail traduz mensagem em
+  entrada de comando e para por aí. Se você estiver inserindo em `tickets`
+  daqui, parou no lugar errado — é o mesmo erro que a 1.8 evitou na leitura.
+- **Qual é a `origin`?** `ORIGENS` tem `api` e `mcp`, e nenhuma das duas
+  descreve um e-mail. Graças à 1.8 isso agora é **uma linha no domínio** —
+  mas é uma decisão de AD-9, que existe para separar "humano via IA" de chamada
+  nativa. Decida, registre na spine, e lembre que `origin` novo é filtro novo
+  na 1.8.
+- **Quem é o principal?** Não há token. A abertura precisa de uma identidade
+  para a auditoria (AD-9) e para o `visivelPara` da 1.4 — derivada do
+  remetente, não um usuário genérico "e-mail", senão o Chamado não é de
+  ninguém e o Solicitante não vê o próprio.
+- **E-mail é entregue mais de uma vez.** Retry de servidor é normal; sem
+  deduplicação por `Message-ID`, um retry abre dois Chamados. É o caso de teste
+  que ninguém escreve e que aparece em produção.
+- **Remetente não reconhecido: recusa silenciosa.** Não responda ao endereço
+  para avisar — bounce automático a remetente forjado transforma o suporte em
+  amplificador de spam. Não criar e **não** responder.
+- **O envio fica fora da transação** (decisão da 1.6): o Chamado é gravado,
+  o e-mail sai depois. Falha de SMTP não pode desfazer abertura.
 
-**Uma dívida que esta story pode querer pagar:** o `audit_entries` tem
-`ticket_number` obrigatório, então ações que não são de Chamado — login,
-emissão e revogação de token de máquina — **não** estão auditadas. O
-`claude-review` levantou isso no PR #35 e ficou registrado como lacuna para a
-1.8 decidir. Não é obrigatório resolver aqui; é obrigatório **decidir
-conscientemente** e escrever a decisão.
+**A direção de entrada é decisão de infra em aberto** — IMAP com polling,
+webhook de provedor, ou pasta. A 1.6 resolveu a saída com Nodemailer/SMTP; a
+entrada não tem decisão registrada. **Decida pela melhor opção e registre**
+(seção 5): o que importa é que o teste não dependa de rede — o adapter tem que
+ser injetável como os outros.
 
-**O que a 1.7 acrescentou e vale daqui em diante:**
+**O que a 1.8 acrescentou e vale daqui em diante:**
 
-- **Garantia estrutural rende juros.** O filtro de excluídos entrou no gargalo
-  da 1.4 e toda leitura o herdou de graça. Antes de espalhar uma condição por
-  queries, procure o gargalo.
-- **Matriz de política na direção que obriga a decidir**
-  (`Record<Capacidade, Papel[]>`): capacidade nova sem política é erro de
-  compilação.
-- **Asserção contra o catálogo do banco** quando a AC é sobre schema — e prove
-  os dois lados, senão "não tem a coluna" passa com a migration ausente.
-- **Escrita que não aconteceu não vira auditoria.**
-- **Campo que só existe depois de persistir vai em `Ticket`, não em
-  `NovoTicket`.**
+- **A garantia decide onde o código mora.** `historicoVisivelPara` ficou em
+  `visibilidade.ts`, não em `auditoria.ts`, porque a chave que abre o `Bruto` é
+  um símbolo **não exportado** de lá. Mover a função exigiria um `abrirBruto`
+  público — e aí qualquer leitura poderia pular a autorização. Quando o desenho
+  empurrar o código para um módulo, **ouça**, não exporte a chave.
+- **Recorte de consulta desce ao SQL; decisão de quem enxerga, não** (AD-8). O
+  filtro de `origem` é o usuário pedindo um pedaço; a autorização é negócio. E
+  prove com teste que pedir um recorte não contorna a autorização.
+- **Conceito de negócio duplicado no contrato vai para o domínio** e o contrato
+  deriva — foi o que aconteceu com `ORIGENS`, como a 1.4 fez com `PAPEIS`.
+- **Desempate no `ORDER BY` não é paranoia:** a mutação e sua auditoria saem na
+  **mesma transação**, então timestamps iguais são o caso comum.
+- **Leitura não audita a si mesma** — o Log cresceria a cada revisão e quem
+  procurasse o que a IA fez encontraria, sobretudo, gente procurando.
 
 **E o de sempre:** atomicidade no banco com `Promise.all` no teste; erros só se
 separam quando a distinção ajuda quem tem direito; relógio injetado; cobertura
 lida **por arquivo**; mutação obrigatória com tabela no Dev Agent Record.
 
-**Sobre o `claude-review`:** revisou de verdade duas vezes em nove rodadas
-(#35 e #39), e nas duas levantou algo que virou registro — a auditoria de token
-no #35, o AD-7 no #39. Nas outras, silêncio verde. Sempre confira:
+**Sobre o `claude-review`:** revisou de verdade três vezes em dez rodadas
+(#35, #39 e #41), e nas três levantou algo que virou registro — a auditoria de
+token no #35, o AD-7 no #39, a fronteira recorte/autorização no #41. Nas
+outras, silêncio verde. Sempre confira:
 
 ```bash
 gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
@@ -209,6 +243,9 @@ gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
 
 Emita **`EPIC 1 COMPLETO`** — exatamente isso — somente quando **todas as nove
 stories** do Epic 1 estiverem `done` no `sprint-status.yaml`, com PRs mergeados.
+
+Se foi a **sua** volta que mergeou a 1.9, emita na mesma volta: com o Epic
+fechado não há próxima story para a seguinte encontrar.
 
 Não emita para escapar de um bloqueio. Bloqueio se resolve com a seção 5.
 
