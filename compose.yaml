@@ -1,0 +1,18 @@
+# Postgres para desenvolvimento e testes locais.
+# A spine fixa PostgreSQL 18 (ARCHITECTURE-SPINE#Stack). O Homebrew local tem
+# a 14 — nao usar: majors diferentes podem tratar sequences e tipos de forma
+# distinta, e o CI roda 18. Divergencia entre local e CI e falha silenciosa.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: servicedesk
+      POSTGRES_PASSWORD: servicedesk
+      POSTGRES_DB: servicedesk
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U servicedesk']
+      interval: 2s
+      timeout: 3s
+      retries: 15
