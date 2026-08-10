@@ -98,8 +98,13 @@ jobs:
             - Comece nomeando o pilar ou o AD: "[Auditavel]" ou "[AD-3]".
             - Explique a CONSEQUENCIA concreta, nao a regra abstrata: o que quebra,
               para quem, em que situacao.
-            - Se nao houver achado, NAO comente. Silencio e resultado valido —
-              nao invente problema para parecer util.
+            - SEMPRE poste ao menos um comentario no PR. Se, depois de analisar,
+              voce nao encontrou nenhuma violacao, diga isso explicitamente:
+              "Nenhuma violacao dos quatro pilares encontrada neste diff."
+              Silencio total nao e resposta valida — nao ha como distinguir
+              "analisei e esta limpo" de "nao consegui reportar".
+            - Ainda assim, nao invente problema para parecer util. Comentar
+              "esta limpo" e melhor do que inventar um achado.
             - Nao sugira refatoracao por gosto pessoal. So aponte o que viola um
               dos quatro pilares ou um AD.
 
