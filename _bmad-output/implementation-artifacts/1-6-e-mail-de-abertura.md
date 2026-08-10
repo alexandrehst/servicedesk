@@ -4,7 +4,7 @@ baseline_commit: 3cf5d75
 
 # Story 1.6: E-mail de abertura
 
-Status: review
+Status: done
 
 ## Story
 
@@ -275,6 +275,10 @@ o número parecia razoável e o que faltava era o caminho real.
    agora tem uma tabela a mais (`ticket_access_links`).
 5. **Ainda não há composition root**, então nada disso está ligado a um
    processo em execução.
+6. **O `claude-review` não comentou neste PR** (`/pulls/37/comments` vazio, 32 s
+   de job). Voltou ao silêncio depois de ter falado no #35 — segue
+   intermitente. Todos os achados desta story vieram das mutações, da cobertura
+   por arquivo e da releitura do próprio teste do adapter de e-mail.
 
 ### File List
 
@@ -303,3 +307,5 @@ o número parecia razoável e o que faltava era o caminho real.
 | 2026-08-10 | Task 7: 209 testes; cobertura 99,58% com todos os arquivos da story em 100% |
 | 2026-08-10 | Sete mutações aplicadas e reprovadas |
 | 2026-08-10 | Task 8: decisões registradas no PRD e na spine |
+| 2026-08-10 | PR #37: nove checks verdes; `claude-review` voltou a não comentar |
+| 2026-08-10 | PR #37 mergeado. Story `done` |

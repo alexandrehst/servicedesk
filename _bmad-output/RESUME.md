@@ -9,12 +9,12 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7).** **Stories 1.1 a 1.5 mergeadas.** Próximo: **Story 1.6** — e-mail de abertura.
+**Epic 0 completo (7/7).** **Stories 1.1 a 1.6 mergeadas.** Próximo: **Story 1.7** — soft-delete base.
 
 | Épico | Estado |
 | --- | --- |
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
-| Epic 1 — Fundação segura | 1.1 a 1.5 `done`; 1.6 a 1.9 `backlog` |
+| Epic 1 — Fundação segura | 1.1 a 1.6 `done`; 1.7 a 1.9 `backlog` |
 | Epics 2–4 | `backlog` |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
@@ -75,6 +75,8 @@ opinião. O que era "nunca reprovou nada" (Story 0.6) virou "nem fala mais".
 - Paradigma hexagonal; domínio é único ponto de mutação; MCP e API consomem a mesma camada.
 - Stack: Node **24**, PostgreSQL **18** (via Docker), `@modelcontextprotocol/server` **2.0.0**, Zod 4.4.3, Drizzle 0.45.2, pnpm 10.
 - Auth do review por IA: **token da assinatura** (`CLAUDE_CODE_OAUTH_TOKEN`), não créditos de API.
+- **E-mail (FR-18, decidido em 2026-08-10):** link do e-mail é magic link de acesso a **um** Chamado, **7 dias**, **reutilizável** (uso único seria hostil para quem abre o e-mail dias depois); transporte **Nodemailer/SMTP** configurável. O envio fica **fora** da transação do AD-3.
+- **Decisões abertas agora se resolvem por recomendação**, sem parar o loop: o dono delegou em 2026-08-10, depois de concordar com as três consultas anteriores. Registrar sempre no PRD, na spine e no Dev Agent Record. Risco externo (dinheiro, terceiros, apagar dado) continua exigindo confirmação.
 - **Segurança do adapter MCP (FR-21, decidida em 2026-08-10):** token de **máquina** separado da sessão humana, revogável, com identidade própria (é o que permite o AD-9 separar agente autônomo de "humano via IA"); **60 chamadas/minuto por identidade**; contador no Postgres. Prazo do token não foi decidido — `expira_em` aceita nulo.
 - **Autenticação do produto (FR-19/Q7, decidida em 2026-08-10):** magic link por e-mail; sessão em tabela no Postgres com o token só em hash SHA-256; link de 15 min de uso único; sessão de 8 h. O papel vive em `users` e é lido a cada resolução. PRD e spine atualizados — a questão não está mais aberta.
 - Migração: número antigo entra como `numero_legado`; Número nativo sempre da sequence (AD-4).
@@ -176,6 +178,22 @@ Mais um modo distinto: **gate correto no lugar errado** — `traceability` sem `
   sem nenhum teste vermelho.
 - **Limite é por identidade, nunca por conexão** (contornável) nem global
   (uma IA em loop derrubaria todo mundo).
+
+## Padrão estabelecido pela Story 1.6 — copiar
+
+- **I/O externo fica fora da transação.** E-mail dentro dela prenderia a linha
+  do Chamado e desfaria a escrita ao falhar.
+- **Falha de I/O externo não propaga e não some**: vira registro estruturado
+  via port `Logger`. Um `catch {}` vazio é violação direta do pilar Observável.
+- **Log em `stderr`, nunca `stdout`** — o transporte MCP é stdio e o stdout
+  carrega o protocolo.
+- **Dependência opcional em `Deps` quando o caso de uso continua correto sem
+  ela** (`notificacao?`), para não transformar conveniência em acoplamento.
+- **Teste que inspeciona efeito através da própria biblioteca costuma mentir**:
+  o primeiro teste do adapter de e-mail passaria sem enviar nada. Duble para
+  capturar; a biblioteca real num teste separado, só para validar o formato.
+- **Cobertura esconde o caminho de produção**: o `escrever` padrão do logger
+  estava descoberto enquanto o injetado nos testes estava coberto.
 
 ## Sem cobertura automática
 
