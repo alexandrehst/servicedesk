@@ -4,7 +4,7 @@ baseline_commit: e8caf8f
 
 # Story 1.2: Ver um Chamado via MCP
 
-Status: review
+Status: done
 
 ## Story
 
@@ -192,6 +192,26 @@ valor. Reescrito para provar o que de fato dá para provar: a **identidade**
 chega ao domínio, e a prova é comportamental (a mesma consulta muda de
 resultado conforme quem pergunta).
 
+**Um required check instável — modo de falha novo do `claude-review`.** No PR
+#28 a primeira execução morreu em `error_max_turns` (31 turns contra o teto de
+30, 224s, US$ 1,21). O re-run, **sem nenhuma mudança**, terminou em 26 turns e
+comentou normalmente. Mesmo diff, mesmo prompt, desfechos opostos: o merge
+passou a depender de sorte.
+
+Não é o silêncio da Story 0.6 nem o verde vazio quando o PR toca o próprio
+workflow. É um terceiro modo: o revisor **falha alto** por orçamento, o que é
+melhor que passar vazio, mas torna o gate não determinístico. Corrigido em PR
+separado — a Story 0.6 documentou que PR tocando o `claude-code-review.yml` faz
+a action pular o review e concluir **verde**, então a correção não podia vir
+junto com o código que ela precisava revisar.
+
+**O review rodou de verdade e não achou violação.** Dois comentários inline em
+`ver-chamado.ts`, ambos "Nenhuma violação dos quatro pilares encontrada neste
+diff", com raciocínio específico sobre a garantia estrutural do FR-13 (o port
+de leitura não expõe caminho de escrita). Diferente dos silêncios anteriores,
+aqui houve saída — mas segue sem ter reprovado nada, então o resultado da Story
+0.6 continua de pé: não é cobertura confiável dos pilares de julgamento.
+
 ### Completion Notes List
 
 - **Task 1** — migration `0002` com `comments` e índice `(ticket_number, criado_em)`. Escrita segue sendo a Story 2.1; aqui a thread é semeada direto na tabela pelo teste.
@@ -240,3 +260,6 @@ identidade deixa de ser confiável por construção.
 | 2026-08-10 | `typecheck` corrigido: `.catch((e) => e as Error)` devolvia união, não `Error` |
 | 2026-08-10 | Task 7: 6 testes de integração + 5 da tool MCP; cobertura 87,5% → 95,45% |
 | 2026-08-10 | Quatro mutações aplicadas e reprovadas — AC #1 a #5 verificadas |
+| 2026-08-10 | PR #28: nove checks verdes; `claude-review` falhou por `max-turns` e passou no re-run |
+| 2026-08-10 | PR #28 mergeado. Story `done` |
+| 2026-08-10 | `--max-turns` 30 → 60 em PR separado (tocar o workflow no mesmo PR daria verde vazio) |

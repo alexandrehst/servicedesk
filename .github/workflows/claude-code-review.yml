@@ -49,8 +49,17 @@ jobs:
           # permission_denials_count 4 e depois 10.
           # Nome confirmado no fonte do plugin code-review:
           # anthropics/claude-code/plugins/code-review/commands/code-review.md
+          # 30 turns era margem apertada demais, e o efeito nao e um review
+          # pior — e um required check INSTAVEL. No PR #28 (1015 linhas) a
+          # primeira execucao morreu em `error_max_turns` com 31 turns e o
+          # re-run, sem nenhuma mudanca, terminou em 26. Mesmo diff, mesmo
+          # prompt, desfechos opostos: o merge passou a depender de sorte.
+          #
+          # 60 nao aumenta o custo de um review que cabe em 26 — turns so sao
+          # gastos se usados. Ele so remove o teto de onde a variacao natural
+          # bate.
           claude_args: >-
-            --max-turns 30
+            --max-turns 60
             --allowedTools Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment
           prompt: |
             Voce e o revisor dos PILARES DE JULGAMENTO do ServiceDesk, um service
@@ -100,6 +109,10 @@ jobs:
             - segredos no codigo (job `security-secrets`, Gitleaks)
             - formato de mensagem de commit e titulo de PR (job `traceability`)
             - vulnerabilidades que o CodeQL ja reporta
+            - arquivos em `_bmad-output/**`: sao artefatos de planejamento e
+              registro de story, nao codigo. No PR #28 a story sozinha era 242
+              das 1015 linhas do diff, e nenhum pilar se aplica a prosa. Leia
+              se precisar de contexto; nao revise.
 
             ## Como reportar
 

@@ -9,12 +9,12 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7).** **Story 1.1 mergeada.** Próximo: **Story 1.2** — supervisionada, para validar o sandbox antes de ligar o loop.
+**Epic 0 completo (7/7).** **Stories 1.1 e 1.2 mergeadas.** Próximo: **Story 1.3** — autenticação e identidade.
 
 | Épico | Estado |
 | --- | --- |
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
-| Epic 1 — Fundação segura | 1.1 `done`; 1.2 a 1.9 `backlog` |
+| Epic 1 — Fundação segura | 1.1 e 1.2 `done`; 1.3 a 1.9 `backlog` |
 | Epics 2–4 | `backlog` |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
@@ -45,6 +45,11 @@ Mais CodeQL (não obrigatório: nomes gerados dinamicamente, um check que some t
 se for achado real, e só então resolva a thread via
 `gh api graphql ... resolveReviewThread`.
 
+**`claude-review` é instável na margem do `--max-turns`.** No PR #28 (1015
+linhas) a primeira execução morreu em `error_max_turns` com 31 turns e o re-run,
+sem mudança nenhuma, terminou em 26. Teto subido para 60. Se falhar de novo por
+orçamento, **re-run antes de investigar** — pode ser só variação.
+
 ## ⚠️ PRs do Dependabot abertos — NÃO mergear sem ler
 
 | PR | Proposta | Decisão do projeto |
@@ -74,6 +79,7 @@ se for achado real, e só então resolva a thread via
 | dependency-cruiser | `severity: warn` não altera exit code |
 | `claude-code-action` | pula o review e conclui `success` se o PR toca no próprio workflow |
 | `claude-code-action` | ferramenta de comentário ausente de `allowedTools` — **custou 4 diagnósticos errados** |
+| `psql -f` | **sai com código 0 mesmo com SQL quebrado** — exige `-v ON_ERROR_STOP=1` (Story 1.2) |
 
 Mais um modo distinto: **gate correto no lugar errado** — `traceability` sem `edited` no trigger era contornável editando o título do PR depois do verde.
 
@@ -93,6 +99,15 @@ Mais um modo distinto: **gate correto no lugar errado** — `traceability` sem `
 - Erros tipados com `code`, shape nascendo no domínio.
 - Teste de atomicidade **verificado por mutação**: remover a transação deve reprovar o teste.
 
+## Padrão estabelecido pela Story 1.2 — copiar
+
+- **Um erro só** para "não existe" e "não é seu". Mensagens distintas dariam um oráculo de existência sobre Números sequenciais. Testar comparando as duas, nunca cada uma isolada.
+- O adapter devolve dado **bruto**, inclusive o que o Solicitante não pode ver; quem filtra é o domínio (AD-8). É o que impede MCP e HTTP divergirem no que escondem.
+- Teste de ordenação insere os registros **fora de ordem** — em ordem, ele passaria pela ordem física do heap mesmo sem `ORDER BY`.
+- `await promessa.catch((e) => e as Error)` **não devolve `Error`**: devolve a união com a saída de sucesso, e `.message` não existe nela. Usar um helper que estreita com `ehDomainError` e falha quando não há erro.
+- Cobertura **global esconde arquivo descoberto**: 87,5% passava o gate de 80% com o adapter MCP em 72% e uma função sem nenhum teste. Ler a tabela por arquivo, não só o total.
+- Script de migration itera sobre `drizzle/migrations/*.sql` — nome fixo deixaria a `0002` fora do CI.
+
 ## Sem cobertura automática
 
 Os pilares **Observável** e **Performático** não têm gate determinístico e **nunca foram exercitados** por violação plantada. O review por IA os cobre por prompt, sem garantia. Detalhes em `QUALITY-GATE.md` §3.1.
@@ -108,9 +123,8 @@ Os pilares **Observável** e **Performático** não têm gate determinístico e 
 
 ## Próximas ações
 
-1. **Ativar `/sandbox`** (aba Mode → auto-allow). Config de domínios já em `.claude/settings.json`
-2. **Story 1.2 supervisionada** — valida se `git push` e Docker funcionam sob sandbox
-3. **Ligar o loop** para 1.3–1.9:
+1. **Sandbox: o socket do Docker segue bloqueado.** `docker ps` devolve `operation not permitted` mesmo com o `allowWrite` do `docker.sock` em `.claude/settings.json`. Na Story 1.2 foi contornado rodando os comandos de Docker e `git push` fora do sandbox. **Resolver antes de ligar o loop** — sem isso o loop trava na primeira migration
+2. **Ligar o loop** para 1.3–1.9:
    ```
    /ralph-loop:ralph-loop Leia e execute _bmad-output/RALPH-PROMPT.md --completion-promise 'EPIC 1 COMPLETO' --max-iterations 20
    ```
