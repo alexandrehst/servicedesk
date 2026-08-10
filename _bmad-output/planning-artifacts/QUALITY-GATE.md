@@ -84,15 +84,13 @@ O desenho original previa os quatro pilares de julgamento cobertos por
   de estado grave registro com autor e origem (AD-3, AD-9).
 - **Observável** e **Performático** não têm gate algum.
 
-O reforço por IA, que deveria fechar essa lacuna, **falhou no único teste
-controlado** (Story 0.6): um command handler mutando estado sem registro de
-auditoria passou pelo review sem comentário — com plugin carregado, ferramentas
-livres e prompt correto (run `31289868069`, 6 turns, `is_error: false`).
+O reforço por IA, que deveria fechar essa lacuna, **não está operante — mas
+por defeito de canal, não de detecção**. Ver §4.1 para o diagnóstico completo.
 
-**Consequência prática:** para esses pilares, a **revisão humana do PR é a
-camada real**, não um complemento. Isso pesa especialmente nas stories que
-tocam auditoria (1.8) e no tracer bullet (1.1), que define o padrão copiado
-pelas demais. Reavaliar na Story 1.1, com código real e contexto vizinho.
+**Consequência prática:** enquanto o canal não for consertado, para esses
+pilares a **revisão humana do PR é a camada real**, não um complemento. Isso
+pesa especialmente nas stories que tocam auditoria (1.8) e nas que copiam o
+padrão do tracer bullet.
 
 ## 4. Review por IA (Claude Code)
 
@@ -108,17 +106,50 @@ A action **[anthropics/claude-code-action](https://github.com/anthropics/claude-
   - *Trade-off aceito:* o review consome a **cota do plano Claude** do dono do projeto, que é compartilhada com o uso interativo. Em volume alto de PRs isso pode esbarrar em limite de uso — se acontecer, o caminho de volta é provisionar créditos de API e trocar o secret.
   - Com isso o gateway passa a ser **inteiramente sem custo incremental**.
 
-### 4.1 Limitações comprovadas (Story 0.6)
+### 4.1 Limitações comprovadas
 
-1. **Não apontou violação plantada.** Um command handler mutando estado sem
-   registro de auditoria (AD-3, AD-9) passou sem comentário, com plugin
-   carregado e prompt correto. O gate **não** substitui revisão humana para os
-   pilares de julgamento.
-2. **Conclui `success` quando é pulado.** Se o PR modifica
-   `.github/workflows/claude-code-review.yml`, a action se recusa a rodar
-   (proteção contra exfiltração de segredos) e **termina verde**. Como required
-   check, esses PRs satisfazem o gate automaticamente. Sem correção possível do
-   nosso lado — mitigação é revisar manualmente todo PR que toque nesse arquivo.
+**1. O review nunca conseguiu postar comentário neste repositório — defeito de
+canal, não de detecção.** `[DIAGNOSTICADO 2026-08-10, corrige conclusão
+anterior]`
+
+Histórico do que foi observado e do que cada observação realmente provava:
+
+| Tentativa | Resultado | Leitura correta |
+| --- | --- | --- |
+| PRs #2 a #17 (prompt padrão e customizado) | `No buffered inline comments` em ~12 runs | Nenhum comentário jamais saiu |
+| Story 0.6, violação plantada (run `31287913106`) | 8 turns, mudo | Eu havia removido o plugin e restringido `allowedTools` — erro meu |
+| Story 0.6, com plugin restaurado (run `31289868069`) | 6 turns, mudo | **Conclusão registrada na época: "o review não detecta". Estava mal fundamentada** |
+| Story 1.1, código real (PR #17) | 4m38s, mudo | Hipótese "faltava contexto real" descartada |
+| Diagnóstico (run `31383183377`) | **28 turns**, `$0.705`, mudo | Ver abaixo |
+
+O diagnóstico foi desenhado para separar duas explicações que antes estavam
+confundidas. Duas mudanças: o prompt passou a **exigir comentário sempre**
+(*"se não encontrou violação, diga isso explicitamente"*), e o PR plantou
+**duas** violações — uma de pilar de julgamento (auditoria ausente) e um bug
+de correção óbvio (off-by-one).
+
+Resultado: **28 turns de análise — 3,5× o custo das tentativas anteriores — e
+nem o comentário "nenhuma violação encontrada" foi postado.**
+
+Um modelo que analisa por 28 turns e desobedece uma instrução de output direta
+e trivial não está exercendo julgamento sobre o que vale reportar. **Ele não
+tem como escrever no PR.** A ferramenta de buffer que o entrypoint
+`post-buffered-inline-comments.ts` consome não está sendo alcançada.
+
+**O que isso invalida:** a afirmação de que "o review não detecta violações de
+pilar" **nunca foi testada**. Não houve observação possível de detecção, porque
+nenhuma saída chegou ao PR. A capacidade do gate segue **desconhecida**, não
+refutada.
+
+**O que permanece verdadeiro:** enquanto o canal não funcionar, os quatro
+pilares de julgamento não têm cobertura automática. A ação prática é a mesma —
+revisão humana —, mas a causa é outra, e a correção também.
+
+**2. Conclui `success` quando é pulado.** Se o PR modifica
+`.github/workflows/claude-code-review.yml`, a action se recusa a rodar
+(proteção contra exfiltração de segredos) e **termina verde**. Como required
+check, esses PRs satisfazem o gate automaticamente. Sem correção possível do
+nosso lado — mitigação é revisar manualmente todo PR que toque nesse arquivo.
 
 ## 5. Regra de merge (branch protection)
 
