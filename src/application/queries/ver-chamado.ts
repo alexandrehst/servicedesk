@@ -1,8 +1,4 @@
-import {
-  filtrarComentarios,
-  podeVerTicket,
-  ticketNaoEncontrado,
-} from '../../domain/visibilidade.js'
+import { ticketNaoEncontrado, visivelPara } from '../../domain/visibilidade.js'
 import type { Principal } from '../contracts/principal.js'
 import type { VerChamadoInput, VerChamadoOutput } from '../contracts/ver-chamado.js'
 import type { TicketRepository } from '../ports/ticket-repository.js'
@@ -25,15 +21,20 @@ export type VerChamadoDeps = {
 export const verChamado =
   ({ repositorio }: VerChamadoDeps) =>
   async (input: VerChamadoInput, quem: Principal): Promise<VerChamadoOutput> => {
-    const encontrado = await repositorio.buscarPorNumero(input.numero)
+    const bruto = await repositorio.buscarPorNumero(input.numero)
 
-    // Inexistente e alheio devolvem o MESMO erro. Distinguir os dois daria a
-    // quem perguntasse um oraculo de existencia — e o Numero e sequencial.
-    if (encontrado === null || !podeVerTicket(quem, encontrado.ticket)) {
+    // `visivelPara` e o unico jeito de abrir o que o port devolveu, e ele
+    // devolve `null` tanto para Chamado alheio quanto para ausente. Inexistente
+    // e alheio caem no MESMO erro por construcao, nao por disciplina de quem
+    // escreveu este handler — distinguir os dois daria um oraculo de
+    // existencia sobre Numeros sequenciais.
+    const visivel = bruto === null ? null : visivelPara(quem, bruto)
+
+    if (visivel === null) {
       throw ticketNaoEncontrado(input.numero)
     }
 
-    const { ticket, comentarios } = encontrado
+    const { ticket, comentarios } = visivel
 
     return {
       number: ticket.number,
@@ -44,7 +45,9 @@ export const verChamado =
       requester: ticket.requester,
       assignee: ticket.assignee,
       criadoEm: ticket.criadoEm.toISOString(),
-      comentarios: filtrarComentarios(quem, comentarios).map((c) => ({
+      // Ja filtrados por `visivelPara`: filtrar de novo aqui seria a mesma
+      // regra em dois lugares, e dois lugares divergem.
+      comentarios: comentarios.map((c) => ({
         autor: c.autor,
         corpo: c.corpo,
         internal: c.internal,

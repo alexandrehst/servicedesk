@@ -7,6 +7,15 @@ export default defineConfig({
     // Sem arquivos de teste o run deve falhar, nunca passar em silencio.
     passWithNoTests: false,
 
+    // Os testes de integracao dividem UM Postgres e truncam tabelas no
+    // beforeEach. Rodando em paralelo, um arquivo limpa a base do outro no meio
+    // da execucao — falha intermitente, o pior tipo. A Story 1.2 contornou
+    // juntando tudo num arquivo so, o que para de escalar assim que dois
+    // assuntos diferentes precisam das mesmas tabelas (foi o caso na 1.4).
+    // A suite inteira leva ~1s; serializar por arquivo custa pouco e elimina
+    // uma classe inteira de flakiness.
+    fileParallelism: false,
+
     coverage: {
       provider: 'v8',
 

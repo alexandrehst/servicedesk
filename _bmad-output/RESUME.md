@@ -9,12 +9,12 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7).** **Stories 1.1, 1.2 e 1.3 mergeadas.** Próximo: **Story 1.4** — papéis e autorização.
+**Epic 0 completo (7/7).** **Stories 1.1 a 1.4 mergeadas.** Próximo: **Story 1.5** — segurança do adapter MCP (token escopado + rate limit).
 
 | Épico | Estado |
 | --- | --- |
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
-| Epic 1 — Fundação segura | 1.1 a 1.3 `done`; 1.4 a 1.9 `backlog` |
+| Epic 1 — Fundação segura | 1.1 a 1.4 `done`; 1.5 a 1.9 `backlog` |
 | Epics 2–4 | `backlog` |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
@@ -50,12 +50,13 @@ linhas) a primeira execução morreu em `error_max_turns` com 31 turns e o re-ru
 sem mudança nenhuma, terminou em 26. Teto subido para 60. Se falhar de novo por
 orçamento, **re-run antes de investigar** — pode ser só variação.
 
-**E tem um quarto modo de falha, visto no PR #31 (Story 1.3):** executa,
-conclui `is_error: false`, fica verde e **não comenta nada** — nem inline, nem
-geral, nem "nenhuma violação encontrada". Aconteceu duas vezes no mesmo PR (5
-turns/14 s e depois 1m42s), justamente no PR de autenticação. Verde do
-`claude-review` **não é evidência de que houve review**: confira
-`/pulls/N/comments` antes de tratá-lo como opinião.
+**E tem um quarto modo de falha, visto a partir do PR #31 (Story 1.3):**
+executa, conclui `is_error: false`, fica verde e **não comenta nada** — nem
+inline, nem geral, nem "nenhuma violação encontrada". Já são **três PRs
+seguidos** assim (#31 em duas execuções, #32 e #33), incluindo as duas stories
+de fronteira de segurança do Epic 1. Verde do `claude-review` **não é evidência
+de que houve review**: confira `/pulls/N/comments` antes de tratá-lo como
+opinião. O que era "nunca reprovou nada" (Story 0.6) virou "nem fala mais".
 
 ## ⚠️ PRs do Dependabot abertos — NÃO mergear sem ler
 
@@ -136,6 +137,24 @@ Mais um modo distinto: **gate correto no lugar errado** — `traceability` sem `
   cast errado cai silencioso no ramo "não é agente".
 - **Contrato Zod sem teste fica com 0% e a média global esconde** — foi o que
   aconteceu com `contracts/autenticacao.ts` (schemas usados só como tipo).
+
+## Padrão estabelecido pela Story 1.4 — copiar
+
+- **Autorização é garantia do compilador, não disciplina.** O port devolve o
+  Chamado embrulhado (`ChamadoBruto`) e o conteúdo só sai por `visivelPara`; o
+  símbolo que guarda o dado **não é exportado**. Caso de uso que esqueça a
+  autorização não compila. Mesma ideia do `NovoTicket` sem `number` (1.1) e do
+  handler de leitura sem escrita (1.2).
+- **Capacidade por papel vive numa tabela** (`domain/papeis.ts`), com `switch`
+  exaustivo: papel novo sem política é erro de compilação; papel corrompido em
+  runtime **lança**, em vez de virar `false` silencioso.
+- **Garantia estrutural se prova com `@ts-expect-error`** — se o vazamento
+  virar compilável, o `typecheck` reprova com `TS2578`. É a única forma de um
+  gate verificar "isto não compila".
+- **`fileParallelism: false`** no Vitest: testes de integração dividem um
+  Postgres e truncam tabelas; em paralelo um limpa a base do outro.
+- **Uma lista, não três.** `papelSchema` deriva de `PAPEIS` do domínio — antes
+  eram domínio, contrato e banco divergindo sem que nada reprovasse.
 
 ## Sem cobertura automática
 

@@ -1,5 +1,5 @@
 import type { NovoTicket, Ticket } from '../../domain/ticket.js'
-import type { Comentario } from '../../domain/visibilidade.js'
+import type { ChamadoBruto } from '../../domain/visibilidade.js'
 import type { Principal } from '../contracts/principal.js'
 
 /**
@@ -22,9 +22,10 @@ export type TicketRepository = {
    * existe. A decisao de VISIBILIDADE nao acontece aqui — o adapter nao
    * conhece papel nem posse. Ele entrega o dado bruto e o dominio filtra
    * (AD-8). Assim MCP e HTTP nao podem divergir no que escondem.
+   *
+   * Story 1.4: o retorno e `ChamadoBruto`, e o conteudo dele so e alcancavel
+   * por `visivelPara` do dominio. Um caso de uso que esqueca a autorizacao nao
+   * compila — antes disso, o AD-8 dependia de quem escrevia lembrar.
    */
-  buscarPorNumero(numero: number): Promise<{
-    readonly ticket: Ticket
-    readonly comentarios: readonly Comentario[]
-  } | null>
+  buscarPorNumero(numero: number): Promise<ChamadoBruto | null>
 }
