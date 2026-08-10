@@ -16,7 +16,7 @@
     "test:coverage": "vitest run --coverage",
     "arch": "depcruise src --config .dependency-cruiser.cjs",
     "commitlint": "commitlint",
-    "db:migrate": "psql \"$DATABASE_URL\" -f drizzle/migrations/0001_inicial.sql"
+    "db:migrate": "for f in drizzle/migrations/*.sql; do echo \"-> $f\"; psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f \"$f\" || exit 1; done"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",

@@ -4,7 +4,7 @@ baseline_commit: e8caf8f
 
 # Story 1.2: Ver um Chamado via MCP
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -38,40 +38,40 @@ so that eu tenha o contexto completo antes de agir.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Tabela de Comentários** (AC: #1, #4)
-  - [ ] Migration `0002`: tabela `comments` com `ticket_number`, `autor`, `corpo`, `internal` (bool), `criado_em`
-  - [ ] Índice por `ticket_number`
-  - [ ] **Escrita de comentário é a Story 2.1** — aqui só a estrutura, para a leitura ter o que ler
+- [x] **Task 1 — Tabela de Comentários** (AC: #1, #4)
+  - [x] Migration `0002`: tabela `comments` com `ticket_number`, `autor`, `corpo`, `internal` (bool), `criado_em`
+  - [x] Índice por `ticket_number`
+  - [x] **Escrita de comentário é a Story 2.1** — aqui só a estrutura, para a leitura ter o que ler
 
-- [ ] **Task 2 — Domínio: regra de visibilidade** (AC: #3, #4)
-  - [ ] `podeVerTicket(principal, ticket)` — Agente vê todos; Solicitante só os próprios
-  - [ ] `filtrarComentarios(principal, comentarios)` — Solicitante não recebe internos
-  - [ ] Erro `TicketNaoEncontrado` — **um só**, usado tanto para inexistente quanto para não autorizado
-  - [ ] Funções puras, sem I/O
+- [x] **Task 2 — Domínio: regra de visibilidade** (AC: #3, #4)
+  - [x] `podeVerTicket(principal, ticket)` — Agente vê todos; Solicitante só os próprios
+  - [x] `filtrarComentarios(principal, comentarios)` — Solicitante não recebe internos
+  - [x] Erro `TicketNaoEncontrado` — **um só**, usado tanto para inexistente quanto para não autorizado
+  - [x] Funções puras, sem I/O
 
-- [ ] **Task 3 — Contrato e port** (AC: #1)
-  - [ ] `contracts/ver-chamado.ts`: input (`numero`) e output com datas como **string ISO**
-  - [ ] Port `buscarPorNumero(numero)` retornando ticket + comentários, ou `null`
+- [x] **Task 3 — Contrato e port** (AC: #1)
+  - [x] `contracts/ver-chamado.ts`: input (`numero`) e output com datas como **string ISO**
+  - [x] Port `buscarPorNumero(numero)` retornando ticket + comentários, ou `null`
 
-- [ ] **Task 4 — Query handler** (AC: #1..#5)
-  - [ ] `application/queries/ver-chamado.ts`
-  - [ ] Aplica visibilidade **no domínio**, não no adapter (AD-8)
-  - [ ] Converte datas para ISO 8601 UTC
-  - [ ] **Sem** escrita de auditoria — é leitura
+- [x] **Task 4 — Query handler** (AC: #1..#5)
+  - [x] `application/queries/ver-chamado.ts`
+  - [x] Aplica visibilidade **no domínio**, não no adapter (AD-8)
+  - [x] Converte datas para ISO 8601 UTC
+  - [x] **Sem** escrita de auditoria — é leitura
 
-- [ ] **Task 5 — Adapter de persistência** (AC: #1)
-  - [ ] `buscarPorNumero` com join/duas queries, comentários ordenados por `criado_em`
-  - [ ] **Sem** transação de escrita
+- [x] **Task 5 — Adapter de persistência** (AC: #1)
+  - [x] `buscarPorNumero` com join/duas queries, comentários ordenados por `criado_em`
+  - [x] **Sem** transação de escrita
 
-- [ ] **Task 6 — Tool MCP** (AC: #1, #2)
-  - [ ] `ver_chamado` derivando do contrato (AD-6)
-  - [ ] Erro de domínio → erro de tool, mesmo shape da Story 1.1
+- [x] **Task 6 — Tool MCP** (AC: #1, #2)
+  - [x] `ver_chamado` derivando do contrato (AD-6)
+  - [x] Erro de domínio → erro de tool, mesmo shape da Story 1.1
 
-- [ ] **Task 7 — Testes** (AC: #1..#5)
-  - [ ] Unidade: visibilidade por papel, filtro de internos
-  - [ ] Integração: chamado com comentários, ordem cronológica, datas ISO
-  - [ ] **Inexistente e alheio devolvem erro idêntico** — comparar as duas mensagens
-  - [ ] Verificar que **nenhuma linha nova** aparece em `audit_entries` após a leitura
+- [x] **Task 7 — Testes** (AC: #1..#5)
+  - [x] Unidade: visibilidade por papel, filtro de internos
+  - [x] Integração: chamado com comentários, ordem cronológica, datas ISO
+  - [x] **Inexistente e alheio devolvem erro idêntico** — comparar as duas mensagens
+  - [x] Verificar que **nenhuma linha nova** aparece em `audit_entries` após a leitura
 
 ## Dev Notes
 
@@ -144,8 +144,99 @@ Docker sob sandbox exigiu `sandbox.filesystem.allowWrite` para o
 
 ### Agent Model Used
 
+claude-opus-5
+
 ### Debug Log References
+
+**O `db:migrate` só aplicava a `0001` — e o CI chama exatamente ele.** O script
+era `psql -f drizzle/migrations/0001_inicial.sql`, com o nome do arquivo fixo.
+Com a `0002` no repositório, o job `test` teria subido sem a tabela `comments` e
+os testes de leitura falhariam no CI depois de passarem localmente. Trocado por
+um laço sobre `drizzle/migrations/*.sql`.
+
+**No mesmo lugar, uma falha silenciosa do tipo que o Epic 0 catalogou:** `psql
+-f` sai com **código 0 mesmo quando o SQL falha**. Medido com uma migration
+quebrada de propósito: `exit code SEM ON_ERROR_STOP: 0` contra `COM
+ON_ERROR_STOP: 1`. Sem a flag, uma migration errada passaria o `test` verde e
+só apareceria como teste falhando, longe da causa.
+
+**O commit `bc226a4` não passava no `typecheck`, apesar de a mensagem dizer que
+sim.** `await promessa.catch((e) => e as Error)` não devolve `Error`: devolve a
+**união** entre o erro e a saída de sucesso, e `.message` não existe nessa
+união. O `as` mente sobre o valor, não sobre o tipo do `Promise`. Verificado com
+`git stash` para separar o defeito herdado do meu trabalho. Substituído por um
+helper `erroDe` que estreita com `ehDomainError` e **falha explicitamente
+quando não há erro** — a versão anterior compararia dois `undefined` no dia em
+que a leitura parasse de lançar.
+
+**`criarHandlerVerChamado` estava sem um único teste.** A Task 6 constava
+implementada, mas as linhas 79–99 de `server.ts` apareciam descobertas no
+relatório de cobertura (adapter MCP em 72%). A média global escondia: 87,5% já
+passava do gate de 80%. Com os cinco testes da tool a cobertura foi para
+**95,45%** e o adapter MCP para 100%.
+
+**Os quatro testes novos foram verificados por mutação**, seguindo o que a
+Story 1.1 estabeleceu — teste que passa com o código quebrado não é prova:
+
+| Mutação aplicada | Reprovou |
+| --- | --- |
+| Remover o `ORDER BY` da leitura da thread | `ordem cronologica` |
+| Erro distinto para Chamado alheio (`'Sem permissao.'`) | `erro identico` (unidade **e** integração) |
+| Devolver `comentarios` sem `filtrarComentarios` | `Comentarios internos` (unidade **e** integração) |
+| Gravar `audit_entries` dentro de `buscarPorNumero` | `nao acrescenta linha em audit_entries` |
+
+**`origin` não é observável numa leitura.** O teste que eu tinha escrito para o
+adapter MCP afirmava carimbar `origin: 'mcp'`, mas numa leitura não há registro
+de auditoria para inspecionar (é o próprio FR-13) — ele passaria com qualquer
+valor. Reescrito para provar o que de fato dá para provar: a **identidade**
+chega ao domínio, e a prova é comportamental (a mesma consulta muda de
+resultado conforme quem pergunta).
 
 ### Completion Notes List
 
+- **Task 1** — migration `0002` com `comments` e índice `(ticket_number, criado_em)`. Escrita segue sendo a Story 2.1; aqui a thread é semeada direto na tabela pelo teste.
+- **Task 2** — `podeVerTicket` e `filtrarComentarios` puros; `ticketNaoEncontrado` é **um só** erro para inexistente e alheio.
+- **Task 3** — contrato com datas como **string ISO**; port devolve dado **bruto**, inclusive Comentário interno — quem filtra é o domínio (AD-8).
+- **Task 4** — query handler converte as datas e aplica visibilidade. Não recebe nada que permita escrever: a garantia do FR-13 é estrutural, não disciplina.
+- **Task 5** — `ORDER BY criado_em, id` explícito. O `id` desempata comentários com o mesmo instante, que sem ele voltariam em ordem arbitrária.
+- **Task 6** — `ver_chamado` derivando do contrato, com o mesmo shape de erro da 1.1 (`[code] mensagem` + `isError`).
+- **Task 7** — **56 testes** (eram 40), cobertura **95,45%**. Seis de integração contra Postgres real e cinco da tool MCP.
+
+**Sobre a AC #3 — comparar as mensagens.** As duas mensagens não podem ser
+comparadas cruas na integração: elas ecoam o Número, e um Número existente e um
+inexistente são diferentes por definição. Comparo `{name, code, message}` com o
+Número normalizado para `#N`. O Número não é vazamento — quem perguntou já o
+conhecia. Vazaria qualquer outra diferença, e é isso que a asserção trava.
+
+**Ordem cronológica provada de verdade.** Os comentários são inseridos **fora de
+ordem** (terceiro, primeiro, segundo). Inseridos em ordem, o teste passaria pela
+ordem física do heap mesmo sem `ORDER BY` — foi o que a mutação confirmou.
+
+**Não exercitado:** o adapter HTTP não existe, então "MCP e HTTP não divergem no
+que escondem" segue como intenção do desenho, não como fato verificado. A
+Story 1.3 troca o principal de configuração para autenticação real e é lá que a
+identidade deixa de ser confiável por construção.
+
 ### File List
+
+- `drizzle/migrations/0002_comentarios.sql` (novo)
+- `drizzle/schema.ts` (modificado — tabela `comments`)
+- `src/domain/visibilidade.ts` + teste (novos)
+- `src/domain/errors.ts` (modificado — code `TicketNaoEncontrado`)
+- `src/application/contracts/ver-chamado.ts` (novo)
+- `src/application/ports/ticket-repository.ts` (modificado — `buscarPorNumero`)
+- `src/application/queries/ver-chamado.ts` + teste (novos)
+- `src/adapters/persistence/ticket-repository.ts` + teste (modificados)
+- `src/adapters/mcp/server.ts` + teste (modificados)
+- `package.json` (modificado — `db:migrate` aplica todas as migrations)
+- `_bmad-output/implementation-artifacts/{1-2-...,sprint-status.yaml}` (modificados)
+
+## Change Log
+
+| Data | Evento |
+|---|---|
+| 2026-08-10 | Tasks 1–6: domínio, contrato, query, adapter e tool MCP (commit `bc226a4`) |
+| 2026-08-10 | `db:migrate` corrigido: aplicava só a `0001`, e sem `ON_ERROR_STOP` |
+| 2026-08-10 | `typecheck` corrigido: `.catch((e) => e as Error)` devolvia união, não `Error` |
+| 2026-08-10 | Task 7: 6 testes de integração + 5 da tool MCP; cobertura 87,5% → 95,45% |
+| 2026-08-10 | Quatro mutações aplicadas e reprovadas — AC #1 a #5 verificadas |

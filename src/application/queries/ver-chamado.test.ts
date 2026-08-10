@@ -1,4 +1,5 @@
 import { expect, it, vi } from 'vitest'
+import { type DomainError, ehDomainError } from '../../domain/errors.js'
 import type { Ticket } from '../../domain/ticket.js'
 import type { Comentario } from '../../domain/visibilidade.js'
 import type { Principal } from '../contracts/principal.js'
@@ -34,6 +35,23 @@ const thread: readonly Comentario[] = [
     criadoEm: new Date('2026-08-10T12:10:00.000Z'),
   },
 ]
+
+/**
+ * `.catch((e) => e)` devolveria a UNIAO entre o erro e a saida de sucesso, e o
+ * tipo nao teria `message`. Alem disso, um dia em que a leitura parasse de
+ * lancar, o teste compararia dois `undefined` e passaria. Aqui a ausencia de
+ * erro e uma falha explicita.
+ */
+const erroDe = async (promessa: Promise<unknown>): Promise<DomainError> => {
+  const resultado: unknown = await promessa.then(
+    () => null,
+    (e: unknown) => e,
+  )
+  if (!ehDomainError(resultado)) {
+    throw new Error(`Esperava um DomainError; veio: ${String(resultado)}`)
+  }
+  return resultado
+}
 
 const repo = (
   achado: { ticket: Ticket; comentarios: readonly Comentario[] } | null,
@@ -80,15 +98,15 @@ it('Solicitante nao recebe Comentario Interno', async () => {
  * diferenca e exatamente o vazamento.
  */
 it('inexistente e alheio produzem erro identico', async () => {
-  const inexistente = await verChamado({ repositorio: repo(null) })({ numero: 9999 }, carlos).catch(
-    (e) => e as Error,
+  const inexistente = await erroDe(
+    verChamado({ repositorio: repo(null) })({ numero: 9999 }, carlos),
   )
-  const alheio = await verChamado({ repositorio: repo({ ticket, comentarios: thread }) })(
-    { numero: 9999 },
-    carlos,
-  ).catch((e) => e as Error)
+  const alheio = await erroDe(
+    verChamado({ repositorio: repo({ ticket, comentarios: thread }) })({ numero: 9999 }, carlos),
+  )
 
   expect(alheio.message).toBe(inexistente.message)
+  expect(alheio.code).toBe(inexistente.code)
   expect(alheio.constructor).toBe(inexistente.constructor)
 })
 
