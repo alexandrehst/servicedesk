@@ -17,7 +17,11 @@ export type Papel = (typeof PAPEIS)[number]
  * Capacidades sao declaradas pelo que a pessoa VE, nao por nome de tela ou de
  * tool: "ve Comentario Interno" continua valendo quando a interface mudar.
  */
-export type Capacidade = 'veChamadoDeTerceiro' | 'veComentarioInterno' | 'excluiChamado'
+export type Capacidade =
+  | 'veChamadoDeTerceiro'
+  | 'veComentarioInterno'
+  | 'excluiChamado'
+  | 'veHistorico'
 
 /**
  * Quem pode o quê. `Record<Capacidade, ...>` é deliberado: o TypeScript exige
@@ -40,6 +44,9 @@ const QUEM_PODE: Record<Capacidade, readonly Papel[]> = {
   // Excluir e acao de quem atende (FR-23, Story 1.7). O Solicitante nao decide
   // que o proprio Chamado deixa de existir.
   excluiChamado: ['agente'],
+  // Ver o Chamado nao basta para ver o Log dele (Story 1.8): o historico expoe
+  // identidade de Agentes e o ritmo do time. Nem o dono do Chamado ve.
+  veHistorico: ['agente'],
 }
 
 export const pode = (papel: Papel, capacidade: Capacidade): boolean => {

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ORIGENS } from '../../domain/origem.js'
 import { PAPEIS } from '../../domain/papeis.js'
 
 /**
@@ -8,7 +9,8 @@ import { PAPEIS } from '../../domain/papeis.js'
  * A origem distingue "humano via IA" de chamada da API, o que e a diferenca
  * que o Log de auditoria precisa registrar.
  */
-export const origemSchema = z.enum(['api', 'mcp'])
+/** Deriva de `ORIGENS` do dominio (Story 1.8) — uma lista, nao duas. */
+export const origemSchema = z.enum(ORIGENS)
 export type Origem = z.infer<typeof origemSchema>
 
 /**

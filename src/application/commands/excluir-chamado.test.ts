@@ -36,6 +36,9 @@ const repositorio: TicketRepository = {
     excluidos.push({ numero, autor })
     return existente !== null && existente.excluidoEm === null
   },
+  async buscarHistoricoBruto() {
+    throw new Error('esta suite nao le historico')
+  },
 }
 
 const erroDe = async (promessa: Promise<unknown>): Promise<Error> => {
@@ -127,6 +130,9 @@ describe('caminho positivo (AC #1, #5)', () => {
       ...repositorio,
       async excluirComAuditoria() {
         return false
+      },
+      async buscarHistoricoBruto() {
+        throw new Error('esta suite nao le historico')
       },
     }
 

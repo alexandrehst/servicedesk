@@ -3,6 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { auditEntries, comments, tickets } from '../../../drizzle/schema.js'
 import type { Principal } from '../../application/contracts/principal.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
+import type { Origem } from '../../domain/origem.js'
 import type { Categoria, NovoTicket, Status, Ticket } from '../../domain/ticket.js'
 import { type Comentario, embrulharBruto } from '../../domain/visibilidade.js'
 
@@ -118,6 +119,50 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
    * auditoria para uma exclusao — foi o mesmo raciocinio do consumo do link de
    * login (Story 1.3).
    */
+  async buscarHistoricoBruto(numero: number, origem?: Origem) {
+    const [linha] = await db.select().from(tickets).where(eq(tickets.number, numero)).limit(1)
+
+    if (linha === undefined) {
+      return null
+    }
+
+    // ORDER BY explicito com desempate por `id`: sem ele o Postgres devolve na
+    // ordem fisica e o teste de cronologia passa por acaso — ate parar de
+    // passar (licao da Story 1.2). Duas acoes no mesmo instante existem: a
+    // exclusao e sua auditoria saem na mesma transacao.
+    const entradas = await db
+      .select()
+      .from(auditEntries)
+      .where(
+        origem === undefined
+          ? eq(auditEntries.ticketNumber, numero)
+          : and(eq(auditEntries.ticketNumber, numero), eq(auditEntries.origin, origem)),
+      )
+      .orderBy(asc(auditEntries.registradoEm), asc(auditEntries.id))
+
+    const ticket: Ticket = {
+      number: linha.number,
+      titulo: linha.titulo,
+      descricao: linha.descricao,
+      categoria: linha.categoria as Categoria,
+      status: linha.status as Status,
+      requester: linha.requester,
+      assignee: null,
+      criadoEm: linha.criadoEm,
+      excluidoEm: linha.deletedAt,
+    }
+
+    return embrulharBruto({
+      ticket,
+      entradas: entradas.map((e) => ({
+        acao: e.acao,
+        autor: e.autor,
+        origin: e.origin as Origem,
+        registradoEm: e.registradoEm,
+      })),
+    })
+  },
+
   async excluirComAuditoria(numero: number, autor: Principal): Promise<boolean> {
     return db.transaction(async (tx) => {
       const [linha] = await tx

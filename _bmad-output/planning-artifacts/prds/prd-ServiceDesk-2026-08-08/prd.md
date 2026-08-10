@@ -215,6 +215,7 @@ Cada cliente MCP autentica com token escopado por identidade e está sujeito a r
 Toda mudança em Chamado é registrada com autor e origem (UI ou MCP).
 **Consequências (testáveis):**
 - Registro append-only; distingue "humano via IA" de agente autônomo pela identidade do token.
+**Decidido em 2026-08-10 (Story 1.8):** o histórico de um Chamado é visível **só para Agente** — nem o Solicitante dono o vê, porque o Log expõe identidade de Agentes e o ritmo interno do time. Ações que **não** são de Chamado (login, emissão/revogação de token de máquina) seguem **fora** do Log: `audit_entries.ticket_number` é obrigatório, e alargá-lo misturaria log de negócio com log de segurança, que têm públicos e retenções diferentes. Se a necessidade aparecer, tabela separada.
 
 #### FR-23: Soft-delete
 Exclusões são lógicas (soft-delete), nunca físicas, no MVP.
