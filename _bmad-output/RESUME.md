@@ -9,12 +9,12 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7).** **Stories 1.1 a 1.4 mergeadas.** Próximo: **Story 1.5** — segurança do adapter MCP (token escopado + rate limit).
+**Epic 0 completo (7/7).** **Stories 1.1 a 1.5 mergeadas.** Próximo: **Story 1.6** — e-mail de abertura.
 
 | Épico | Estado |
 | --- | --- |
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
-| Epic 1 — Fundação segura | 1.1 a 1.4 `done`; 1.5 a 1.9 `backlog` |
+| Epic 1 — Fundação segura | 1.1 a 1.5 `done`; 1.6 a 1.9 `backlog` |
 | Epics 2–4 | `backlog` |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
@@ -52,9 +52,9 @@ orçamento, **re-run antes de investigar** — pode ser só variação.
 
 **E tem um quarto modo de falha, visto a partir do PR #31 (Story 1.3):**
 executa, conclui `is_error: false`, fica verde e **não comenta nada** — nem
-inline, nem geral, nem "nenhuma violação encontrada". Já são **três PRs
-seguidos** assim (#31 em duas execuções, #32 e #33), incluindo as duas stories
-de fronteira de segurança do Epic 1. Verde do `claude-review` **não é evidência
+inline, nem geral, nem "nenhuma violação encontrada". Já são **cinco PRs
+seguidos** assim (#31 em duas execuções, #32, #33, #34 e #35), atravessando as
+três stories de fronteira de segurança do Epic 1. Verde do `claude-review` **não é evidência
 de que houve review**: confira `/pulls/N/comments` antes de tratá-lo como
 opinião. O que era "nunca reprovou nada" (Story 0.6) virou "nem fala mais".
 
@@ -71,6 +71,7 @@ opinião. O que era "nunca reprovou nada" (Story 0.6) virou "nem fala mais".
 - Paradigma hexagonal; domínio é único ponto de mutação; MCP e API consomem a mesma camada.
 - Stack: Node **24**, PostgreSQL **18** (via Docker), `@modelcontextprotocol/server` **2.0.0**, Zod 4.4.3, Drizzle 0.45.2, pnpm 10.
 - Auth do review por IA: **token da assinatura** (`CLAUDE_CODE_OAUTH_TOKEN`), não créditos de API.
+- **Segurança do adapter MCP (FR-21, decidida em 2026-08-10):** token de **máquina** separado da sessão humana, revogável, com identidade própria (é o que permite o AD-9 separar agente autônomo de "humano via IA"); **60 chamadas/minuto por identidade**; contador no Postgres. Prazo do token não foi decidido — `expira_em` aceita nulo.
 - **Autenticação do produto (FR-19/Q7, decidida em 2026-08-10):** magic link por e-mail; sessão em tabela no Postgres com o token só em hash SHA-256; link de 15 min de uso único; sessão de 8 h. O papel vive em `users` e é lido a cada resolução. PRD e spine atualizados — a questão não está mais aberta.
 - Migração: número antigo entra como `numero_legado`; Número nativo sempre da sequence (AD-4).
 - `src/platform/` não é mencionado no AD-1. Adotado `[SUPOSIÇÃO]`: `domain` não importa dele; `application` e `adapters` podem. Ajuste vai na **spine primeiro**, não no `.dependency-cruiser.cjs`.
@@ -155,6 +156,22 @@ Mais um modo distinto: **gate correto no lugar errado** — `traceability` sem `
   Postgres e truncam tabelas; em paralelo um limpa a base do outro.
 - **Uma lista, não três.** `papelSchema` deriva de `PAPEIS` do domínio — antes
   eram domínio, contrato e banco divergindo sem que nada reprovasse.
+
+## Padrão estabelecido pela Story 1.5 — copiar
+
+- **Contadores e credenciais são atômicos no banco**:
+  `INSERT ... ON CONFLICT DO UPDATE ... RETURNING`. `SELECT`-e-`UPDATE`
+  afrouxaria o limite exatamente sob concorrência.
+- **Teste de concorrência exige `Promise.all`** — em sequência, o código
+  não-atômico passa.
+- **Erros só se separam quando a distinção ajuda quem tem direito.**
+  `LimiteExcedido` ≠ `CredencialInvalida` porque quem bateu no limite já provou
+  quem é; dentro de "credencial ruim", tudo continua indistinguível.
+- **Defesa que devolveria zero em silêncio precisa lançar.** No UPSERT do
+  contador, um retorno vazio tratado como `0` desligaria o rate limit inteiro
+  sem nenhum teste vermelho.
+- **Limite é por identidade, nunca por conexão** (contornável) nem global
+  (uma IA em loop derrubaria todo mundo).
 
 ## Sem cobertura automática
 

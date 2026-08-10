@@ -4,7 +4,7 @@ baseline_commit: 9ee7b49
 
 # Story 1.5: Segurança do adapter MCP (token escopado + rate limit)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -304,7 +304,11 @@ passaria — mesma armadilha que a Story 1.3 documentou para o uso único do lin
 5. **Ainda não há composition root.** Nem `autenticar` nem `limitarChamadas`
    estão ligados a um servidor em execução; o que existe é a estrutura e a prova
    em teste.
-6. **`claude-review` mudo** — ver a nota do PR.
+6. **`claude-review` mudo pelo quinto PR seguido.** No PR #35 passou verde em
+   48 s com zero comentários. A sequência agora é #31 (duas execuções), #32,
+   #33, #34 e #35 — atravessando as três stories de fronteira de segurança do
+   Epic 1. Nenhum achado desta story veio dele: saíram das mutações, da leitura
+   da cobertura por arquivo e da releitura própria.
 
 ### File List
 
@@ -332,3 +336,5 @@ passaria — mesma armadilha que a Story 1.3 documentou para o uso único do lin
 | 2026-08-10 | Task 6: 172 testes; cobertura 99,5% com todos os arquivos da story em 100% |
 | 2026-08-10 | Sete mutações aplicadas e reprovadas |
 | 2026-08-10 | Task 7: decisão de FR-21 registrada no PRD e na spine |
+| 2026-08-10 | PR #35: nove checks verdes; `claude-review` mudo pelo quinto PR seguido |
+| 2026-08-10 | PR #35 mergeado. Story `done` |
