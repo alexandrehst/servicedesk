@@ -9,12 +9,12 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7).** **Stories 1.1 a 1.6 mergeadas.** Próximo: **Story 1.7** — soft-delete base.
+**Epic 0 completo (7/7).** **Stories 1.1 a 1.7 mergeadas.** Próximo: **Story 1.8** — revisão do Log de auditoria / ações MCP.
 
 | Épico | Estado |
 | --- | --- |
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
-| Epic 1 — Fundação segura | 1.1 a 1.6 `done`; 1.7 a 1.9 `backlog` |
+| Epic 1 — Fundação segura | 1.1 a 1.7 `done`; 1.8 e 1.9 `backlog` |
 | Epics 2–4 | `backlog` |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
@@ -178,6 +178,22 @@ Mais um modo distinto: **gate correto no lugar errado** — `traceability` sem `
   sem nenhum teste vermelho.
 - **Limite é por identidade, nunca por conexão** (contornável) nem global
   (uma IA em loop derrubaria todo mundo).
+
+## Padrão estabelecido pela Story 1.7 — copiar
+
+- **Garantia estrutural rende juros.** O filtro de excluídos entrou no gargalo
+  da 1.4 (`visivelPara`) e **toda** leitura o herdou — inclusive as que ainda
+  não existem. Antes de espalhar uma condição por queries, procure o gargalo.
+- **Campo que só existe depois de persistir vai em `Ticket`, não em
+  `NovoTicket`** — mesma ideia do `number` (AD-4).
+- **Matriz de política na direção que obriga a decidir:**
+  `Record<Capacidade, Papel[]>` faz capacidade nova sem política virar erro de
+  compilação. A direção oposta a deixaria cair em "ninguém pode", silenciosa.
+- **Asserção contra o catálogo do banco** quando a AC é sobre o schema —
+  verificar o próprio `schema.ts` é verificar a si mesmo. E prove os dois
+  lados: "não tem a coluna" passa com a migration inteira ausente.
+- **Escrita que não aconteceu não vira auditoria** — registrar exclusão que
+  falhou poluiria o Log com evento falso.
 
 ## Padrão estabelecido pela Story 1.6 — copiar
 

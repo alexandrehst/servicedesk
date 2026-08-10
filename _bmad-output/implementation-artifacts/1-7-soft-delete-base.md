@@ -4,7 +4,7 @@ baseline_commit: 3d52b35
 
 # Story 1.7: Soft-delete base
 
-Status: review
+Status: done
 
 ## Story
 
@@ -267,7 +267,20 @@ inteira ausente.
    manual. É consequência esperada de "base"; a 4.3 é dona disso.
 4. **Nenhuma política de retenção**: excluídos ficam para sempre, junto com as
    tabelas de credencial que já acumulam desde a 1.3.
-5. **O `claude-review` continua intermitente** — ver a nota do PR.
+5. **AD-7 (confirmação para ação irreversível) não foi aplicado, e isso tem
+   prazo de validade.** O `claude-review` levantou o ponto no PR #39 e o
+   descartou com razão para **esta** story: o FR-15 escopa "Ação irreversível"
+   a `fechar`/`cancelar`/`reabrir`, e aqui não há tool MCP nem rota de
+   exclusão. Mas a exclusão **é** irreversível na prática enquanto não houver
+   restauração (Story 4.3). No dia em que a 4.3 expuser a exclusão por alguma
+   superfície, o AD-7 passa a valer — está anotado aqui para que essa decisão
+   não seja tomada por omissão.
+
+6. **O `claude-review` revisou de verdade neste PR.** 5m44s de execução, um
+   comentário específico por pilar, com referência a arquivo e linha. É a
+   segunda vez em nove rodadas (a outra foi o #35). O silêncio segue
+   intermitente, mas quando ele fala, fala com conteúdo — e nas duas vezes
+   levantou algo que virou registro.
 
 ### File List
 
@@ -297,3 +310,5 @@ inteira ausente.
 | 2026-08-10 | Task 5: 235 testes; cobertura 99,62% |
 | 2026-08-10 | Sete mutações aplicadas e reprovadas |
 | 2026-08-10 | Task 6: decisões registradas no PRD e na spine |
+| 2026-08-10 | PR #39: nove checks verdes; `claude-review` revisou de verdade e levantou o AD-7 |
+| 2026-08-10 | PR #39 mergeado. Story `done` |
