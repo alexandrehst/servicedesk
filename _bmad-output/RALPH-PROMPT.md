@@ -131,83 +131,78 @@ são sequenciais e a seguinte depende do padrão que a anterior estabelece.
 Situações de bloqueio:
 
 - Docker parado (exige ação humana)
-- Uma AC exige decisão de produto ou de arquitetura que não está no PRD nem na
-  spine
 - Check vermelho que você não conseguiu corrigir em **3 tentativas**
 - Qualquer coisa que exigiria contornar o gate
+- Risco externo: gastar dinheiro, mexer com terceiros, apagar dado
+
+**Decisão de produto ou arquitetura ausente NÃO é mais bloqueio.** Em
+2026-08-10, depois de concordar com as recomendações nas Stories 1.3, 1.5 e
+1.6, o dono do projeto delegou: *"vou concordar com as suas recomendações, não
+precisa me perguntar"*. Então **decida pela melhor opção e siga** — registrando
+a decisão e o porquê no PRD, na spine e no Dev Agent Record, marcada como
+tomada por delegação. O que ele quer preservado é o registro, não a consulta.
 
 **Como parar:** escreva o motivo em
 `_bmad-output/implementation-artifacts/LOOP-BLOQUEADO.md` (o quê, por quê, o
 que já foi feito, o que falta), rode `/ralph-loop:cancel-ralph` e encerre com
 um resumo do bloqueio.
 
-### 6. Atenção redobrada na Story 1.6
+### 6. Atenção redobrada na Story 1.7
 
-A 1.6 é **e-mail de abertura** (FR-18). Ela é a primeira story do Epic 1 que
-não é fronteira de segurança — o cuidado muda de lugar.
+A 1.7 é **soft-delete base** (FR-23, AD-3): exclusão vira marcação, nunca
+`DELETE`. É uma story curta com uma armadilha grande.
 
-**O que verificar antes de começar:**
+**A armadilha:** acrescentar `deleted_at` nas tabelas é a parte fácil. O que
+decide se a story presta é **quem passa a filtrar** — e hoje há caminhos de
+leitura que não sabem que a coluna existe (`buscarPorNumero`, a thread de
+Comentários) e outros que virão no Epic 3 (fila, busca, resumo). Um filtro
+esquecido devolve Chamado excluído; um filtro duplicado em SQL **e** no domínio
+diverge no dia em que um dos dois mudar.
 
-1. **O provedor de e-mail não está decidido.** A spine lista "Nodemailer ou
-   serviço SMTP/Resend" como alternativas, e o PRD só diz "SMTP/serviço". Isso
-   é escolha técnica, não política de segurança: dá para entregar o adapter
-   contra um port com configuração por ambiente, sem inventar contrato de
-   produto. **Mas não há credencial de SMTP neste ambiente**, então o envio
-   real não é verificável aqui — o que for entregue precisa dizer isso no Dev
-   Agent Record em vez de fingir que foi testado.
-2. **FR-18 diz que o e-mail leva "Número, Status e link", e que o link também
-   dá acesso no portal.** O portal é Fase 1.5 e não existe. Se a AC exigir
-   decidir o que esse link é — um magic link de acesso ao Chamado? um link
-   morto? — **isso é decisão de produto** e cai na seção 5.
-3. **O port de e-mail já existe pela metade.** A Story 1.3 criou
-   `NotificadorDeLogin` em `application/ports/`, com implementação real adiada
-   justamente para a 1.6. Estenda ou unifique — **não** crie um segundo port
-   paralelo que faça a mesma coisa.
+O projeto já resolveu esse tipo de problema quatro vezes, sempre do mesmo jeito:
+**torne impossível esquecer, em vez de lembrar**. `NovoTicket` sem `number`
+(1.1), handler de leitura sem caminho de escrita (1.2), `ChamadoBruto` que só
+abre por `visivelPara` (1.4). Procure a forma equivalente aqui antes de sair
+espalhando `WHERE deleted_at IS NULL`.
 
-**O padrão que vale para toda story daqui em diante:**
+- **Excluído e inexistente devem ser indistinguíveis** para quem consulta —
+  mesmo `TicketNaoEncontrado`, pelo motivo da 1.2 (Números são sequenciais).
+- **Soft-delete não pode apagar rastro de auditoria** (FR-23 existe justamente
+  para isso). `audit_entries` **não** ganha soft-delete: ela é append-only.
+- **Quem pode excluir?** O epics não diz. Decida pela recomendação (Agente, não
+  Solicitante, é o palpite coerente com FR-20) e registre — não bloqueie.
+- **Verifique por mutação**: remova o filtro de excluídos e confirme que um
+  teste reprova.
 
-- **Torne impossível o que hoje é lembrado.** Três vezes o projeto trocou
-  disciplina por garantia do compilador: `NovoTicket` sem `number` (1.1),
-  handler de leitura sem caminho de escrita (1.2), `ChamadoBruto` que só abre
-  por `visivelPara` (1.4). Prove com `@ts-expect-error` — se o vazamento virar
-  compilável, o `typecheck` reprova com `TS2578`.
-- **Atomicidade mora no banco**, não na ordem do código:
-  `UPDATE ... WHERE ... RETURNING` (1.3) e
-  `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` (1.5). Teste de
-  concorrência exige `Promise.all` — em sequência o código errado passa.
-- **Erros só se separam quando a distinção ajuda quem tem direito.**
-  `TicketNaoEncontrado` cobre inexistente e alheio (1.2); `CredencialInvalida`
-  cobre todo modo de falha de credencial (1.3, 1.5); `LimiteExcedido` é
-  separado porque quem bateu no limite já provou quem é (1.5).
-- **Defesa que devolveria zero em silêncio precisa lançar** — no UPSERT do
-  contador, um retorno vazio tratado como `0` desligaria o rate limit inteiro
-  sem nenhum teste vermelho.
-- **Decisão que se repete vira tabela** com `switch` exaustivo
-  (`domain/papeis.ts`): caso novo sem política é erro de compilação.
-- **Relógio injetado** para qualquer regra de tempo; `fileParallelism: false`
-  porque os testes de integração dividem um Postgres.
-- **Cobertura se lê por arquivo.** Já escondeu um adapter em 72% (1.2), um
-  contrato Zod em 0% (1.3), um ramo de defesa em 71% (1.4) e o `throw` do
-  UPSERT em 83% (1.5). O total nunca contou essa história.
-- **Verifique por mutação** e registre a tabela no Dev Agent Record.
+**O que a 1.6 acrescentou e vale daqui em diante:**
 
-**Sobre o `claude-review`:** ele ficou mudo em cinco rodadas seguidas (#31 duas
-vezes, #32, #33, #34 e a primeira do #35) e **voltou a comentar** no commit
-seguinte do #35, com raciocínio específico. O silêncio é intermitente. Verde
-continua não sendo evidência de review — confira antes de tratá-lo como
-opinião:
+- **I/O externo fica fora da transação**, e sua falha não propaga nem some:
+  vira registro estruturado no `Logger` (`platform/logging`).
+- **Log em `stderr`**, nunca `stdout` — o transporte MCP é stdio.
+- **Dependência opcional em `Deps`** quando o caso de uso continua correto sem
+  ela (`notificacao?`), para não transformar conveniência em acoplamento.
+- **Teste que inspeciona efeito através da própria biblioteca costuma mentir.**
+  O primeiro teste do adapter de e-mail passaria sem enviar nada. Duble para
+  capturar; a biblioteca real num teste separado, só para validar o formato.
+- **Cobertura esconde o caminho de produção**: o `escrever` padrão do logger
+  estava descoberto enquanto o injetado nos testes estava coberto.
+
+**E o de sempre, que já pegou algo em todas as stories:**
+
+- Atomicidade mora no **banco** (`UPDATE ... WHERE ... RETURNING`,
+  `INSERT ... ON CONFLICT ... RETURNING`); teste de concorrência exige
+  `Promise.all`.
+- Erros só se separam quando a distinção **ajuda quem tem direito**.
+- Decisão que se repete vira **tabela** com `switch` exaustivo.
+- Relógio injetado; cobertura lida **por arquivo**; mutação obrigatória.
+
+**Sobre o `claude-review`:** silêncio intermitente. Ficou mudo em #31–#34, falou
+no #35 (com raciocínio específico, e levantou uma lacuna real de auditoria),
+voltou a não comentar no #37. Confira antes de tratá-lo como opinião:
 
 ```bash
 gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
 ```
-
-E quando ele **falar**, leia de verdade: no #35 o comentário levantou que
-emissão e revogação de token não geram `audit_entries`. Não era violação, mas
-virou lacuna registrada para a Story 1.8.
-
-Se qualquer AC exigir decisão que não está no PRD nem na spine, **isso é
-bloqueio** — seção 5. Já aconteceu duas vezes (1.3 e 1.5), e nas duas o dono
-decidiu em minutos. Perguntar custa menos que inventar.
 
 ### 7. Promessa de conclusão
 
