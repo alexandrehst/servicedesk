@@ -43,70 +43,12 @@ jobs:
           # ferramentas de comentario do plugin, cujos nomes nao sao estaveis.
           # `--allowedTools Read,Grep,Glob` deixou o revisor mudo no PR #12.
           claude_args: '--max-turns 30'
+          # TESTE DE CANAL — temporario, revertido no commit seguinte.
+          # Prompt trivial, sem analise: se nem isto postar comentario, o
+          # defeito esta na action/plugin e nao no que pedimos ao modelo.
           prompt: |
-            Voce e o revisor dos PILARES DE JULGAMENTO do ServiceDesk, um service
-            desk interno MCP-first com arquitetura hexagonal.
+            Poste UM comentario neste PR com exatamente este texto:
 
-            Revise o diff do PR ${{ github.repository }}#${{ github.event.pull_request.number }}.
+            TESTE DE CANAL: o review por IA consegue postar comentario.
 
-            ## Revise EXCLUSIVAMENTE estes quatro pilares
-
-            1. AUDITAVEL — toda mutacao de estado grava registro de auditoria com
-               autor e origem (`api` ou `mcp`), na MESMA transacao da mudanca (AD-3,
-               AD-9). Mudanca sem rastro a uma Story ou FR.
-            2. OBSERVAVEL — erro engolido sem tratamento; ausencia de log onde a
-               falha seria invisivel; log nao estruturado. Nao confundir log
-               operacional com o Log de auditoria de negocio.
-            3. ESCALAVEL — acoplamento que impeca evolucao independente; regra de
-               negocio vazando para adapter em vez de viver no dominio (AD-1, AD-2);
-               dois pontos de entrada (MCP e HTTP) que poderiam divergir.
-            4. PERFORMATICO — N+1, loop caro, I/O desnecessario no caminho quente.
-
-            ## Violacoes de decisao arquitetural (ADs da spine)
-
-            Sinalize violacao de qualquer AD, citando o numero:
-
-            - AD-1 dependencias apontam so para dentro
-            - AD-2 o dominio e o unico ponto de mutacao de estado
-            - AD-3 auditoria transacional com autor e origem
-            - AD-4 Numero gerado e possuido pela persistencia, imutavel
-            - AD-5 Status e maquina de estados fechada, validada no dominio
-            - AD-6 contratos MCP e API derivam de uma unica fonte Zod
-            - AD-7 acoes irreversiveis exigem confirmacao no dominio
-            - AD-8 autorizacao (papel + posse) aplicada no dominio
-            - AD-9 identidade e origem propagam ate a auditoria
-            - AD-10 concorrencia otimista no command handler
-            - AD-11 gateway de CI obrigatorio
-
-            ## NAO revise nada disto
-
-            Ja e gateado de forma deterministica no CI. Comentar sobre isso e ruido
-            que afoga o sinal:
-
-            - tipos e erros de compilacao (job `typecheck`, tsc strict)
-            - estilo, formatacao, lint (job `lint`, Biome)
-            - existencia de testes e cobertura minima de 80% (job `test`, Vitest)
-            - direcao de dependencia entre camadas (job `arch`, dependency-cruiser)
-            - CVEs em dependencias (job `security-deps`, Trivy)
-            - segredos no codigo (job `security-secrets`, Gitleaks)
-            - formato de mensagem de commit e titulo de PR (job `traceability`)
-            - vulnerabilidades que o CodeQL ja reporta
-
-            ## Como reportar
-
-            - Um comentario por achado, no arquivo e na linha onde ele esta.
-            - Comece nomeando o pilar ou o AD: "[Auditavel]" ou "[AD-3]".
-            - Explique a CONSEQUENCIA concreta, nao a regra abstrata: o que quebra,
-              para quem, em que situacao.
-            - SEMPRE poste ao menos um comentario no PR. Se, depois de analisar,
-              voce nao encontrou nenhuma violacao, diga isso explicitamente:
-              "Nenhuma violacao dos quatro pilares encontrada neste diff."
-              Silencio total nao e resposta valida — nao ha como distinguir
-              "analisei e esta limpo" de "nao consegui reportar".
-            - Ainda assim, nao invente problema para parecer util. Comentar
-              "esta limpo" e melhor do que inventar um achado.
-            - Nao sugira refatoracao por gosto pessoal. So aponte o que viola um
-              dos quatro pilares ou um AD.
-
-            Contexto completo em `_bmad-output/planning-artifacts/QUALITY-GATE.md`
-            e na `ARCHITECTURE-SPINE.md` do repositorio.
+            Nao analise o codigo. Nao faca mais nada. Apenas poste o comentario.
