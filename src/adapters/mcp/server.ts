@@ -6,7 +6,13 @@ import {
   abrirChamadoOutputSchema,
 } from '../../application/contracts/abrir-chamado.js'
 import type { Principal } from '../../application/contracts/principal.js'
+import type { VerChamadoInput } from '../../application/contracts/ver-chamado.js'
+import {
+  verChamadoInputSchema,
+  verChamadoOutputSchema,
+} from '../../application/contracts/ver-chamado.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
+import { verChamado } from '../../application/queries/ver-chamado.js'
 import { ehDomainError } from '../../domain/errors.js'
 
 /**
@@ -65,6 +71,36 @@ export const criarHandlerAbrirChamado = ({ repositorio, principal }: McpDeps) =>
   }
 }
 
+/** Handler da tool de leitura, extraido para ser testavel sem transporte. */
+export const criarHandlerVerChamado = ({ repositorio, principal }: McpDeps) => {
+  const executar = verChamado({ repositorio })
+
+  return async (input: VerChamadoInput) => {
+    const quem: Principal = { ...principal, origin: 'mcp' }
+
+    try {
+      const saida = await executar(input, quem)
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Chamado #${saida.number} — ${saida.titulo} (${saida.status}), ${saida.comentarios.length} comentario(s).`,
+          },
+        ],
+        structuredContent: saida,
+      }
+    } catch (erro) {
+      if (ehDomainError(erro)) {
+        return {
+          content: [{ type: 'text' as const, text: `[${erro.code}] ${erro.message}` }],
+          isError: true,
+        }
+      }
+      throw erro
+    }
+  }
+}
+
 export const criarServidorMcp = (deps: McpDeps): McpServer => {
   const servidor = new McpServer({ name: 'servicedesk', version: '0.1.0' })
 
@@ -77,6 +113,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: abrirChamadoOutputSchema,
     },
     criarHandlerAbrirChamado(deps),
+  )
+
+  servidor.registerTool(
+    'ver_chamado',
+    {
+      title: 'Ver Chamado',
+      description:
+        'Consulta um Chamado pelo Numero, com a thread de Comentarios em ordem cronologica.',
+      inputSchema: verChamadoInputSchema,
+      outputSchema: verChamadoOutputSchema,
+    },
+    criarHandlerVerChamado(deps),
   )
 
   return servidor

@@ -7,7 +7,11 @@
  * divergem no que reportam.
  */
 
-export type DomainErrorCode = 'TituloObrigatorio' | 'DescricaoObrigatoria' | 'CategoriaInvalida'
+export type DomainErrorCode =
+  | 'TituloObrigatorio'
+  | 'DescricaoObrigatoria'
+  | 'CategoriaInvalida'
+  | 'TicketNaoEncontrado'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode

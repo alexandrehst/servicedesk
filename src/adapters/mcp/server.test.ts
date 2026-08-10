@@ -11,6 +11,9 @@ const repositorio: TicketRepository = {
     registradas.push(autor)
     return { ...novo, number: 1042, criadoEm: new Date('2026-08-10T12:00:00Z') }
   },
+  async buscarPorNumero() {
+    return null
+  },
 }
 
 const principal = { identity: 'bruno@empresa.com', role: 'agente' } as const
@@ -52,6 +55,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
   const quebrado: TicketRepository = {
     async criarComAuditoria() {
       throw new Error('conexao perdida')
+    },
+    async buscarPorNumero() {
+      return null
     },
   }
   await expect(

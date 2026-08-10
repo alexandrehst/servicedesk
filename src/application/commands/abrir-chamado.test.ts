@@ -20,6 +20,9 @@ const repositorioFake = (): TicketRepository & { chamadas: [NovoTicket, Principa
       chamadas.push([novo, principal])
       return { ...novo, number: 1000, criadoEm: new Date('2026-08-10T12:00:00Z') }
     },
+    async buscarPorNumero() {
+      return null
+    },
   }
 }
 
@@ -52,6 +55,9 @@ it('propaga falha da persistencia sem mascarar', async () => {
   const repositorio: TicketRepository = {
     async criarComAuditoria() {
       throw new Error('conexao perdida')
+    },
+    async buscarPorNumero() {
+      return null
     },
   }
   await expect(abrirChamado({ repositorio })(input, autor)).rejects.toThrowError('conexao perdida')
