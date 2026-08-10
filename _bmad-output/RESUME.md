@@ -123,9 +123,10 @@ Os pilares **Observável** e **Performático** não têm gate determinístico e 
 
 ## Próximas ações
 
-1. **Sandbox: o socket do Docker segue bloqueado.** `docker ps` devolve `operation not permitted` mesmo com o `allowWrite` do `docker.sock` em `.claude/settings.json`. Na Story 1.2 foi contornado rodando os comandos de Docker e `git push` fora do sandbox. **Resolver antes de ligar o loop** — sem isso o loop trava na primeira migration
-2. **Ligar o loop** para 1.3–1.9:
+1. **Ligar o loop** para 1.3–1.9. Decisão de 2026-08-10: a 1.3 (auth) sai **sem** revisão humana no caminho. O RALPH-PROMPT ganhou uma seção específica sobre ela — o gate não entende autenticação e o `claude-review` nunca reprovou nada aqui:
    ```
    /ralph-loop:ralph-loop Leia e execute _bmad-output/RALPH-PROMPT.md --completion-promise 'EPIC 1 COMPLETO' --max-iterations 20
    ```
    O prompt do loop está em `_bmad-output/RALPH-PROMPT.md` — editável durante a execução, é relido a cada volta.
+
+   **Exige sessão sem sandbox** (`--dangerously-skip-permissions`). Medido em 2026-08-10: sob sandbox, `docker`, `psql`/Postgres e `gh` estão todos bloqueados — ou seja, o loop não roda teste de integração, não abre PR e não mergeia. O `excludedCommands` do `.claude/settings.json` **não funciona**; `git` por https é o único que passa.
