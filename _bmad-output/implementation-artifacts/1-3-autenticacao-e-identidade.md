@@ -352,6 +352,31 @@ distinguiriam os casos (`expir`, `usado`, `inexistente`, `cadastr`).
    rate limit é a Story 1.5, e esta story não o antecipa.
 4. **Sem revogação/logout.** Fora do MVP — a sessão morre por expiração, por
    rebaixamento ou por remoção do usuário.
+5. **`solicitarLink` vaza pelo relógio, não pela resposta.** O caminho do
+   e-mail cadastrado faz um INSERT e chama o notificador; o do não cadastrado
+   não faz nada. As respostas são idênticas (AC #3, com teste), mas os tempos
+   não. É um oráculo fraco e mensurável só com muitas amostras, e some quando
+   o envio da Story 1.6 for assíncrono. Registrado por ser um vazamento real
+   que nenhum teste desta story pega.
+6. **Solicitar o link várias vezes cria vários links válidos ao mesmo tempo.**
+   Invalidar os anteriores a cada pedido é o padrão comum, e reduziria a
+   janela de um link interceptado. **Não implementado de propósito**: é
+   política de segurança, e a decisão do dono cobriu mecanismo, armazenamento
+   e prazos — não isto. Fica para decisão explícita, junto do rate limit da
+   Story 1.5.
+7. **`login_links` e `sessions` crescem sem expurgo.** Linha usada ou vencida
+   fica para sempre. Não é exposição (só há hash), mas é dívida operacional —
+   a limpeza precisa de dono.
+
+**O `claude-review` passou sem dizer nada.** Cinco turns, 14 s, US$ 0,15,
+`is_error: false`, "No buffered inline comments" — contra 26–31 turns e dois
+comentários no PR #28, que tinha diff menor. Não é o silêncio da Story 0.6
+(PR tocando o próprio workflow), porque o modelo de fato executou; é um quarto
+modo: executa pouco e não emite nada, nem "nenhuma violação encontrada". Como o
+check é verde e nenhuma conversa bloqueia, **o merge não depende dele** — e é
+exatamente por isso que fica registrado: nesta story, a de autenticação, o
+review por IA não contribuiu com nada. As lacunas 5 a 7 acima saíram de
+releitura própria, não do revisor.
 
 ### File List
 
