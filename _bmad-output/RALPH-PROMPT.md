@@ -141,60 +141,76 @@ Situações de bloqueio:
 que já foi feito, o que falta), rode `/ralph-loop:cancel-ralph` e encerre com
 um resumo do bloqueio.
 
-### 6. Atenção redobrada na Story 1.4
+### 6. Atenção redobrada na Story 1.5
 
-A 1.4 é **papéis e autorização** — a segunda metade da fronteira de segurança
-que a 1.3 abriu. A 1.3 respondeu *quem é você*; a 1.4 responde *o que você
-pode ver*. Ela também sai sem revisão humana no caminho.
+A 1.5 é **segurança do adapter MCP**: token escopado por identidade e rate
+limit (FR-21, AD-9). Ela fecha a fronteira que a 1.3 abriu e a 1.4 endureceu.
 
-**O que já existe e não deve ser reinventado:** a Story 1.2 já pôs
-`podeVerTicket` e `filtrarComentarios` em `src/domain/visibilidade.ts`, e a
-1.3 fez o `role` do principal vir do cadastro (`users.papel`), lido a cada
-resolução. A 1.4 estende essas funções — **não** cria autorização nova em
-adapter, nem query filtrando por papel no SQL. O adapter devolve dado bruto;
-quem esconde é o domínio (AD-8). É isso que impede MCP e HTTP divergirem.
+**Verifique primeiro se ela está bloqueada.** Duas coisas que a AC exige podem
+não estar decididas em lugar nenhum:
 
-- Erro de autorização e "não encontrado" seguem sendo **o mesmo erro**
-  (`TicketNaoEncontrado`), pelo motivo que a 1.2 documentou: Números são
-  sequenciais, e mensagens distintas viram oráculo de existência.
-- **Escreva o teste do papel errado antes do papel certo.**
-- **Verifique por mutação**, como as 1.1, 1.2 e 1.3 fizeram: enfraqueça a
-  checagem de papel e confirme que um teste reprova.
+1. **O que é o "token escopado" do cliente MCP.** A 1.3 criou sessão de 8 h
+   nascida de magic link — feita para humano. Um cliente MCP autônomo pode
+   precisar de credencial de máquina, com prazo e ciclo de vida próprios. Se o
+   PRD e a spine não disserem qual dos dois, **é bloqueio** (seção 5): não
+   invente política de credencial.
+2. **Os números do rate limit.** FR-21 pede rate limit sem dizer quantas
+   chamadas em qual janela, nem o que acontece ao estourar. Limite é decisão de
+   produto — 8 agentes e ~200–400 chamados/mês é o contexto, mas o número é do
+   dono.
 
-**O gate não cobre nada disso.** Nenhum dos nove checks entende autorização, e
-o `claude-review` não só nunca reprovou nada neste projeto como, no PR #31 (a
-story de autenticação), **executou duas vezes e não comentou nenhuma** — 5
-turns numa, 1m42s na outra, `is_error: false`, `/pulls/31/comments` vazio.
+Se estiver decidido, o resto segue os padrões já estabelecidos:
 
-**Verde do `claude-review` não é evidência de que houve review.** Antes de
-tratá-lo como opinião, confira se ele falou:
+- **O rate limit é do adapter, não do domínio.** Ele protege o ponto de
+  entrada; a regra de negócio não muda por causa dele.
+- **A identidade — nunca o nome da tool — é o autor auditado** (AD-9). Já vale
+  desde a 1.1; a 1.5 precisa manter isso com o token de máquina.
+- **Erro de limite estourado não é erro de credencial.** São coisas
+  diferentes e o cliente precisa distinguir para saber se adianta tentar de
+  novo. Decida deliberadamente e **escreva no Dev Agent Record**.
+- **Verifique por mutação**: afrouxe o limite e confirme que um teste reprova.
+- **Relógio injetado** para testar a janela — nada de `sleep`.
+
+**Três lacunas registradas na 1.3 pertencem a esta story ou vêm junto dela:**
+`solicitarLink` sem rate limit (spam de caixa de entrada), links de login
+válidos simultâneos sem invalidação do anterior, e `login_links`/`sessions`
+crescendo sem expurgo.
+
+**Não existe composition root.** O projeto nunca teve entrypoint: nem
+`McpDeps.principal` (até a 1.2) nem `McpDeps.autenticar` (1.3) estão ligados a
+um servidor em execução. Se a 1.5 precisar de um, isso é trabalho dela — e
+então passa a haver um lugar onde o token do cliente é lido de verdade.
+
+**O gate não cobre nada disso, e o revisor está mudo.** O `claude-review` passou
+verde sem comentar nada em **três PRs seguidos** — #31 (duas execuções), #32 e
+#33 —, incluindo as duas stories de fronteira de segurança do Epic 1. Confira
+antes de tratá-lo como opinião:
 
 ```bash
 gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
 ```
 
-Zero comentários e check verde significa que ninguém revisou — siga, porque o
-gate está legitimamente verde, mas **registre isso no Dev Agent Record** e não
-conte com ele para achar o que você não achou.
+Zero e check verde significa que ninguém revisou. Siga — o gate está
+legitimamente verde — mas **registre no Dev Agent Record** e não conte com ele.
 
-**O que a 1.3 estabeleceu e vale daqui em diante:**
+**O que as 1.3 e 1.4 estabeleceram e vale daqui em diante:**
 
-- O principal vem de `McpDeps.autenticar`, resolvido **a cada** chamada de
-  tool; autenticar acontece **antes** do caso de uso.
-- Um erro só para todos os modos de falha de credencial, com teste que varre a
-  mensagem atrás das palavras que distinguiriam os casos.
-- Garantia de concorrência mora no **banco** (`UPDATE ... WHERE ... RETURNING`),
-  não na ordem em que o código roda.
-- Relógio injetado (`agora: () => Date`) — nada de `sleep` em teste de tempo.
-- `papelSchema.parse` em vez de `as` onde o valor decide visibilidade: cast
-  errado cai silencioso no ramo "não é agente".
-- **Contrato Zod sem teste fica com 0%** e a média global esconde — foi o que
-  aconteceu com `contracts/autenticacao.ts`, usado só como tipo.
+- **Torne impossível o que hoje é lembrado.** Três vezes seguidas o projeto
+  trocou disciplina por garantia do compilador: `NovoTicket` sem `number`
+  (1.1), handler de leitura sem caminho de escrita (1.2) e o `ChamadoBruto`
+  que só abre por `visivelPara` (1.4). Prove isso com `@ts-expect-error` — se
+  o vazamento virar compilável, o `typecheck` reprova com `TS2578`.
+- Decisão que se repete vira **tabela** (`domain/papeis.ts`), com `switch`
+  exaustivo: caso novo sem política é erro de compilação.
+- Um erro só para modos de falha que não devem ser distinguíveis, com teste
+  que **compara as mensagens entre si** e varre as palavras que vazariam.
+- Garantia de concorrência mora no **banco** (`UPDATE ... WHERE ... RETURNING`).
+- Relógio injetado; `fileParallelism: false` porque os testes de integração
+  dividem um Postgres.
+- **Contrato Zod sem teste fica com 0%** e a média global esconde.
 
 Se qualquer AC exigir decisão que não está no PRD nem na spine, **isso é
-bloqueio** — seção 5. Foi o que aconteceu com a 1.3 (FR-19/Q7 estava aberta) e
-a decisão veio do dono: magic link, sessão em tabela, 15 min / 8 h. Não invente
-política de segurança.
+bloqueio** — seção 5. Já aconteceu na 1.3 (FR-19/Q7) e a decisão veio do dono.
 
 ### 7. Promessa de conclusão
 
