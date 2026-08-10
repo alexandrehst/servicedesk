@@ -304,11 +304,23 @@ passaria — mesma armadilha que a Story 1.3 documentou para o uso único do lin
 5. **Ainda não há composition root.** Nem `autenticar` nem `limitarChamadas`
    estão ligados a um servidor em execução; o que existe é a estrutura e a prova
    em teste.
-6. **`claude-review` mudo pelo quinto PR seguido.** No PR #35 passou verde em
-   48 s com zero comentários. A sequência agora é #31 (duas execuções), #32,
-   #33, #34 e #35 — atravessando as três stories de fronteira de segurança do
-   Epic 1. Nenhum achado desta story veio dele: saíram das mutações, da leitura
-   da cobertura por arquivo e da releitura própria.
+6. **O `claude-review` voltou a falar neste PR — e a sequência muda de leitura.**
+   Ele ficou mudo em #31 (duas execuções), #32, #33, #34 e na primeira rodada
+   do #35; no commit seguinte deste mesmo PR, comentou. E comentou com
+   conteúdo: listou os arquivos cobertos, confirmou a ordem
+   autenticar → limitar → executar, o UPSERT atômico, o AD-9 e a ausência de
+   N+1, e explicou por que descartou cada suspeita. Não apontou violação, e
+   nada foi corrigido por causa dele — mas desta vez houve revisão, o que é
+   diferente das cinco rodadas anteriores. O silêncio, portanto, é
+   intermitente, não permanente.
+
+7. **A emissão e a revogação de token não são auditadas.** O revisor levantou
+   isso e tem razão quanto ao fato: `mcp_tokens` não gera `audit_entries`.
+   Segue o mesmo padrão de `sessions`/`login_links` (infra de auth, não estado
+   de negócio) e não é regressão — mas **revogar um token é ação sensível**, e
+   hoje ela não deixa rastro além da própria coluna `revogado_em`. Registrado
+   como lacuna; a Story 1.8 (revisão do log de auditoria) é o lugar de decidir
+   se entra.
 
 ### File List
 

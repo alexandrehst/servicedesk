@@ -52,9 +52,13 @@ orçamento, **re-run antes de investigar** — pode ser só variação.
 
 **E tem um quarto modo de falha, visto a partir do PR #31 (Story 1.3):**
 executa, conclui `is_error: false`, fica verde e **não comenta nada** — nem
-inline, nem geral, nem "nenhuma violação encontrada". Já são **cinco PRs
-seguidos** assim (#31 em duas execuções, #32, #33, #34 e #35), atravessando as
-três stories de fronteira de segurança do Epic 1. Verde do `claude-review` **não é evidência
+inline, nem geral, nem "nenhuma violação encontrada". Foram **cinco rodadas
+seguidas** assim (#31 em duas execuções, #32, #33, #34 e a primeira rodada do
+#35), atravessando as três stories de fronteira de segurança do Epic 1 — e
+então, no commit seguinte do #35, ele **voltou a comentar**, com raciocínio
+específico sobre a ordem das chamadas, o UPSERT atômico e o AD-9. O silêncio é
+**intermitente**, não permanente: verde continua não sendo evidência de review,
+mas mudo também não é o estado definitivo. Verde do `claude-review` **não é evidência
 de que houve review**: confira `/pulls/N/comments` antes de tratá-lo como
 opinião. O que era "nunca reprovou nada" (Story 0.6) virou "nem fala mais".
 
