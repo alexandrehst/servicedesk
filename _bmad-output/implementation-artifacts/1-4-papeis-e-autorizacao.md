@@ -4,7 +4,7 @@ baseline_commit: db9f3a7
 
 # Story 1.4: Papéis e autorização
 
-Status: review
+Status: done
 
 ## Story
 
@@ -290,7 +290,13 @@ o papel estivesse congelado na sessão (como estaria se a 1.3 tivesse guardado
    decidir, mas não obriga ninguém a adicionar **capacidade**.
 3. **`no-cross-adapter` continua não exercitado** por violação plantada, como o
    Epic 0 registrou.
-4. **O `claude-review` segue sem contribuir** — ver a nota do PR abaixo.
+4. **O `claude-review` segue sem contribuir.** No PR #33 ele passou verde em
+   57 s com **zero** comentários (`/pulls/33/comments` vazio). É o terceiro PR
+   consecutivo assim — #31 (duas execuções), #32 e #33. O que já era "nunca
+   reprovou nada" (Story 0.6) virou "nem fala mais". Nas duas stories de
+   fronteira de segurança do Epic 1, a 1.3 e esta, ele não apontou uma linha.
+   Todo achado desta story saiu do compilador, das mutações ou de releitura
+   própria.
 
 ### File List
 
@@ -315,3 +321,5 @@ o papel estivesse congelado na sessão (como estaria se a 1.3 tivesse guardado
 | 2026-08-10 | `fileParallelism: false` — o ponta a ponta precisa de tabelas dos dois arquivos de integração |
 | 2026-08-10 | Task 5: 134 testes; cobertura 99,4%, `papeis.ts` de 71% para 100% |
 | 2026-08-10 | Seis mutações aplicadas e reprovadas, uma delas verificada pelo `typecheck` |
+| 2026-08-10 | PR #33: nove checks verdes; `claude-review` mudo pelo terceiro PR seguido |
+| 2026-08-10 | PR #33 mergeado. Story `done` |
