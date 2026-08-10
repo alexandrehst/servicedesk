@@ -26,6 +26,9 @@ const repositorioFake = (): TicketRepository & { chamadas: [NovoTicket, Principa
     async excluirComAuditoria() {
       throw new Error('esta suite nao exclui')
     },
+    async buscarHistoricoBruto() {
+      throw new Error('esta suite nao le historico')
+    },
   }
 }
 
@@ -64,6 +67,9 @@ it('propaga falha da persistencia sem mascarar', async () => {
     },
     async excluirComAuditoria() {
       throw new Error('esta suite nao exclui')
+    },
+    async buscarHistoricoBruto() {
+      throw new Error('esta suite nao le historico')
     },
   }
   await expect(abrirChamado({ repositorio })(input, autor)).rejects.toThrowError('conexao perdida')

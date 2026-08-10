@@ -1,5 +1,6 @@
+import type { Origem } from '../../domain/origem.js'
 import type { NovoTicket, Ticket } from '../../domain/ticket.js'
-import type { ChamadoBruto } from '../../domain/visibilidade.js'
+import type { ChamadoBruto, HistoricoBruto } from '../../domain/visibilidade.js'
 import type { Principal } from '../contracts/principal.js'
 
 /**
@@ -38,4 +39,17 @@ export type TicketRepository = {
    * entao dois pedidos simultaneos produzem um vencedor so.
    */
   excluirComAuditoria(numero: number, autor: Principal): Promise<boolean>
+
+  /**
+   * Historico de acoes do Chamado (Story 1.8), embrulhado como todo dado de
+   * leitura: so `historicoVisivelPara` abre.
+   *
+   * `origem` e RECORTE DE CONSULTA, nao autorizacao — por isso pode ir ao SQL.
+   * A decisao de quem enxerga continua no dominio (AD-8); se ela descesse para
+   * ca, MCP e HTTP poderiam divergir no que escondem.
+   *
+   * `null` quando o Numero nao existe. Chamado sem nenhuma acao registrada e
+   * outra coisa: existe, e devolve lista vazia.
+   */
+  buscarHistoricoBruto(numero: number, origem?: Origem): Promise<HistoricoBruto | null>
 }

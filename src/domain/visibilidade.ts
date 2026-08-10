@@ -1,3 +1,4 @@
+import type { EntradaDeAuditoria } from './auditoria.js'
 import { DomainError } from './errors.js'
 import { type Papel, pode } from './papeis.js'
 import type { Ticket } from './ticket.js'
@@ -100,4 +101,40 @@ export const visivelPara = (quem: QuemPergunta, bruto: ChamadoBruto): ChamadoVis
   }
 
   return { ticket, comentarios: filtrarComentarios(quem, comentarios) }
+}
+
+export type HistoricoBruto = Bruto<{
+  readonly ticket: Ticket
+  readonly entradas: readonly EntradaDeAuditoria[]
+}>
+
+/**
+ * Historico de um Chamado (Story 1.8): duas camadas, e a primeira nao e nova.
+ *
+ * 1. `podeVerTicket` — quem nao enxerga o Chamado nao enxerga o historico dele.
+ *    Vem de graca: a funcao ja sabe sobre posse (1.4) e exclusao (1.7), e o dia
+ *    em que ela aprender uma regra nova, esta leitura aprende junto.
+ * 2. `veHistorico` — ver o Chamado NAO basta. O Log guarda a identidade de quem
+ *    agiu; o Solicitante que lesse o historico do proprio Chamado veria quais
+ *    Agentes mexeram nele e com que frequencia — o ritmo interno do time, que
+ *    nao e dele.
+ *
+ * `null` nos dois casos, pelo mesmo motivo de `visivelPara`: quem chama nao
+ * recebe material para distinguir "nao existe" de "nao e para voce".
+ *
+ * Mora aqui, e nao em `auditoria.ts`, porque a chave que abre o dado bruto e
+ * o simbolo privado deste modulo — e ele continua privado justamente para que
+ * nenhuma leitura consiga pular esta funcao.
+ */
+export const historicoVisivelPara = (
+  quem: QuemPergunta,
+  bruto: HistoricoBruto,
+): readonly EntradaDeAuditoria[] | null => {
+  const { ticket, entradas } = bruto[conteudo]
+
+  if (!podeVerTicket(quem, ticket) || !pode(quem.role, 'veHistorico')) {
+    return null
+  }
+
+  return entradas
 }

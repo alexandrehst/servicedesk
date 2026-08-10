@@ -19,6 +19,9 @@ const repositorio: TicketRepository = {
   async excluirComAuditoria() {
     throw new Error('esta suite nao exclui')
   },
+  async buscarHistoricoBruto() {
+    throw new Error('esta suite nao le historico')
+  },
 }
 
 const principal = { identity: 'bruno@empresa.com', role: 'agente' } as const
@@ -82,6 +85,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     async excluirComAuditoria() {
       throw new Error('esta suite nao exclui')
     },
+    async buscarHistoricoBruto() {
+      throw new Error('esta suite nao le historico')
+    },
   }
   await expect(
     criarHandlerAbrirChamado({ repositorio: quebrado, autenticar, limitarChamadas: semLimite })(
@@ -125,6 +131,9 @@ const repoLeitura: TicketRepository = {
   },
   async excluirComAuditoria() {
     throw new Error('esta suite nao exclui')
+  },
+  async buscarHistoricoBruto() {
+    throw new Error('esta suite nao le historico')
   },
 }
 
@@ -254,6 +263,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     },
     async excluirComAuditoria() {
       throw new Error('esta suite nao exclui')
+    },
+    async buscarHistoricoBruto() {
+      throw new Error('esta suite nao le historico')
     },
   }
   await expect(
