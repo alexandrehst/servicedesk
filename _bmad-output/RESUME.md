@@ -9,12 +9,12 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7).** **Stories 1.1 a 1.7 mergeadas.** Próximo: **Story 1.8** — revisão do Log de auditoria / ações MCP.
+**Epic 0 completo (7/7).** **Stories 1.1 a 1.8 mergeadas.** Próximo: **Story 1.9** — abrir Chamado por e-mail (intake do Solicitante), a última do Epic 1.
 
 | Épico | Estado |
 | --- | --- |
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
-| Epic 1 — Fundação segura | 1.1 a 1.7 `done`; 1.8 e 1.9 `backlog` |
+| Epic 1 — Fundação segura | 1.1 a 1.8 `done`; 1.9 `backlog` |
 | Epics 2–4 | `backlog` |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
@@ -178,6 +178,21 @@ Mais um modo distinto: **gate correto no lugar errado** — `traceability` sem `
   sem nenhum teste vermelho.
 - **Limite é por identidade, nunca por conexão** (contornável) nem global
   (uma IA em loop derrubaria todo mundo).
+
+## Padrão estabelecido pela Story 1.8 — copiar
+
+- **Leitura nova passa pelo gargalo, não reimplementa autorização.** O
+  histórico autoriza com `podeVerTicket` + uma capacidade — e já nasceu sabendo
+  recusar Chamado excluído, sem uma linha a respeito.
+- **A garantia decide onde o código mora.** `historicoVisivelPara` ficou em
+  `visibilidade.ts` porque a chave que abre o `Bruto` é privada daquele módulo;
+  pôr a função em outro arquivo exigiria expor a chave e desfazer a garantia.
+- **Recorte de consulta pode descer ao SQL; autorização, não.** Filtro por
+  `origin` é recorte. Com teste provando que pedir um pedaço não contorna a
+  regra.
+- **Conceito que o domínio precisa vive no domínio** — `ORIGENS` saiu do
+  contrato Zod, como `PAPEIS` na 1.4.
+- **Leitura não audita a si mesma** — o Log cresceria a cada revisão.
 
 ## Padrão estabelecido pela Story 1.7 — copiar
 

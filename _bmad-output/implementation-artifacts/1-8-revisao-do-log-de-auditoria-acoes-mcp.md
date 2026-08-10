@@ -4,7 +4,7 @@ baseline_commit: ade5a67
 
 # Story 1.8: Revisão do Log de auditoria / ações MCP
 
-Status: review
+Status: done
 
 ## Story
 
@@ -239,6 +239,11 @@ necessidade real. Registrado no PRD (FR-22).
    listagens, é o lugar de resolver.
 4. **Retenção do Log continua ausente** — o Log cresce para sempre, junto com
    as tabelas de credencial que acumulam desde a 1.3.
+5. **O `claude-review` revisou de verdade** (PR #41, 4m06s): confirmou a
+   separação entre recorte de consulta e autorização, e observou que a ausência
+   de paginação "espelha o já existente em `buscarPorNumero`, não é regressão
+   introduzida aqui". É a terceira revisão com conteúdo em dez rodadas — e as
+   três vieram nas stories em que havia mais o que julgar.
 
 ### File List
 
@@ -266,3 +271,5 @@ necessidade real. Registrado no PRD (FR-22).
 | 2026-08-10 | Task 5: 248 testes; cobertura 99,65% |
 | 2026-08-10 | Seis mutações aplicadas e reprovadas |
 | 2026-08-10 | Task 6: dívida do PR #35 decidida (tabela separada, se houver necessidade) e registrada no PRD |
+| 2026-08-10 | PR #41: nove checks verdes; `claude-review` revisou e não apontou violação |
+| 2026-08-10 | PR #41 mergeado. Story `done` |
