@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest'
 import type { Principal } from '../../application/contracts/principal.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
+import { DomainError } from '../../domain/errors.js'
 import type { Ticket } from '../../domain/ticket.js'
 import type { Comentario } from '../../domain/visibilidade.js'
 import { criarHandlerAbrirChamado, criarHandlerVerChamado, criarServidorMcp } from './server.js'
@@ -18,7 +19,14 @@ const repositorio: TicketRepository = {
 }
 
 const principal = { identity: 'bruno@empresa.com', role: 'agente' } as const
-const deps = { repositorio, principal }
+
+/**
+ * Story 1.3: o adapter nao recebe mais um principal de configuracao — recebe
+ * como RESOLVE-LO. O duble abaixo faz o papel de `resolverPrincipal` sobre uma
+ * sessao valida.
+ */
+const autenticar = async () => principal
+const deps = { repositorio, autenticar }
 
 const input = { titulo: 'VPN fora do ar', descricao: 'Nao conecta.', categoria: 'rede' } as const
 
@@ -62,7 +70,7 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     },
   }
   await expect(
-    criarHandlerAbrirChamado({ repositorio: quebrado, principal })(input),
+    criarHandlerAbrirChamado({ repositorio: quebrado, autenticar })(input),
   ).rejects.toThrowError('conexao perdida')
 })
 
@@ -97,7 +105,7 @@ const repoLeitura: TicketRepository = {
   },
 }
 
-const depsLeitura = { repositorio: repoLeitura, principal }
+const depsLeitura = { repositorio: repoLeitura, autenticar }
 
 it('registra a tool ver_chamado com o schema do contrato (AD-6)', () => {
   const schema = criarServidorMcp(deps).toolInputSchemaJson('ver_chamado')
@@ -139,17 +147,69 @@ it('traduz Chamado inexistente em erro de tool com o mesmo shape da 1.1', async 
 it('entrega ao dominio a identidade de quem pergunta, nao uma fixa', async () => {
   const comoDona = await criarHandlerVerChamado({
     repositorio: repoLeitura,
-    principal: { identity: 'marina@empresa.com', role: 'solicitante' },
+    autenticar: async () => ({ identity: 'marina@empresa.com', role: 'solicitante' }) as const,
   })({ numero: 1042 })
 
   const comoTerceiro = await criarHandlerVerChamado({
     repositorio: repoLeitura,
-    principal: { identity: 'carlos@empresa.com', role: 'solicitante' },
+    autenticar: async () => ({ identity: 'carlos@empresa.com', role: 'solicitante' }) as const,
   })({ numero: 1042 })
 
   expect(comoDona.isError).toBeUndefined()
   expect(comoTerceiro.isError).toBe(true)
   expect(comoTerceiro.content[0]?.text).toContain('TicketNaoEncontrado')
+})
+
+// --- Story 1.3: o principal passa a vir da autenticacao ---
+
+const credencialRuim = async (): Promise<{ identity: string; role: 'agente' }> => {
+  throw new DomainError('CredencialInvalida', 'Credencial invalida.')
+}
+
+it('recusa a escrita quando a credencial nao resolve, sem tocar no repositorio', async () => {
+  registradas.length = 0
+
+  const resultado = await criarHandlerAbrirChamado({ repositorio, autenticar: credencialRuim })(
+    input,
+  )
+
+  expect(resultado.isError).toBe(true)
+  expect(resultado.content[0]?.text).toContain('CredencialInvalida')
+  // Credencial ruim tem que parar ANTES do caso de uso: um Chamado criado com
+  // autor indefinido violaria o AD-3 e ainda ficaria no banco.
+  expect(registradas).toHaveLength(0)
+})
+
+it('recusa a leitura quando a credencial nao resolve', async () => {
+  const resultado = await criarHandlerVerChamado({
+    repositorio: repoLeitura,
+    autenticar: credencialRuim,
+  })({ numero: 1042 })
+
+  expect(resultado.isError).toBe(true)
+  expect(resultado.content[0]?.text).toContain('CredencialInvalida')
+  expect(resultado.structuredContent).toBeUndefined()
+})
+
+it('resolve a credencial a CADA chamada, nao uma vez na montagem', async () => {
+  let chamadas = 0
+  const expiraNaSegunda = async () => {
+    chamadas += 1
+    if (chamadas > 1) {
+      throw new DomainError('CredencialInvalida', 'Credencial invalida.')
+    }
+    return principal
+  }
+
+  const handler = criarHandlerVerChamado({ repositorio: repoLeitura, autenticar: expiraNaSegunda })
+
+  const primeira = await handler({ numero: 1042 })
+  const segunda = await handler({ numero: 1042 })
+
+  // Resolver uma vez so deixaria a sessao valer para sempre depois de aberta:
+  // expiracao de 8 horas nao teria efeito nenhum sobre uma conexao MCP longa.
+  expect(primeira.isError).toBeUndefined()
+  expect(segunda.isError).toBe(true)
 })
 
 it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
@@ -162,6 +222,6 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     },
   }
   await expect(
-    criarHandlerVerChamado({ repositorio: quebrado, principal })({ numero: 1042 }),
+    criarHandlerVerChamado({ repositorio: quebrado, autenticar })({ numero: 1042 }),
   ).rejects.toThrowError('conexao perdida')
 })

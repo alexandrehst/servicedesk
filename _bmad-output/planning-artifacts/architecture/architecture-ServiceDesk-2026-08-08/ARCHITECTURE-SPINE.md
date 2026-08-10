@@ -111,7 +111,7 @@ graph TD
 | Erros | Erros de domínio tipados (ex.: `InvalidStatusTransition`, `Unauthorized`, `ConfirmationRequired`); o adapter HTTP mapeia para status HTTP e o adapter MCP para erro de tool — o shape do erro nasce no domínio. |
 | Contratos I/O | Schemas Zod em `application/contracts/`; API e MCP derivam deles (AD-6). |
 | Estado / mutação | Só via command handlers (AD-2); transação por command, com auditoria junto (AD-3). |
-| Auth | Principal `{ identity, role, origin }` injetado em todo caso de uso (AD-8, AD-9). |
+| Auth | Principal `{ identity, role, origin }` injetado em todo caso de uso (AD-8, AD-9). Magic link (FR-19): o adapter resolve a sessão em principal **a cada chamada** e carimba a `origin`; credencial só trafega em texto claro no envio do link e na resposta da troca, nunca no armazenamento, no log ou no erro. |
 | Logging | Log estruturado; toda mutação também vira registro de auditoria (não confundir log operacional com Log de auditoria de negócio). |
 
 ## Stack
@@ -211,7 +211,7 @@ servicedesk/
 
 - **Topologia de deploy / hospedagem** — provider e forma de deploy (container único vs. serverless) não decididos; escala pequena permite adiar. Confirmar no cold-start junto ao starter.
 - **Transporte MCP em produção** — começar `stdio` local para validar; promover a HTTP autenticado quando mais de um cliente precisar (best practice atual). Decisão de transporte final adiada.
-- **Auth concreta** — magic link vs. login corporativo (PRD Q7/FR-19); interface `platform/auth` fixa o port, a implementação fica aberta.
+- ~~**Auth concreta**~~ — **decidido em 2026-08-10** (Story 1.3): magic link por e-mail; sessão em tabela no Postgres com o token guardado apenas como hash SHA-256; link de 15 min de uso único; sessão de 8 h. O papel vive em `users` e é lido a cada resolução — sessão não o congela.
 - **Estratégia de migração CSV** — formato de export do contratado desconhecido (PRD Q5); o adapter de import é um caso à parte, desenhado quando o formato for conhecido.
 - **Índices/estratégia de busca** — busca textual simples no MVP; full-text do Postgres é opção quando o volume justificar.
 - **Fase 1.5+ (UI web, SLA, KB, automações)** — fora desta altitude de MVP; a UI já tem lugar reservado como driving adapter.

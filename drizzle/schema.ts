@@ -53,3 +53,41 @@ export const comments = pgTable('comments', {
 })
 
 export type CommentRow = typeof comments.$inferSelect
+
+/**
+ * Identidade (Story 1.3, FR-19). Tres tabelas, uma responsabilidade cada:
+ * quem existe (`users`), quem esta tentando entrar (`loginLinks`) e quem ja
+ * entrou (`sessions`).
+ *
+ * O que NAO existe aqui e tao importante quanto o que existe: nenhuma coluna
+ * de token em texto claro e nenhuma coluna de senha. O banco so ve hash.
+ */
+export const users = pgTable('users', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  email: text('email').notNull().unique(),
+  papel: text('papel').notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const loginLinks = pgTable('login_links', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  email: text('email').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
+  usadoEm: timestamp('usado_em', { withTimezone: true }),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const sessions = pgTable('sessions', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  // Sem `papel`: ele e lido de `users` na resolucao, para que rebaixamento e
+  // remocao valham imediatamente em vez de esperar a sessao expirar.
+  email: text('email').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export type UserRow = typeof users.$inferSelect
+export type LoginLinkRow = typeof loginLinks.$inferSelect
+export type SessionRow = typeof sessions.$inferSelect

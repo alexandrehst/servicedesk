@@ -12,6 +12,11 @@ export type DomainErrorCode =
   | 'DescricaoObrigatoria'
   | 'CategoriaInvalida'
   | 'TicketNaoEncontrado'
+  // Credencial ausente, malformada, expirada, ja usada ou inexistente — um
+  // codigo so, deliberadamente (Story 1.3). A spine cita `Unauthorized` entre
+  // os erros de dominio tipados, entao o shape continua nascendo aqui em vez
+  // de o modulo de auth inventar uma classe paralela.
+  | 'CredencialInvalida'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode
