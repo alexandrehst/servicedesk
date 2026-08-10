@@ -141,38 +141,60 @@ Situações de bloqueio:
 que já foi feito, o que falta), rode `/ralph-loop:cancel-ralph` e encerre com
 um resumo do bloqueio.
 
-### 6. Atenção redobrada na Story 1.3
+### 6. Atenção redobrada na Story 1.4
 
-A 1.3 é **autenticação e identidade** — a fronteira de segurança do sistema
-inteiro, e o padrão de identidade que as stories 1.4 a 1.9 vão copiar. Ela sai
-sem revisão humana no caminho, por decisão explícita do dono do projeto.
+A 1.4 é **papéis e autorização** — a segunda metade da fronteira de segurança
+que a 1.3 abriu. A 1.3 respondeu *quem é você*; a 1.4 responde *o que você
+pode ver*. Ela também sai sem revisão humana no caminho.
 
-O gate protege a `main` de código quebrado. Ele **não** protege de auth bem
-testada e errada: nenhum dos nove checks entende autenticação, e o
-`claude-review` nunca reprovou nada neste projeto — no PR #28, com 1015 linhas
-de diff, comentou duas vezes "nenhuma violação encontrada".
+**O que já existe e não deve ser reinventado:** a Story 1.2 já pôs
+`podeVerTicket` e `filtrarComentarios` em `src/domain/visibilidade.ts`, e a
+1.3 fez o `role` do principal vir do cadastro (`users.papel`), lido a cada
+resolução. A 1.4 estende essas funções — **não** cria autorização nova em
+adapter, nem query filtrando por papel no SQL. O adapter devolve dado bruto;
+quem esconde é o domínio (AD-8). É isso que impede MCP e HTTP divergirem.
 
-Então o cuidado tem que estar no seu trabalho, não no gate:
+- Erro de autorização e "não encontrado" seguem sendo **o mesmo erro**
+  (`TicketNaoEncontrado`), pelo motivo que a 1.2 documentou: Números são
+  sequenciais, e mensagens distintas viram oráculo de existência.
+- **Escreva o teste do papel errado antes do papel certo.**
+- **Verifique por mutação**, como as 1.1, 1.2 e 1.3 fizeram: enfraqueça a
+  checagem de papel e confirme que um teste reprova.
 
-- Até a 1.3, o principal vem de **configuração** (`McpDeps.principal`, um
-  `Omit<Principal, 'origin'>`). A 1.3 troca **a origem do valor**. Se você
-  precisar mudar domínio, aplicação ou persistência para isso, o desenho está
-  errado — pare e reveja, não force.
-- **Token não vira log, não vira erro, não vira auditoria.** O que entra na
-  auditoria é a `identity` (AD-9), nunca a credencial.
-- Falha de autenticação e credencial válida sem permissão são coisas
-  diferentes de "não encontrado" da 1.2 — mas o mesmo raciocínio de vazamento
-  se aplica: mensagem que distingue casos entrega informação a quem sonda.
-  Decida deliberadamente e **escreva a decisão no Dev Agent Record**.
-- Escreva o teste do caminho **negativo** antes do positivo: token ausente,
-  expirado, malformado, de outro principal.
-- **Verifique por mutação**, como as 1.1 e 1.2 fizeram: enfraqueça a checagem
-  de auth e confirme que um teste reprova. Auth que passa no teste com a
-  verificação removida não está testada.
+**O gate não cobre nada disso.** Nenhum dos nove checks entende autorização, e
+o `claude-review` não só nunca reprovou nada neste projeto como, no PR #31 (a
+story de autenticação), **executou duas vezes e não comentou nenhuma** — 5
+turns numa, 1m42s na outra, `is_error: false`, `/pulls/31/comments` vazio.
 
-Se qualquer AC da 1.3 exigir decisão que não está no PRD nem na spine (formato
-do token, expiração, onde a credencial mora), **isso é bloqueio** — seção 5.
-Não invente política de segurança.
+**Verde do `claude-review` não é evidência de que houve review.** Antes de
+tratá-lo como opinião, confira se ele falou:
+
+```bash
+gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
+```
+
+Zero comentários e check verde significa que ninguém revisou — siga, porque o
+gate está legitimamente verde, mas **registre isso no Dev Agent Record** e não
+conte com ele para achar o que você não achou.
+
+**O que a 1.3 estabeleceu e vale daqui em diante:**
+
+- O principal vem de `McpDeps.autenticar`, resolvido **a cada** chamada de
+  tool; autenticar acontece **antes** do caso de uso.
+- Um erro só para todos os modos de falha de credencial, com teste que varre a
+  mensagem atrás das palavras que distinguiriam os casos.
+- Garantia de concorrência mora no **banco** (`UPDATE ... WHERE ... RETURNING`),
+  não na ordem em que o código roda.
+- Relógio injetado (`agora: () => Date`) — nada de `sleep` em teste de tempo.
+- `papelSchema.parse` em vez de `as` onde o valor decide visibilidade: cast
+  errado cai silencioso no ramo "não é agente".
+- **Contrato Zod sem teste fica com 0%** e a média global esconde — foi o que
+  aconteceu com `contracts/autenticacao.ts`, usado só como tipo.
+
+Se qualquer AC exigir decisão que não está no PRD nem na spine, **isso é
+bloqueio** — seção 5. Foi o que aconteceu com a 1.3 (FR-19/Q7 estava aberta) e
+a decisão veio do dono: magic link, sessão em tabela, 15 min / 8 h. Não invente
+política de segurança.
 
 ### 7. Promessa de conclusão
 
@@ -189,7 +211,9 @@ Não emita para escapar de um bloqueio. Bloqueio se resolve com a seção 5.
 - **Padrão a copiar:** a Story 1.1 (`1-1-abrir-um-chamado-via-mcp-tracer-bullet.md`)
   estabeleceu o modelo — domínio puro, contratos Zod como fonte única, port com
   auditoria embutida, transação real. A 1.2
-  (`1-2-ver-um-chamado-via-mcp.md`) acrescentou o lado da leitura. Siga os dois.
+  (`1-2-ver-um-chamado-via-mcp.md`) acrescentou o lado da leitura, e a 1.3
+  (`1-3-autenticacao-e-identidade.md`) trocou o principal de configuração por
+  autenticação real. Siga os três.
 
 **O que a 1.2 ensinou e vale para todas as próximas:**
 
