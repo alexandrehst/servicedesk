@@ -1,6 +1,6 @@
 # Story 0.6: Code Review por IA (Claude Code)
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -260,13 +260,67 @@ Exiting due to workflow validation skip
 | 2026-08-08 | Prova da AC #3 bloqueada: a action pula o review quando o próprio workflow é modificado, concluindo verde |
 | 2026-08-08 | Confirmado que os 6 silêncios anteriores têm outra causa — nenhum PR anterior tocou no workflow |
 | 2026-08-08 | Prova revertida; AC #3 pendente de PR separado pós-merge |
+| 2026-08-10 | Diagnostico: `permission_denials_count` revelou que as negacoes vinham do runtime, nao do GitHub |
+| 2026-08-10 | Causa raiz: `mcp__github_inline_comment__create_inline_comment` faltava em `allowedTools` (PR #24) |
+| 2026-08-10 | **AC #3 satisfeita**: dois comentarios inline no PR #23, um deles sobre violacao nao plantada. Story `done` |
 | 2026-08-08 | PR #12 (prova isolada): review não comentou. Causa identificada — plugin removido e `allowedTools` restrito deixaram o revisor sem canal de saída |
 | 2026-08-08 | PR #13 corrige: plugin restaurado, restrição removida |
 | 2026-08-08 | PR #12 redisparado com plugin ativo: **ainda sem comentário**. AC #3 **NÃO satisfeita** — ver Resultado da AC #3 abaixo |
 
-## Resultado da AC #3 — o gate NÃO apontou a violação
+## Resultado da AC #3 — SATISFEITA `[2026-08-10]`
 
-**Não satisfeita.** Registro completo, porque a conclusão muda o peso da Story 0.7.
+> **Este bloco foi reescrito.** A versão anterior concluía que o gate não
+> apontava a violação. Era falso: a ferramenta de comentário não estava em
+> `allowedTools`, e nenhuma saída jamais chegou ao PR. O texto original está
+> preservado abaixo, em *Histórico da conclusão errada*, porque como uma
+> conclusão equivocada se sustentou por quatro experimentos é a parte mais
+> instrutiva desta story.
+
+**Satisfeita.** Com `mcp__github_inline_comment__create_inline_comment`
+permitido, o review postou **dois comentários inline** no PR #23
+(run `31385030022`), sobre um arquivo com violações plantadas:
+
+| Linha | Achado |
+| --- | --- |
+| 31 | `[AD-3]` mutação de estado sem registro de auditoria — citou `abrir-chamado.ts:30` e `ticket-repository.ts:21-45` como o padrão correto do repositório, e explicou a consequência: exposta por tool MCP ou rota HTTP, a mudança ficaria sem rastro |
+| 28 | `[AD-2]` mutação fora do domínio — **achado NÃO plantado** —, notando que `novaPrioridade` aceita qualquer string, sem um `ehPrioridade` análogo ao `ehCategoria` de `domain/ticket.ts:22` |
+
+O segundo comentário é o resultado mais significativo: encontrou uma violação
+**que não fazia parte do experimento**, lendo o padrão que a Story 1.1
+estabeleceu no repositório. Isso é exatamente o que se espera de um revisor
+dos pilares de julgamento.
+
+### A causa raiz, e por que demorou
+
+O plugin `code-review` posta com `mcp__github_inline_comment__create_inline_comment`.
+Essa ferramenta precisa estar em `allowedTools` — **omitir a flag não libera
+tudo**: em execução não interativa, ferramenta que escreve é negada por padrão.
+
+Três correções minhas, encadeadas, cada uma plausível e nenhuma suficiente:
+
+| PR | O que fiz | Por que não resolveu |
+| --- | --- | --- |
+| #11 | `--allowedTools Read,Grep,Glob` | retirou justamente a ferramenta de comentar |
+| #13 | removi a flag inteira | ausência de restrição ≠ permissão total |
+| #22 | `pull-requests: write` | correto, mas insuficiente sozinho |
+| #24 | ferramenta explícita em `allowedTools` | ✅ |
+
+O sintoma estava no log o tempo todo: `permission_denials_count` — 4 no teste
+de canal, **10** depois do PR #22. Foi o *aumento* que revelou que as negações
+vinham do runtime do Claude Code, não do GitHub Actions.
+
+**A lição:** durante quatro experimentos li "não comentou" como afirmação
+sobre a capacidade do modelo, quando era afirmação sobre a minha configuração.
+É o mesmo erro que este épico inteiro combate — *verificar o artefato, não o
+exit code* — e eu não o apliquei à própria configuração do gate.
+
+---
+
+## Histórico da conclusão errada
+
+*(Preservado como registro. As afirmações abaixo foram refutadas em 2026-08-10.)*
+
+**~~Não satisfeita.~~** Registro completo, porque a conclusão muda o peso da Story 0.7.
 
 ### O experimento
 
