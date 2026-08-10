@@ -42,10 +42,16 @@ jobs:
           # "No buffered inline comments".
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
-          # NAO restringir allowedTools aqui: a lista precisaria incluir as
-          # ferramentas de comentario do plugin, cujos nomes nao sao estaveis.
-          # `--allowedTools Read,Grep,Glob` deixou o revisor mudo no PR #12.
-          claude_args: '--max-turns 30'
+          # A ferramenta de comentario inline PRECISA estar em allowedTools.
+          # Omitir a flag nao significa "permitir tudo": em execucao nao
+          # interativa, ferramenta que escreve e negada por padrao. Foi por
+          # isso que o revisor ficou mudo em todos os runs — o log acusava
+          # permission_denials_count 4 e depois 10.
+          # Nome confirmado no fonte do plugin code-review:
+          # anthropics/claude-code/plugins/code-review/commands/code-review.md
+          claude_args: >-
+            --max-turns 30
+            --allowedTools Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment
           prompt: |
             Voce e o revisor dos PILARES DE JULGAMENTO do ServiceDesk, um service
             desk interno MCP-first com arquitetura hexagonal.
@@ -97,7 +103,9 @@ jobs:
 
             ## Como reportar
 
-            - Um comentario por achado, no arquivo e na linha onde ele esta.
+            - Poste cada achado com a ferramenta
+              `mcp__github_inline_comment__create_inline_comment`, passando
+              `confirmed: true`, no arquivo e na linha onde o problema esta.
             - Comece nomeando o pilar ou o AD: "[Auditavel]" ou "[AD-3]".
             - Explique a CONSEQUENCIA concreta, nao a regra abstrata: o que quebra,
               para quem, em que situacao.
