@@ -21,6 +21,8 @@ export type Comentario = {
   readonly corpo: string
   readonly internal: boolean
   readonly criadoEm: Date
+  /** Story 1.7 — soft-delete (FR-23). `null` = vivo. */
+  readonly excluidoEm: Date | null
 }
 
 /**
@@ -33,16 +35,26 @@ export type Comentario = {
 export const ticketNaoEncontrado = (numero: number): DomainError =>
   new DomainError('TicketNaoEncontrado', `Chamado #${numero} nao encontrado.`)
 
-/** Agente ve todos os Chamados; Solicitante ve apenas os proprios (FR-2). */
+/**
+ * Agente ve todos os Chamados; Solicitante ve apenas os proprios (FR-2).
+ *
+ * Chamado EXCLUIDO nao e visivel para ninguem (Story 1.7, FR-23). A checagem
+ * vem primeiro porque nao depende de quem pergunta: excluido e excluido.
+ */
 export const podeVerTicket = (quem: QuemPergunta, ticket: Ticket): boolean =>
-  pode(quem.role, 'veChamadoDeTerceiro') || ticket.requester === quem.identity
+  ticket.excluidoEm === null &&
+  (pode(quem.role, 'veChamadoDeTerceiro') || ticket.requester === quem.identity)
 
 /** Solicitante nao recebe Comentario Interno (FR-2, AD-8). */
 export const filtrarComentarios = (
   quem: QuemPergunta,
   comentarios: readonly Comentario[],
-): readonly Comentario[] =>
-  pode(quem.role, 'veComentarioInterno') ? [...comentarios] : comentarios.filter((c) => !c.internal)
+): readonly Comentario[] => {
+  // Comentario excluido sai para todo mundo, inclusive Agente (FR-23).
+  const vivos = comentarios.filter((c) => c.excluidoEm === null)
+
+  return pode(quem.role, 'veComentarioInterno') ? vivos : vivos.filter((c) => !c.internal)
+}
 
 /**
  * O conteudo bruto mora atras deste simbolo, que NAO e exportado.

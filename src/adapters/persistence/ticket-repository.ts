@@ -1,4 +1,4 @@
-import { asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { auditEntries, comments, tickets } from '../../../drizzle/schema.js'
 import type { Principal } from '../../application/contracts/principal.js'
@@ -54,6 +54,8 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         requester: linha.requester,
         assignee: null,
         criadoEm: linha.criadoEm,
+        // Chamado nasce vivo; o soft-delete e a Story 1.7.
+        excluidoEm: null,
       }
     })
   },
@@ -87,6 +89,10 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       requester: linha.requester,
       assignee: null,
       criadoEm: linha.criadoEm,
+      // O adapter entrega o dado BRUTO, inclusive o excluido: quem descarta e
+      // `visivelPara`, no dominio (AD-8, Story 1.4). Filtrar aqui tambem
+      // criaria a mesma regra em dois lugares.
+      excluidoEm: linha.deletedAt,
     }
 
     const comentarios: readonly Comentario[] = thread.map((c) => ({
@@ -94,11 +100,47 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       corpo: c.corpo,
       internal: c.internal,
       criadoEm: c.criadoEm,
+      excluidoEm: c.deletedAt,
     }))
 
     // Embrulhado: o adapter entrega tudo o que leu, inclusive Comentario
     // interno, e nao tem como decidir o que esconder — nem tem a informacao
     // para isso. Quem abre o embrulho e o dominio (AD-8).
     return embrulharBruto({ ticket, comentarios })
+  },
+
+  /**
+   * Soft-delete (Story 1.7, FR-23): marca e audita na MESMA transacao (AD-3).
+   *
+   * `WHERE deleted_at IS NULL` no proprio UPDATE: dois pedidos simultaneos
+   * disputam a linha e so um casa. Ler-e-depois-marcar deixaria os dois
+   * passarem pela leitura antes de qualquer escrita e gravaria duas linhas de
+   * auditoria para uma exclusao — foi o mesmo raciocinio do consumo do link de
+   * login (Story 1.3).
+   */
+  async excluirComAuditoria(numero: number, autor: Principal): Promise<boolean> {
+    return db.transaction(async (tx) => {
+      const [linha] = await tx
+        .update(tickets)
+        .set({ deletedAt: sql`now()` })
+        .where(and(eq(tickets.number, numero), isNull(tickets.deletedAt)))
+        .returning({ number: tickets.number })
+
+      if (linha === undefined) {
+        // Nao havia o que excluir. Nenhuma linha de auditoria: registrar uma
+        // exclusao que nao aconteceu poluiria o Log com evento falso.
+        return false
+      }
+
+      await tx.insert(auditEntries).values({
+        ticketNumber: linha.number,
+        acao: 'excluir_chamado',
+        // AD-9: a identidade de quem excluiu, nunca o nome da tool.
+        autor: autor.identity,
+        origin: autor.origin,
+      })
+
+      return true
+    })
   },
 })

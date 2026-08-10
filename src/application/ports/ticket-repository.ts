@@ -28,4 +28,14 @@ export type TicketRepository = {
    * compila — antes disso, o AD-8 dependia de quem escrevia lembrar.
    */
   buscarPorNumero(numero: number): Promise<ChamadoBruto | null>
+
+  /**
+   * Soft-delete (Story 1.7, FR-23): MARCA o Chamado e grava a auditoria na
+   * mesma transacao (AD-3). A linha continua no banco.
+   *
+   * Devolve `false` quando nao havia o que excluir — Numero inexistente ou
+   * ja excluido. A marcacao e atomica (`UPDATE ... WHERE deleted_at IS NULL`),
+   * entao dois pedidos simultaneos produzem um vencedor so.
+   */
+  excluirComAuditoria(numero: number, autor: Principal): Promise<boolean>
 }

@@ -21,6 +21,10 @@ export type DomainErrorCode =
   // proposito: quem bate no limite ja provou quem e, e precisa saber que
   // adianta tentar de novo — confundir os dois faria reemitir um token bom.
   | 'LimiteExcedido'
+  // Story 1.7: quem VE o Chamado mas nao pode agir sobre ele. Distinto de
+  // `TicketNaoEncontrado` de proposito — quem ja enxerga o Chamado nao ganha
+  // protecao nenhuma com "nao encontrado", so confusao.
+  | 'SemPermissao'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode

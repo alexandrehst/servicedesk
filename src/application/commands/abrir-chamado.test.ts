@@ -18,10 +18,13 @@ const repositorioFake = (): TicketRepository & { chamadas: [NovoTicket, Principa
     chamadas,
     async criarComAuditoria(novo, principal): Promise<Ticket> {
       chamadas.push([novo, principal])
-      return { ...novo, number: 1000, criadoEm: new Date('2026-08-10T12:00:00Z') }
+      return { ...novo, number: 1000, criadoEm: new Date('2026-08-10T12:00:00Z'), excluidoEm: null }
     },
     async buscarPorNumero() {
       return null
+    },
+    async excluirComAuditoria() {
+      throw new Error('esta suite nao exclui')
     },
   }
 }
@@ -58,6 +61,9 @@ it('propaga falha da persistencia sem mascarar', async () => {
     },
     async buscarPorNumero() {
       return null
+    },
+    async excluirComAuditoria() {
+      throw new Error('esta suite nao exclui')
     },
   }
   await expect(abrirChamado({ repositorio })(input, autor)).rejects.toThrowError('conexao perdida')

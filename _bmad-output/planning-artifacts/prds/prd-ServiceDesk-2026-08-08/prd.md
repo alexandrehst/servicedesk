@@ -220,6 +220,7 @@ Toda mudança em Chamado é registrada com autor e origem (UI ou MCP).
 Exclusões são lógicas (soft-delete), nunca físicas, no MVP.
 **Consequências (testáveis):**
 - Nenhum Chamado ou Comentário é apagado fisicamente; permanece auditável.
+**Decidido em 2026-08-10 (Story 1.7):** excluir é ação de **Agente**; `audit_entries` **não** recebe soft-delete (é append-only, FR-22 — uma coluna de exclusão ali permitiria apagar a prova de que algo aconteceu). Quem não pode **ver** o Chamado recebe `TicketNaoEncontrado`; quem vê mas não pode **excluir** recebe `SemPermissao` — esconder existência de quem já a conhece não protege nada.
 
 #### FR-24: Export CSV
 Um Agente/Gestor pode exportar Chamados em CSV.
