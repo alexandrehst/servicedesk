@@ -1,4 +1,5 @@
 import { DomainError } from './errors.js'
+import { type Papel, pode } from './papeis.js'
 import type { Ticket } from './ticket.js'
 
 /**
@@ -8,7 +9,7 @@ import type { Ticket } from './ticket.js'
  * ZERO imports de application, adapters ou platform.
  */
 
-export type Papel = 'solicitante' | 'agente'
+export type { Papel }
 
 export type QuemPergunta = {
   readonly identity: string
@@ -34,11 +35,57 @@ export const ticketNaoEncontrado = (numero: number): DomainError =>
 
 /** Agente ve todos os Chamados; Solicitante ve apenas os proprios (FR-2). */
 export const podeVerTicket = (quem: QuemPergunta, ticket: Ticket): boolean =>
-  quem.role === 'agente' || ticket.requester === quem.identity
+  pode(quem.role, 'veChamadoDeTerceiro') || ticket.requester === quem.identity
 
 /** Solicitante nao recebe Comentario Interno (FR-2, AD-8). */
 export const filtrarComentarios = (
   quem: QuemPergunta,
   comentarios: readonly Comentario[],
 ): readonly Comentario[] =>
-  quem.role === 'agente' ? comentarios : comentarios.filter((c) => !c.internal)
+  pode(quem.role, 'veComentarioInterno') ? [...comentarios] : comentarios.filter((c) => !c.internal)
+
+/**
+ * O conteudo bruto mora atras deste simbolo, que NAO e exportado.
+ *
+ * E o que transforma o AD-8 de disciplina em garantia: fora deste modulo nao
+ * existe chave para abrir o embrulho, entao nenhum caso de uso consegue
+ * entregar Chamado sem antes passar por `visivelPara`. O projeto ja usou a
+ * mesma ideia duas vezes — `NovoTicket` sem `number` (AD-4, Story 1.1) e o
+ * handler de leitura sem caminho de escrita (FR-13, Story 1.2).
+ *
+ * Efeito colateral util: o embrulho serializa como `{}`. Um `console.log` ou um
+ * `JSON.stringify` distraido no meio do caminho nao derrama a thread interna.
+ */
+const conteudo = Symbol('bruto')
+
+export type Bruto<T> = { readonly [conteudo]: T }
+
+/** Usado pelo adapter de persistencia, que entrega o dado sem conhecer papel. */
+export const embrulharBruto = <T>(valor: T): Bruto<T> => ({ [conteudo]: valor })
+
+export type ChamadoBruto = Bruto<{
+  readonly ticket: Ticket
+  readonly comentarios: readonly Comentario[]
+}>
+
+export type ChamadoVisivel = {
+  readonly ticket: Ticket
+  readonly comentarios: readonly Comentario[]
+}
+
+/**
+ * Aplica posse e papel, ou devolve `null`.
+ *
+ * `null` para "nao pode ver" e proposital: quem chama nao recebe material para
+ * distinguir alheio de inexistente, entao o erro unico da 1.2 sai naturalmente
+ * em vez de depender de o handler lembrar de unificar os dois casos.
+ */
+export const visivelPara = (quem: QuemPergunta, bruto: ChamadoBruto): ChamadoVisivel | null => {
+  const { ticket, comentarios } = bruto[conteudo]
+
+  if (!podeVerTicket(quem, ticket)) {
+    return null
+  }
+
+  return { ticket, comentarios: filtrarComentarios(quem, comentarios) }
+}

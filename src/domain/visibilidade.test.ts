@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { Ticket } from './ticket.js'
 import {
   type Comentario,
+  embrulharBruto,
   filtrarComentarios,
   podeVerTicket,
   type QuemPergunta,
   ticketNaoEncontrado,
+  visivelPara,
 } from './visibilidade.js'
 
 const agente: QuemPergunta = { identity: 'bruno@empresa.com', role: 'agente' }
@@ -59,6 +61,55 @@ describe('filtrarComentarios', () => {
       'Parou hoje.',
       'Peca pedida.',
     ])
+  })
+})
+
+describe('visivelPara — a unica saida do dado bruto (AC #4)', () => {
+  const thread: readonly Comentario[] = [
+    { autor: 'marina@empresa.com', corpo: 'Parou hoje.', internal: false, criadoEm: new Date(1) },
+    { autor: 'bruno@empresa.com', corpo: 'Fonte queimada.', internal: true, criadoEm: new Date(2) },
+  ]
+
+  const bruto = () => embrulharBruto({ ticket: chamadoDaMarina, comentarios: thread })
+
+  it('Solicitante alheio nao recebe nada', () => {
+    expect(visivelPara(carlos, bruto())).toBeNull()
+  })
+
+  it('Solicitante dono recebe o Chamado sem os Comentarios internos', () => {
+    const visto = visivelPara(marina, bruto())
+
+    expect(visto?.ticket.number).toBe(1000)
+    expect(visto?.comentarios).toHaveLength(1)
+    expect(visto?.comentarios.every((c) => !c.internal)).toBe(true)
+  })
+
+  it('Agente recebe o Chamado e a thread inteira', () => {
+    const visto = visivelPara(agente, bruto())
+
+    expect(visto?.comentarios).toHaveLength(2)
+  })
+
+  it('o conteudo bruto nao e alcancavel sem passar por aqui', () => {
+    const embrulhado = bruto()
+
+    // O simbolo que guarda o conteudo nao e exportado: fora deste modulo nao ha
+    // chave para pegar. Isso e o que faz a autorizacao ser estrutural em vez de
+    // depender de alguem lembrar de chama-la.
+    expect(Object.keys(embrulhado)).toHaveLength(0)
+    expect(JSON.stringify(embrulhado)).toBe('{}')
+  })
+
+  it('nao devolve o mesmo array de Comentarios que recebeu', () => {
+    const original = [...thread]
+    const visto = visivelPara(
+      agente,
+      embrulharBruto({ ticket: chamadoDaMarina, comentarios: original }),
+    )
+
+    // Devolver a referencia original deixaria quem chama alterar a thread que o
+    // dominio acabou de autorizar.
+    expect(visto?.comentarios).not.toBe(original)
   })
 })
 

@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-08
-last_updated: 2026-08-10 (stories 1.1 a 1.3 done)
+last_updated: 2026-08-10 (story 1.4 em review)
 project: ServiceDesk
 project_key: NOKEY
 tracking_system: file-system
@@ -68,7 +68,7 @@ development_status:
   1-1-abrir-um-chamado-via-mcp-tracer-bullet: done
   1-2-ver-um-chamado-via-mcp: done
   1-3-autenticacao-e-identidade: done
-  1-4-papeis-e-autorizacao: backlog
+  1-4-papeis-e-autorizacao: review
   1-5-seguranca-do-adapter-mcp-token-escopado-rate-limit: backlog
   1-6-e-mail-de-abertura: backlog
   1-7-soft-delete-base: backlog

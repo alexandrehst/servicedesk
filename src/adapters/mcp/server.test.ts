@@ -3,7 +3,7 @@ import type { Principal } from '../../application/contracts/principal.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
 import { DomainError } from '../../domain/errors.js'
 import type { Ticket } from '../../domain/ticket.js'
-import type { Comentario } from '../../domain/visibilidade.js'
+import { type Comentario, embrulharBruto } from '../../domain/visibilidade.js'
 import { criarHandlerAbrirChamado, criarHandlerVerChamado, criarServidorMcp } from './server.js'
 
 const registradas: Principal[] = []
@@ -101,7 +101,9 @@ const repoLeitura: TicketRepository = {
     throw new Error('a tool de leitura nao deve escrever')
   },
   async buscarPorNumero(numero) {
-    return numero === chamado.number ? { ticket: chamado, comentarios: thread } : null
+    return numero === chamado.number
+      ? embrulharBruto({ ticket: chamado, comentarios: thread })
+      : null
   },
 }
 

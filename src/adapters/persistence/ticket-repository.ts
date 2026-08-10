@@ -4,7 +4,7 @@ import { auditEntries, comments, tickets } from '../../../drizzle/schema.js'
 import type { Principal } from '../../application/contracts/principal.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
 import type { Categoria, NovoTicket, Status, Ticket } from '../../domain/ticket.js'
-import type { Comentario } from '../../domain/visibilidade.js'
+import { type Comentario, embrulharBruto } from '../../domain/visibilidade.js'
 
 /**
  * Driven adapter: implementa o port de repositorio.
@@ -96,6 +96,9 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       criadoEm: c.criadoEm,
     }))
 
-    return { ticket, comentarios }
+    // Embrulhado: o adapter entrega tudo o que leu, inclusive Comentario
+    // interno, e nao tem como decidir o que esconder — nem tem a informacao
+    // para isso. Quem abre o embrulho e o dominio (AD-8).
+    return embrulharBruto({ ticket, comentarios })
   },
 })

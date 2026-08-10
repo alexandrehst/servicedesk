@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import { type DomainError, ehDomainError } from '../../domain/errors.js'
 import type { Ticket } from '../../domain/ticket.js'
-import type { Comentario } from '../../domain/visibilidade.js'
+import { type Comentario, embrulharBruto } from '../../domain/visibilidade.js'
 import type { Principal } from '../contracts/principal.js'
 import type { TicketRepository } from '../ports/ticket-repository.js'
 import { verChamado } from './ver-chamado.js'
@@ -60,8 +60,29 @@ const repo = (
     throw new Error('nao deveria escrever numa leitura')
   },
   async buscarPorNumero() {
-    return achado
+    // Story 1.4: o port devolve dado EMBRULHADO. Um duble que devolva o
+    // objeto cru nao compila mais — e essa e a garantia: nenhum caminho
+    // entrega Chamado sem passar pela autorizacao do dominio.
+    return achado === null ? null : embrulharBruto(achado)
   },
+})
+
+/**
+ * AC #4 — a autorizacao e garantia do compilador, nao disciplina de quem
+ * escreve o caso de uso.
+ *
+ * Este teste vale pelo `@ts-expect-error`: se algum dia o conteudo bruto virar
+ * alcancavel de fora do dominio, o erro esperado deixa de acontecer e o
+ * `tsc --noEmit` reprova com "unused '@ts-expect-error' directive". O gate
+ * `typecheck` cobre isso, entao a garantia nao depende de ninguem reparar.
+ */
+it('nao existe caminho para abrir o dado bruto fora do dominio', () => {
+  const bruto = embrulharBruto({ ticket, comentarios: thread })
+
+  // @ts-expect-error o simbolo que guarda o conteudo nao e exportado
+  const vazamento = bruto.conteudo
+
+  expect(vazamento).toBeUndefined()
 })
 
 it('retorna os campos do Chamado e a thread', async () => {
