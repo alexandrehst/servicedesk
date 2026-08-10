@@ -127,6 +127,21 @@ export const rateLimit = pgTable(
 export type McpTokenRow = typeof mcpTokens.$inferSelect
 export type RateLimitRow = typeof rateLimit.$inferSelect
 
+/**
+ * Story 1.6 — link de acesso ao Chamado (FR-18). Sem `usadoEm`: reutilizavel
+ * por decisao, ao contrario do link de login.
+ */
+export const ticketAccessLinks = pgTable('ticket_access_links', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  ticketNumber: integer('ticket_number').notNull(),
+  email: text('email').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export type TicketAccessLinkRow = typeof ticketAccessLinks.$inferSelect
+
 export type UserRow = typeof users.$inferSelect
 export type LoginLinkRow = typeof loginLinks.$inferSelect
 export type SessionRow = typeof sessions.$inferSelect
