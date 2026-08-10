@@ -35,6 +35,22 @@ main atualizada  →  branch story/<chave>  →  bmad-create-story <n.n>
 - Título do PR em **conventional commits**, minúsculas no subject.
 - Corpo do PR **precisa** referenciar `Story <n>.<n>` — o job `traceability`
   reprova sem isso.
+- **Antes de mergear, resolva as conversas do review por IA.** A proteção tem
+  `required_conversation_resolution: true`: um comentário aberto bloqueia o
+  merge mesmo com os nove checks verdes. O `claude-review` comenta em **todo**
+  PR — inclusive para dizer que não encontrou violação.
+
+  ```bash
+  # lê o comentário ANTES de resolver: pode ser um achado real
+  gh api graphql -f query='{repository(owner:"alexandrehst",name:"servicedesk"){pullRequest(number:NN){reviewThreads(first:20){nodes{id isResolved path line comments(first:1){nodes{body}}}}}}}'
+  # resolve cada thread
+  gh api graphql -f query='mutation{resolveReviewThread(input:{threadId:"THREAD_ID"}){thread{isResolved}}}'
+  ```
+
+  **Leia antes de resolver.** Se o comentário apontar violação de pilar ou de
+  AD, **corrija o código** — resolver a conversa sem corrigir é falso verde, e
+  é o único resultado inaceitável neste projeto.
+
 - Merge com `gh pr merge <n> --squash --delete-branch`.
 
 ### 3. Regras não-negociáveis

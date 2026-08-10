@@ -39,6 +39,12 @@ Mais CodeQL (não obrigatório: nomes gerados dinamicamente, um check que some t
 | `sonar` | SonarCloud | consome o artifact de cobertura do job `test` |
 | `claude-review` | claude-code-action | **`mcp__github_inline_comment__create_inline_comment` em `allowedTools`** |
 
+**`required_conversation_resolution: true`** — o `claude-review` comenta em
+**todo** PR, inclusive para dizer que não achou violação. Um comentário aberto
+**bloqueia o merge** mesmo com os nove checks verdes. Leia o comentário, corrija
+se for achado real, e só então resolva a thread via
+`gh api graphql ... resolveReviewThread`.
+
 ## ⚠️ PRs do Dependabot abertos — NÃO mergear sem ler
 
 | PR | Proposta | Decisão do projeto |
