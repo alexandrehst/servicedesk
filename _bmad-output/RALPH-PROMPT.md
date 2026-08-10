@@ -141,76 +141,73 @@ Situações de bloqueio:
 que já foi feito, o que falta), rode `/ralph-loop:cancel-ralph` e encerre com
 um resumo do bloqueio.
 
-### 6. Atenção redobrada na Story 1.5
+### 6. Atenção redobrada na Story 1.6
 
-A 1.5 é **segurança do adapter MCP**: token escopado por identidade e rate
-limit (FR-21, AD-9). Ela fecha a fronteira que a 1.3 abriu e a 1.4 endureceu.
+A 1.6 é **e-mail de abertura** (FR-18). Ela é a primeira story do Epic 1 que
+não é fronteira de segurança — o cuidado muda de lugar.
 
-**Verifique primeiro se ela está bloqueada.** Duas coisas que a AC exige podem
-não estar decididas em lugar nenhum:
+**O que verificar antes de começar:**
 
-1. **O que é o "token escopado" do cliente MCP.** A 1.3 criou sessão de 8 h
-   nascida de magic link — feita para humano. Um cliente MCP autônomo pode
-   precisar de credencial de máquina, com prazo e ciclo de vida próprios. Se o
-   PRD e a spine não disserem qual dos dois, **é bloqueio** (seção 5): não
-   invente política de credencial.
-2. **Os números do rate limit.** FR-21 pede rate limit sem dizer quantas
-   chamadas em qual janela, nem o que acontece ao estourar. Limite é decisão de
-   produto — 8 agentes e ~200–400 chamados/mês é o contexto, mas o número é do
-   dono.
+1. **O provedor de e-mail não está decidido.** A spine lista "Nodemailer ou
+   serviço SMTP/Resend" como alternativas, e o PRD só diz "SMTP/serviço". Isso
+   é escolha técnica, não política de segurança: dá para entregar o adapter
+   contra um port com configuração por ambiente, sem inventar contrato de
+   produto. **Mas não há credencial de SMTP neste ambiente**, então o envio
+   real não é verificável aqui — o que for entregue precisa dizer isso no Dev
+   Agent Record em vez de fingir que foi testado.
+2. **FR-18 diz que o e-mail leva "Número, Status e link", e que o link também
+   dá acesso no portal.** O portal é Fase 1.5 e não existe. Se a AC exigir
+   decidir o que esse link é — um magic link de acesso ao Chamado? um link
+   morto? — **isso é decisão de produto** e cai na seção 5.
+3. **O port de e-mail já existe pela metade.** A Story 1.3 criou
+   `NotificadorDeLogin` em `application/ports/`, com implementação real adiada
+   justamente para a 1.6. Estenda ou unifique — **não** crie um segundo port
+   paralelo que faça a mesma coisa.
 
-Se estiver decidido, o resto segue os padrões já estabelecidos:
+**O padrão que vale para toda story daqui em diante:**
 
-- **O rate limit é do adapter, não do domínio.** Ele protege o ponto de
-  entrada; a regra de negócio não muda por causa dele.
-- **A identidade — nunca o nome da tool — é o autor auditado** (AD-9). Já vale
-  desde a 1.1; a 1.5 precisa manter isso com o token de máquina.
-- **Erro de limite estourado não é erro de credencial.** São coisas
-  diferentes e o cliente precisa distinguir para saber se adianta tentar de
-  novo. Decida deliberadamente e **escreva no Dev Agent Record**.
-- **Verifique por mutação**: afrouxe o limite e confirme que um teste reprova.
-- **Relógio injetado** para testar a janela — nada de `sleep`.
+- **Torne impossível o que hoje é lembrado.** Três vezes o projeto trocou
+  disciplina por garantia do compilador: `NovoTicket` sem `number` (1.1),
+  handler de leitura sem caminho de escrita (1.2), `ChamadoBruto` que só abre
+  por `visivelPara` (1.4). Prove com `@ts-expect-error` — se o vazamento virar
+  compilável, o `typecheck` reprova com `TS2578`.
+- **Atomicidade mora no banco**, não na ordem do código:
+  `UPDATE ... WHERE ... RETURNING` (1.3) e
+  `INSERT ... ON CONFLICT DO UPDATE ... RETURNING` (1.5). Teste de
+  concorrência exige `Promise.all` — em sequência o código errado passa.
+- **Erros só se separam quando a distinção ajuda quem tem direito.**
+  `TicketNaoEncontrado` cobre inexistente e alheio (1.2); `CredencialInvalida`
+  cobre todo modo de falha de credencial (1.3, 1.5); `LimiteExcedido` é
+  separado porque quem bateu no limite já provou quem é (1.5).
+- **Defesa que devolveria zero em silêncio precisa lançar** — no UPSERT do
+  contador, um retorno vazio tratado como `0` desligaria o rate limit inteiro
+  sem nenhum teste vermelho.
+- **Decisão que se repete vira tabela** com `switch` exaustivo
+  (`domain/papeis.ts`): caso novo sem política é erro de compilação.
+- **Relógio injetado** para qualquer regra de tempo; `fileParallelism: false`
+  porque os testes de integração dividem um Postgres.
+- **Cobertura se lê por arquivo.** Já escondeu um adapter em 72% (1.2), um
+  contrato Zod em 0% (1.3), um ramo de defesa em 71% (1.4) e o `throw` do
+  UPSERT em 83% (1.5). O total nunca contou essa história.
+- **Verifique por mutação** e registre a tabela no Dev Agent Record.
 
-**Três lacunas registradas na 1.3 pertencem a esta story ou vêm junto dela:**
-`solicitarLink` sem rate limit (spam de caixa de entrada), links de login
-válidos simultâneos sem invalidação do anterior, e `login_links`/`sessions`
-crescendo sem expurgo.
-
-**Não existe composition root.** O projeto nunca teve entrypoint: nem
-`McpDeps.principal` (até a 1.2) nem `McpDeps.autenticar` (1.3) estão ligados a
-um servidor em execução. Se a 1.5 precisar de um, isso é trabalho dela — e
-então passa a haver um lugar onde o token do cliente é lido de verdade.
-
-**O gate não cobre nada disso, e o revisor está mudo.** O `claude-review` passou
-verde sem comentar nada em **três PRs seguidos** — #31 (duas execuções), #32 e
-#33 —, incluindo as duas stories de fronteira de segurança do Epic 1. Confira
-antes de tratá-lo como opinião:
+**Sobre o `claude-review`:** ele ficou mudo em cinco rodadas seguidas (#31 duas
+vezes, #32, #33, #34 e a primeira do #35) e **voltou a comentar** no commit
+seguinte do #35, com raciocínio específico. O silêncio é intermitente. Verde
+continua não sendo evidência de review — confira antes de tratá-lo como
+opinião:
 
 ```bash
 gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
 ```
 
-Zero e check verde significa que ninguém revisou. Siga — o gate está
-legitimamente verde — mas **registre no Dev Agent Record** e não conte com ele.
-
-**O que as 1.3 e 1.4 estabeleceram e vale daqui em diante:**
-
-- **Torne impossível o que hoje é lembrado.** Três vezes seguidas o projeto
-  trocou disciplina por garantia do compilador: `NovoTicket` sem `number`
-  (1.1), handler de leitura sem caminho de escrita (1.2) e o `ChamadoBruto`
-  que só abre por `visivelPara` (1.4). Prove isso com `@ts-expect-error` — se
-  o vazamento virar compilável, o `typecheck` reprova com `TS2578`.
-- Decisão que se repete vira **tabela** (`domain/papeis.ts`), com `switch`
-  exaustivo: caso novo sem política é erro de compilação.
-- Um erro só para modos de falha que não devem ser distinguíveis, com teste
-  que **compara as mensagens entre si** e varre as palavras que vazariam.
-- Garantia de concorrência mora no **banco** (`UPDATE ... WHERE ... RETURNING`).
-- Relógio injetado; `fileParallelism: false` porque os testes de integração
-  dividem um Postgres.
-- **Contrato Zod sem teste fica com 0%** e a média global esconde.
+E quando ele **falar**, leia de verdade: no #35 o comentário levantou que
+emissão e revogação de token não geram `audit_entries`. Não era violação, mas
+virou lacuna registrada para a Story 1.8.
 
 Se qualquer AC exigir decisão que não está no PRD nem na spine, **isso é
-bloqueio** — seção 5. Já aconteceu na 1.3 (FR-19/Q7) e a decisão veio do dono.
+bloqueio** — seção 5. Já aconteceu duas vezes (1.3 e 1.5), e nas duas o dono
+decidiu em minutos. Perguntar custa menos que inventar.
 
 ### 7. Promessa de conclusão
 
