@@ -4,7 +4,7 @@ baseline_commit: 69bf96658af741e5d45143c48303fbfe7074f7b9
 
 # Story 1.1: Abrir um Chamado via MCP (tracer bullet)
 
-Status: in-progress
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -42,50 +42,50 @@ so that o problema fique registrado e rastreável desde o primeiro minuto.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — Infraestrutura de banco** (AC: #1)
-  - [ ] `compose.yaml` com PostgreSQL **18** (a spine fixa 18; o Homebrew local tem 14 — não usar)
-  - [ ] `services: postgres:18` no job `test` do CI
-  - [ ] `.env.example` com `DATABASE_URL`; `.env` já está no `.gitignore`
-  - [ ] Documentar no README como subir (o Docker Desktop precisa estar aberto)
+- [x] **Task 1 — Infraestrutura de banco** (AC: #1)
+  - [x] `compose.yaml` com PostgreSQL **18** (a spine fixa 18; o Homebrew local tem 14 — não usar)
+  - [x] `services: postgres:18` no job `test` do CI
+  - [x] `.env.example` com `DATABASE_URL`; `.env` já está no `.gitignore`
+  - [x] Documentar no README como subir (o Docker Desktop precisa estar aberto)
 
-- [ ] **Task 2 — Domínio puro** (AC: #1, #3)
-  - [ ] `src/domain/ticket.ts`: tipo `Ticket`, `Status` como união fechada (AD-5, só `aberto` nesta story), `Category` como união fechada
-  - [ ] `src/domain/errors.ts`: erros tipados (`TituloObrigatorio`, `CategoriaInvalida`) — o shape do erro **nasce no domínio** (Consistency Conventions)
-  - [ ] Função pura de criação que **valida e rejeita**, sem tocar em I/O
-  - [ ] **Zero imports** de `application`, `adapters` ou `platform` — o `arch` reprova
+- [x] **Task 2 — Domínio puro** (AC: #1, #3)
+  - [x] `src/domain/ticket.ts`: tipo `Ticket`, `Status` como união fechada (AD-5, só `aberto` nesta story), `Category` como união fechada
+  - [x] `src/domain/errors.ts`: erros tipados (`TituloObrigatorio`, `CategoriaInvalida`) — o shape do erro **nasce no domínio** (Consistency Conventions)
+  - [x] Função pura de criação que **valida e rejeita**, sem tocar em I/O
+  - [x] **Zero imports** de `application`, `adapters` ou `platform` — o `arch` reprova
 
-- [ ] **Task 3 — Contratos Zod** (AC: #1, #3)
-  - [ ] `src/application/contracts/abrir-chamado.ts` com schema de input e output em **Zod 4.4**
-  - [ ] Fonte **única**: o adapter MCP deriva daqui, não redefine (AD-6)
+- [x] **Task 3 — Contratos Zod** (AC: #1, #3)
+  - [x] `src/application/contracts/abrir-chamado.ts` com schema de input e output em **Zod 4.4**
+  - [x] Fonte **única**: o adapter MCP deriva daqui, não redefine (AD-6)
 
-- [ ] **Task 4 — Ports** (AC: #2)
-  - [ ] `src/application/ports/ticket-repository.ts` — interface com `criar(...)` recebendo o principal
-  - [ ] A interface **inclui a auditoria na mesma operação**, para que a atomicidade não dependa de disciplina de quem implementa
+- [x] **Task 4 — Ports** (AC: #2)
+  - [x] `src/application/ports/ticket-repository.ts` — interface com `criar(...)` recebendo o principal
+  - [x] A interface **inclui a auditoria na mesma operação**, para que a atomicidade não dependa de disciplina de quem implementa
 
-- [ ] **Task 5 — Command handler** (AC: #1, #2, #3)
-  - [ ] `src/application/commands/abrir-chamado.ts`
-  - [ ] Recebe `Principal { identity, role, origin }` (AD-8, AD-9)
-  - [ ] Invoca o domínio para validar, delega persistência ao port
-  - [ ] **Não** importa de `adapters` — o `arch` reprova
+- [x] **Task 5 — Command handler** (AC: #1, #2, #3)
+  - [x] `src/application/commands/abrir-chamado.ts`
+  - [x] Recebe `Principal { identity, role, origin }` (AD-8, AD-9)
+  - [x] Invoca o domínio para validar, delega persistência ao port
+  - [x] **Não** importa de `adapters` — o `arch` reprova
 
-- [ ] **Task 6 — Adapter de persistência** (AC: #1, #2, #4)
-  - [ ] `drizzle/schema.ts`: tabelas `tickets` e `audit_entries`
-  - [ ] **Número por sequence do Postgres**, `DEFAULT nextval(...)` — nunca gerado em código (AD-4)
-  - [ ] Migration versionada em `drizzle/`
-  - [ ] `src/adapters/persistence/ticket-repository.ts` implementa o port **dentro de uma transação** que cobre ticket + auditoria
+- [x] **Task 6 — Adapter de persistência** (AC: #1, #2, #4)
+  - [x] `drizzle/schema.ts`: tabelas `tickets` e `audit_entries`
+  - [x] **Número por sequence do Postgres**, `DEFAULT nextval(...)` — nunca gerado em código (AD-4)
+  - [x] Migration versionada em `drizzle/`
+  - [x] `src/adapters/persistence/ticket-repository.ts` implementa o port **dentro de uma transação** que cobre ticket + auditoria
 
-- [ ] **Task 7 — Adapter MCP** (AC: #1, #3)
-  - [ ] `src/adapters/mcp/server.ts` com `@modelcontextprotocol/server@2.0.0`, transporte **stdio** (a spine adia HTTP)
-  - [ ] Tool `abrir_chamado` derivando validação dos contratos Zod da Task 3
-  - [ ] Mapeia erro de domínio → erro de tool (o shape vem do domínio)
-  - [ ] Carimba `origin: 'mcp'` no principal
+- [x] **Task 7 — Adapter MCP** (AC: #1, #3)
+  - [x] `src/adapters/mcp/server.ts` com `@modelcontextprotocol/server@2.0.0`, transporte **stdio** (a spine adia HTTP)
+  - [x] Tool `abrir_chamado` derivando validação dos contratos Zod da Task 3
+  - [x] Mapeia erro de domínio → erro de tool (o shape vem do domínio)
+  - [x] Carimba `origin: 'mcp'` no principal
 
-- [ ] **Task 8 — Testes** (AC: #1–#5)
-  - [ ] Unidade: domínio (validação, erros tipados) — sem I/O
-  - [ ] Unidade: command handler com port fake
-  - [ ] **Integração com Postgres real**: número sequencial, status inicial, auditoria com autor e origem
-  - [ ] **Teste de atomicidade** (AC #4): forçar falha na auditoria e verificar que o ticket **não** existe
-  - [ ] Cobertura ≥80% — o gate reprova abaixo disso
+- [x] **Task 8 — Testes** (AC: #1–#5)
+  - [x] Unidade: domínio (validação, erros tipados) — sem I/O
+  - [x] Unidade: command handler com port fake
+  - [x] **Integração com Postgres real**: número sequencial, status inicial, auditoria com autor e origem
+  - [x] **Teste de atomicidade** (AC #4): forçar falha na auditoria e verificar que o ticket **não** existe
+  - [x] Cobertura ≥80% — o gate reprova abaixo disso
 
 ## Dev Notes
 
@@ -197,8 +197,65 @@ Modificados: `package.json` (deps + scripts), `.github/workflows/ci.yml` (servic
 
 ### Agent Model Used
 
+claude-opus-5
+
 ### Debug Log References
+
+**Docker Compose como binário separado.** `docker compose up -d` falhou com `unknown shorthand flag: 'd'` — nesta máquina o Compose é `docker-compose` (v2.33.1), não subcomando do `docker`. Sem impacto no CI, que usa `services:`.
+
+**O teste de atomicidade foi verificado por mutação.** Um teste de atomicidade que passaria mesmo sem transação não prova nada. Removi o `db.transaction(...)`, rodei a suíte (`1 failed | 25 passed` — exatamente o de atomicidade), restaurei (`26 passed`). Só depois disso a AC #4 foi considerada satisfeita.
+
+**`noUncheckedIndexedAccess` pegou desestruturação insegura no meu próprio teste.** `const [[novo, principal]] = repositorio.chamadas` não compila: o índice pode ser `undefined`. Corrigido com acesso opcional. O strict do tsconfig funcionando contra quem o configurou.
+
+**`pnpm format` não corrige ordenação de imports.** O `lint` reprovou com `assist/source/organizeImports` depois de eu rodar `format`. São coisas diferentes: `biome format` mexe em espaçamento; ordenar imports é regra de *assist*, que só `biome check --write` aplica.
+
+**O SDK não expõe o callback da tool registrada.** Cobrir o caminho de erro exigiria subir um cliente MCP inteiro — e não há pacote cliente instalado (seria dependência fora do escopo). Extraí o handler para `criarHandlerAbrirChamado`, testável direto. A cobertura do adapter foi de 41% para 100%, e o desenho ficou melhor: o handler não depende de transporte.
+
+**Dois falsos positivos do Sonar, ambos de idioma.** `S1135` pediu para "completar o TODO" em `principal.ts`, onde não há TODO algum — casou com a palavra *todo* em português dentro de um comentário. `S7718` exigiu renomear o parâmetro `erro` para `error_`, convenção anglófona. Desativadas em `sonar-project.properties` com justificativa, em vez de deformar o código para agradar um analisador que não fala a língua do projeto.
 
 ### Completion Notes List
 
+- **Task 1** — `compose.yaml` e `services:` no CI com Postgres 18-alpine; `.env.example`; script `db:migrate` idempotente.
+- **Task 2** — domínio puro: `Status` e `Categoria` como uniões fechadas, `DomainError` com `code`. **`NovoTicket` não tem campo `number`** — gerar o Número em código deixa de ser algo a evitar e passa a ser algo que não compila (AD-4 garantido pelo compilador).
+- **Task 3** — contratos Zod derivando `CATEGORIAS` do domínio, sem duplicar a lista (AD-6).
+- **Task 4** — port com método único `criarComAuditoria`. Dois métodos separados fariam a atomicidade do AD-3 depender de quem chama lembrar da transação.
+- **Task 5** — command handler como único caminho de escrita (AD-2), recebendo `Principal` (AD-8, AD-9).
+- **Task 6** — `db.transaction(...)` cobrindo ticket + auditoria; `number` vem de `DEFAULT nextval` e volta pelo `RETURNING`.
+- **Task 7** — tool `abrir_chamado` (nome PT, FR-14) com `inputSchema` = schema do contrato; handler extraído para função testável.
+- **Task 8** — 32 testes: 19 de domínio, 4 de handler, 5 de integração com Postgres real, 6 de adapter MCP.
+
+**Resultados no CI (PR #17, run `31381750919`):** dez checks verdes, `test` com Postgres real em 32s.
+
+**Pendências do Epic 0 fechadas:**
+
+| Pendência | Resultado |
+|---|---|
+| `arch` nunca exercitado (Story 0.4) | **14 módulos, 24 dependências**, zero violações |
+| Cobertura real no Sonar (Story 0.7) | **91.5% Coverage on New Code** — antes 0.0% |
+
+**Reteste do review por IA (Story 0.6, AC #3): resultado NEGATIVO confirmado.** Este PR era o contexto real que faltava — código de produto, módulos vizinhos, port de auditoria, transação. O `claude-review` rodou 4m38s e **não postou comentário**. A hipótese de que o silêncio anterior se devia ao arquivo isolado parecer stub **não se sustenta**. A conclusão da Story 0.6 se confirma: o review por IA não é cobertura confiável dos pilares de julgamento, e a revisão humana segue sendo a camada real.
+
+**Não exercitado:** `no-cross-adapter` e `no-circular` seguem sem prova — exigiriam dois adapters se cruzando ou um ciclo, que não existem. `principal.ts` com 0% de cobertura: só definições de schema, sem lógica executável.
+
 ### File List
+
+- `compose.yaml`, `.env.example` (novos)
+- `drizzle/schema.ts`, `drizzle/migrations/0001_inicial.sql` (novos)
+- `src/domain/ticket.ts`, `errors.ts` + testes (novos)
+- `src/application/contracts/{abrir-chamado,principal}.ts` (novos)
+- `src/application/ports/ticket-repository.ts` (novo)
+- `src/application/commands/abrir-chamado.ts` + teste (novos)
+- `src/adapters/persistence/ticket-repository.ts` + teste (novos)
+- `src/adapters/mcp/server.ts` + teste (novos)
+- `package.json`, `pnpm-lock.yaml`, `.github/workflows/ci.yml`, `sonar-project.properties` (modificados)
+- `_bmad-output/implementation-artifacts/{1-1-...,sprint-status.yaml}` (modificados)
+
+## Change Log
+
+| Data | Evento |
+|---|---|
+| 2026-08-10 | Tasks 1–8: esqueleto hexagonal completo com 32 testes, cobertura 92,15% |
+| 2026-08-10 | Teste de atomicidade verificado por mutação (AC #4) |
+| 2026-08-10 | PR #17: dez checks verdes; Sonar reporta 91.5% de cobertura (fecha pendência da 0.7) |
+| 2026-08-10 | Reteste do review por IA: negativo com código real — confirma a conclusão da Story 0.6 |
+| 2026-08-10 | Dois falsos positivos do Sonar desativados com justificativa |
