@@ -4,7 +4,7 @@ baseline_commit: e959f14
 
 # Story 1.3: Autenticação e identidade
 
-Status: review
+Status: done
 
 ## Story
 
@@ -368,15 +368,22 @@ distinguiriam os casos (`expir`, `usado`, `inexistente`, `cadastr`).
    fica para sempre. Não é exposição (só há hash), mas é dívida operacional —
    a limpeza precisa de dono.
 
-**O `claude-review` passou sem dizer nada.** Cinco turns, 14 s, US$ 0,15,
-`is_error: false`, "No buffered inline comments" — contra 26–31 turns e dois
-comentários no PR #28, que tinha diff menor. Não é o silêncio da Story 0.6
-(PR tocando o próprio workflow), porque o modelo de fato executou; é um quarto
-modo: executa pouco e não emite nada, nem "nenhuma violação encontrada". Como o
-check é verde e nenhuma conversa bloqueia, **o merge não depende dele** — e é
-exatamente por isso que fica registrado: nesta story, a de autenticação, o
-review por IA não contribuiu com nada. As lacunas 5 a 7 acima saíram de
-releitura própria, não do revisor.
+**O `claude-review` passou sem dizer nada — duas vezes.** Primeira execução:
+5 turns, 14 s, US$ 0,15, `is_error: false`, "No buffered inline comments".
+Segunda, sobre o commit seguinte: 1m42s de job, e mesmo assim **zero**
+comentários — nem inline (`/pulls/31/comments` vazio), nem geral, nem review
+formal. No PR #28, com diff *menor*, foram 26–31 turns e dois comentários.
+
+Não é o silêncio da Story 0.6 (PR tocando o próprio workflow), porque o modelo
+de fato executou. É um quarto modo: **executa e não emite nada**, nem para
+dizer que não encontrou violação. Como o check fica verde e nenhuma conversa
+abre, o merge não depende dele — e é exatamente por isso que fica registrado:
+na story de **autenticação**, a que a seção 6 do prompt do loop marcou como a
+fronteira de segurança do sistema, o review por IA contribuiu com nada. As
+lacunas 5 a 7 acima saíram de releitura própria, não do revisor.
+
+Isso reforça o resultado da Story 0.6 em vez de contradizê-lo: o `claude-review`
+segue sem ter reprovado nada neste projeto, e agora também sem falar.
 
 ### File List
 
@@ -405,3 +412,6 @@ releitura própria, não do revisor.
 | 2026-08-10 | Task 8: 112 testes; cobertura 99,33% com todos os arquivos da story em 100% |
 | 2026-08-10 | Sete mutações aplicadas e reprovadas — AC #1 a #6 verificadas |
 | 2026-08-10 | Task 9: Q7 fechada no PRD e "auth concreta" removida do *Deferred* da spine |
+| 2026-08-10 | PR #31: nove checks verdes; `claude-review` executou duas vezes e não comentou nenhuma |
+| 2026-08-10 | Registradas três lacunas encontradas em releitura própria (timing, links simultâneos, expurgo) |
+| 2026-08-10 | PR #31 mergeado. Story `done` |
