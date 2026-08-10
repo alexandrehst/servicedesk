@@ -1,64 +1,111 @@
 # ServiceDesk — Ponto de Retomada
 
-**Última atualização:** 2026-08-08
-**Contexto:** projeto de demonstração do fluxo **spec-driven development** (BMad). Migrando de uma sessão para um Claude interativo no terminal.
+**Última atualização:** 2026-08-10
+**Repo:** https://github.com/alexandrehst/servicedesk (público)
 
 ## O que é o projeto
 
-Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de dentro de uma IA (UI web é Fase 1.5). Arquitetura **hexagonal**, **TypeScript** ponta-a-ponta. Objetivo de negócio: **substituir o software de chamados contratado (~R$20k/mês ≈ R$240k/ano)** com paridade comprovada. Construído por 1 pessoa + IA. Escala: ~100 funcionários, 8 agentes.
+Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de dentro de uma IA (UI web é Fase 1.5). Arquitetura **hexagonal**, **TypeScript** ponta-a-ponta. Objetivo: **substituir o software de chamados contratado (~R$240k/ano)** com paridade comprovada. 1 pessoa + IA. Escala: ~100 funcionários, 8 agentes.
 
 ## Onde paramos
 
-Planejamento BMad **completo** (Fases 1–3) + check de prontidão **APROVADO (READY)** + gateway de governança de CI capturado. **Próximo passo: Fase 4 — rodar `bmad-sprint-planning`** (o Epic 0 entra como sprint 0).
+**Epic 0 completo (7/7).** **Story 1.1 mergeada.** Próximo: **Story 1.2** — supervisionada, para validar o sandbox antes de ligar o loop.
 
-## Artefatos (todos em `_bmad-output/planning-artifacts/`, salvo indicado)
+| Épico | Estado |
+| --- | --- |
+| Epic 0 — Governança de CI | ✅ 7/7 `done` |
+| Epic 1 — Fundação segura | 1.1 `done`; 1.2 a 1.9 `backlog` |
+| Epics 2–4 | `backlog` |
 
-- `prds/prd-ServiceDesk-2026-08-08/prd.md` — PRD final, 27 FRs (FR-26/27 = Fase 1.5, fora do MVP)
-- `architecture/architecture-ServiceDesk-2026-08-08/ARCHITECTURE-SPINE.md` — 11 ADs (hexagonal); `architecture-deck.html` = deck visual
-- `epics.md` — Epic 0 (governança CI, 7 stories) + Epics 1–4 (25 stories de produto)
-- `QUALITY-GATE.md` — contrato dos 7 pilares + gateway de CI
-- `implementation-readiness-report-2026-08-08.md` — avaliação READY
-- `briefs/brief-ServiceDesk-2026-08-08/` — brief + addendum
-- `../brainstorming/brainstorm-service-desk-mvp-2026-08-08/` — brainstorm + intent
+Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 
-## Decisões-chave a lembrar
+## O gateway (o que existe hoje)
+
+**Nove required status checks** na `main`, `strict: true`, `enforce_admins: true`, histórico linear, sem force-push:
+
+`lint` · `typecheck` · `test` · `arch` · `traceability` · `security-deps` · `security-secrets` · `sonar` · `claude-review`
+
+Mais CodeQL (não obrigatório: nomes gerados dinamicamente, um check que some trava a `main`).
+
+| Job | Ferramenta | Detalhe que importa |
+| --- | --- | --- |
+| `lint` | Biome 2.5.7 | `biome ci`; ordenação de imports só o `check --write` corrige |
+| `typecheck` | tsc 5.9.3 | strict + `noUncheckedIndexedAccess` |
+| `test` | Vitest 4.1.10 | cobertura ≥80%; service Postgres 18 no CI |
+| `arch` | dependency-cruiser 18.1.1 | AD-1; todas as regras `severity: error` |
+| `traceability` | commitlint 21.2.1 | commits **e título do PR**; `types` inclui `edited` |
+| `security-deps` | Trivy | **`TRIVY_INCLUDE_DEV_DEPS`** obrigatório |
+| `security-secrets` | Gitleaks | `fetch-depth: 0`; `.gitleaks.toml` com `useDefault` |
+| `sonar` | SonarCloud | consome o artifact de cobertura do job `test` |
+| `claude-review` | claude-code-action | **`mcp__github_inline_comment__create_inline_comment` em `allowedTools`** |
+
+## ⚠️ PRs do Dependabot abertos — NÃO mergear sem ler
+
+| PR | Proposta | Decisão do projeto |
+| --- | --- | --- |
+| **#7** | TypeScript 5.9.3 → **7.0.2** | **Rejeitar.** A Story 0.1 escolheu 5.x deliberadamente: a 7.0 é o compilador em Go, e Drizzle (tipos avançados) e dependency-cruiser (usa a API do compilador) são pontos prováveis de atrito. A spine fixa 5.x. Reavaliar só quando ambos declararem suporte |
+| **#8** | `@types/node` 24 → **26** | **Rejeitar.** Fixado em `^24` para casar com o runtime. A 26.x expõe APIs que não existem no Node 24 — passariam no `tsc` e quebrariam em execução |
+| **#16** | github-actions, 5 updates | Avaliar normalmente |
+
+## Decisões-chave
 
 - Paradigma hexagonal; domínio é único ponto de mutação; MCP e API consomem a mesma camada.
-- Stack (verificada ago/2026): Node **24** LTS, PostgreSQL 18, MCP SDK v2 (`@modelcontextprotocol/server`), Hono 4.13, Zod 4.4, Drizzle 0.45.
-- Migração: número antigo entra como `numero_legado` (referência); Número nativo sempre da sequence (AD-4).
-- Intake por e-mail entrou no MVP (Story 1.9) por risco de adoção.
-- 7 pilares não-negociáveis (auditável, funcional, testado, seguro, escalável, performático, observável): pilares "duros" gateados por ferramenta, pilares "de julgamento" pelo review por IA.
-- Ferramentas de CI (grátis, repo **público**): Biome, tsc, Vitest (gate de cobertura ~80%), dependency-cruiser (faz cumprir AD-1), CodeQL (SAST), Trivy + Dependabot (SCA), Gitleaks (segredos), commitlint, SonarCloud. Review por IA: `anthropics/claude-code-action` (token da assinatura via secret `CLAUDE_CODE_OAUTH_TOKEN`).
+- Stack: Node **24**, PostgreSQL **18** (via Docker), `@modelcontextprotocol/server` **2.0.0**, Zod 4.4.3, Drizzle 0.45.2, pnpm 10.
+- Auth do review por IA: **token da assinatura** (`CLAUDE_CODE_OAUTH_TOKEN`), não créditos de API.
+- Migração: número antigo entra como `numero_legado`; Número nativo sempre da sequence (AD-4).
+- `src/platform/` não é mencionado no AD-1. Adotado `[SUPOSIÇÃO]`: `domain` não importa dele; `application` e `adapters` podem. Ajuste vai na **spine primeiro**, não no `.dependency-cruiser.cjs`.
 
-## Setup do GitHub
+## O que o Epic 0 ensinou — aplicar sempre
 
-Repo: **https://github.com/alexandrehst/servicedesk** (público)
+**Sete falhas silenciosas**, todas com configuração aparentando estar certa:
 
-- [x] `nvm install 24` — v24.19.0 instalado, `default` do nvm já aponta pra ele
-- [x] Repo público criado + commit inicial (`7352ec5`, 266 arquivos) + push
-- [x] Dependabot: alerts + security updates habilitados
-- [x] CodeQL default setup: `configured`, detectou `python` (scripts do BMad) e o run `Analyze (python)` passou. **Adicionar `javascript-typescript` no Epic 0**, assim que existir código TS.
-- [x] Branch protection em `main`: PR obrigatório, histórico linear, sem force-push/deleção, conversas resolvidas, `enforce_admins: true`
-- [x] Secret `CLAUDE_CODE_OAUTH_TOKEN` criado. Decisão revisada em 2026-08-08: token da assinatura no lugar de créditos de API (ver QUALITY-GATE §4).
-- [x] `/install-github-app` — PR #1 mergeado (`02b7d68`), workflows `claude.yml` + `claude-code-review.yml` em `main`, ambos usando `claude_code_oauth_token`
-- [x] SonarCloud conectado ao GitHub (feito pelo usuário via navegador — não verificável pelo `gh`)
-- [ ] Secret `SONAR_TOKEN` + workflow do scanner — **fica para o Epic 0**. O modo Automatic Analysis do Sonar não recebe cobertura de testes; o pilar *Testado* (cobertura ≥80%, QUALITY-GATE §3) exige análise via CI com o `lcov` do Vitest.
-- [ ] Required status checks (`tsc`, Biome, Vitest, Trivy, Gitleaks, dependency-cruiser, commitlint) — só dá pra exigir **depois** que os workflows existirem (Epic 0)
+| Ferramenta | O que enganava |
+| --- | --- |
+| SonarCloud | aprovava com `0.0%` de cobertura |
+| `@types/node` | 26.x com runtime Node 24 |
+| Vitest | `reporters` (plural) descartado sem aviso — a chave é `reporter` |
+| Trivy | `exit-code: 0`, depois devDependencies ignoradas |
+| dependency-cruiser | `severity: warn` não altera exit code |
+| `claude-code-action` | pula o review e conclui `success` se o PR toca no próprio workflow |
+| `claude-code-action` | ferramenta de comentário ausente de `allowedTools` — **custou 4 diagnósticos errados** |
 
-> **Atenção:** `main` já está protegida com `enforce_admins: true`. Todo commit daqui em diante vai por branch + PR, inclusive edições em docs.
+Mais um modo distinto: **gate correto no lugar errado** — `traceability` sem `edited` no trigger era contornável editando o título do PR depois do verde.
 
-## Suposições a confirmar durante a execução
+**Regras que se firmaram:**
+- Verificar o **artefato produzido**, nunca o exit code.
+- **Isolar a prova**: só o gate sob teste deve reprovar. Arquivo de prova em `src/` vem com teste que o cobre.
+- Prova de **conteúdo de arquivo** → `git revert`. Prova de **mensagem de commit** → reescrever histórico (commitlint valida o range inteiro).
+- Commit lista arquivos **explicitamente**, nunca `git add -A`.
+- Subject de commit em **minúsculas** (`subject-case`).
+- **Registrar o que não foi provado**, em vez de deixar implícito.
 
-- Auth: magic link vs. login corporativo (FR-19)
-- Formato de export/import do software contratado (FR-25 / spike antecipado)
-- Baseline de tempo médio de resolução atual (SM-3, medir antes do corte)
+## Padrão estabelecido pela Story 1.1 — copiar
+
+- `NovoTicket` **não tem** campo `number`: só `Ticket` persistido tem. Gerar o Número em código não compila (AD-4 pelo compilador).
+- Port com método único `criarComAuditoria`: dois métodos fariam a atomicidade do AD-3 depender de quem chama.
+- Contratos Zod em `application/contracts/` como fonte única; o MCP deriva (AD-6).
+- Erros tipados com `code`, shape nascendo no domínio.
+- Teste de atomicidade **verificado por mutação**: remover a transação deve reprovar o teste.
+
+## Sem cobertura automática
+
+Os pilares **Observável** e **Performático** não têm gate determinístico e **nunca foram exercitados** por violação plantada. O review por IA os cobre por prompt, sem garantia. Detalhes em `QUALITY-GATE.md` §3.1.
+
+`no-cross-adapter` e `no-circular` (dependency-cruiser) também seguem declaradas mas não exercitadas.
 
 ## Ambiente
 
-git ✓ (mas sem repo) · gh ✓ (autenticado `alexandrehst`) · pnpm 10 · npm 11 · Node 22 (→ 24) · uv ✓ (Homebrew)
+- Node 24.19.0 (nvm, `default`) · pnpm 10.32.1 · Docker 28.0.1
+- **`docker-compose` (com hífen)** — `docker compose` não existe nesta máquina
+- Postgres local: `docker-compose up -d`, depois `pnpm db:migrate` com `DATABASE_URL`
+- Secrets no repo: `CLAUDE_CODE_OAUTH_TOKEN`, `SONAR_TOKEN`
 
-## Próximas ações sugeridas
+## Próximas ações
 
-1. Fechar os 3 itens de setup pendentes acima (API key, GitHub App, SonarCloud)
-2. `bmad-sprint-planning` (gera plano de sprint)
-3. Ciclo de story começando pelo **Epic 0** (montar o gateway) e depois **Story 1.1** (tracer bullet: abrir Chamado via MCP → puxa o esqueleto hexagonal).
+1. **Ativar `/sandbox`** (aba Mode → auto-allow). Config de domínios já em `.claude/settings.json`
+2. **Story 1.2 supervisionada** — valida se `git push` e Docker funcionam sob sandbox
+3. **Ligar o loop** para 1.3–1.9:
+   ```
+   /ralph-loop:ralph-loop Leia e execute _bmad-output/RALPH-PROMPT.md --completion-promise 'EPIC 1 COMPLETO' --max-iterations 20
+   ```
+   O prompt do loop está em `_bmad-output/RALPH-PROMPT.md` — editável durante a execução, é relido a cada volta.
