@@ -3,7 +3,7 @@ import type { AbrirChamadoInput, AbrirChamadoOutput } from '../contracts/abrir-c
 import type { Principal } from '../contracts/principal.js'
 import type { Logger } from '../ports/logger.js'
 import type { NotificadorDeChamado } from '../ports/notificador-de-chamado.js'
-import type { TicketRepository } from '../ports/ticket-repository.js'
+import type { RegistroDeIntake, TicketRepository } from '../ports/ticket-repository.js'
 
 /**
  * Command handler de abertura de Chamado.
@@ -38,7 +38,20 @@ export type AbrirChamadoDeps = {
 
 export const abrirChamado =
   ({ repositorio, notificacao }: AbrirChamadoDeps) =>
-  async (input: AbrirChamadoInput, autor: Principal): Promise<AbrirChamadoOutput> => {
+  async (
+    input: AbrirChamadoInput,
+    autor: Principal,
+    /**
+     * Story 1.9 — a mensagem de e-mail que originou este Chamado, quando houve
+     * uma. Segue para o repositorio, que grava o vinculo na MESMA transacao.
+     *
+     * Entra como parametro, e nao no `input`: nao e algo que o Solicitante
+     * informa, e sim um fato do transporte. Poe-lo no contrato Zod o exporia
+     * como campo da tool MCP, e um cliente poderia forjar o identificador de
+     * uma mensagem para nao abrir o Chamado.
+     */
+    intake?: RegistroDeIntake,
+  ): Promise<AbrirChamadoOutput> => {
     // O dominio valida e rejeita com erro tipado. Se lancar, nada e persistido
     // porque a persistencia so acontece depois desta linha.
     const novo = abrirTicket({
@@ -48,7 +61,7 @@ export const abrirChamado =
       requester: autor.identity,
     })
 
-    const ticket = await repositorio.criarComAuditoria(novo, autor)
+    const ticket = await repositorio.criarComAuditoria(novo, autor, intake)
 
     // Daqui para baixo a transacao do AD-3 JA FECHOU, e e deliberado.
     //

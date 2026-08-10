@@ -11,12 +11,42 @@ import type { Principal } from '../contracts/principal.js'
  * atomicidade dependeria da disciplina de quem chama. Aqui a implementacao
  * nao tem como gravar um sem o outro.
  */
+/**
+ * Story 1.9 — o que liga uma mensagem de e-mail ao Chamado que ela gerou.
+ *
+ * E um tipo proprio, e nao uma `string` solta no parametro, para que a chamada
+ * diga o que esta passando: `criarComAuditoria(novo, autor, { messageId })` nao
+ * se confunde com nenhum outro identificador do sistema.
+ */
+export type RegistroDeIntake = {
+  readonly messageId: string
+}
+
 export type TicketRepository = {
   /**
    * Persiste o Chamado e o registro de auditoria na MESMA transacao.
    * O Numero e atribuido pela persistencia (AD-4), nunca pelo chamador.
+   *
+   * `intake` (Story 1.9) grava, na MESMA transacao, o vinculo com a mensagem
+   * de e-mail que originou o Chamado. Junto pelo mesmo motivo da auditoria:
+   * em duas transacoes, o processo que morresse entre elas deixaria o Chamado
+   * criado e a mensagem sem registro — e a reentrega abriria o segundo.
+   *
+   * Lanca `MensagemJaProcessada` quando o `messageId` ja existe. A transacao
+   * inteira e desfeita, entao nao sobra Chamado orfao.
+   *
+   * Opcional: MCP e API abrem Chamado sem mensagem nenhuma por tras.
    */
-  criarComAuditoria(novo: NovoTicket, autor: Principal): Promise<Ticket>
+  criarComAuditoria(novo: NovoTicket, autor: Principal, intake?: RegistroDeIntake): Promise<Ticket>
+
+  /**
+   * O Numero do Chamado que aquela mensagem ja gerou, ou `null` se e a
+   * primeira vez que ela chega.
+   *
+   * Resolve o caso comum da reentrega sem depender de excecao. Nao substitui o
+   * UNIQUE: entre esta leitura e o insert cabe outra entrega da mesma mensagem.
+   */
+  buscarIntakePorMessageId(messageId: string): Promise<number | null>
 
   /**
    * Leitura: devolve o Chamado com sua thread, ou `null` se o Numero nao

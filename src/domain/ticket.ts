@@ -15,8 +15,16 @@ import { DomainError } from './errors.js'
 export const STATUS = ['aberto', 'em_andamento', 'resolvido', 'fechado', 'cancelado'] as const
 export type Status = (typeof STATUS)[number]
 
-/** Categoria e classificacao fixa (PRD, Glossario) e determina o Time responsavel. */
-export const CATEGORIAS = ['hardware', 'software', 'rede', 'acesso'] as const
+/**
+ * Categoria e classificacao fixa (PRD, Glossario) e determina o Time responsavel.
+ *
+ * `nao_classificado` entrou na Story 1.9, quando o intake por e-mail passou a
+ * abrir Chamado sem ninguem escolher categoria. Nao e sinonimo de "outros":
+ * "outros" afirma que alguem avaliou e nao era nenhuma das anteriores;
+ * `nao_classificado` afirma que ninguem avaliou. So a segunda e verdade num
+ * intake automatico, e e ela que a triagem do Epic 3 vai querer filtrar.
+ */
+export const CATEGORIAS = ['hardware', 'software', 'rede', 'acesso', 'nao_classificado'] as const
 export type Categoria = (typeof CATEGORIAS)[number]
 
 export const ehCategoria = (valor: string): valor is Categoria =>

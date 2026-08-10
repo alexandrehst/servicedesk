@@ -36,6 +36,9 @@ const repositorio: TicketRepository = {
     excluidos.push({ numero, autor })
     return existente !== null && existente.excluidoEm === null
   },
+  async buscarIntakePorMessageId() {
+    throw new Error('esta suite nao faz intake por e-mail')
+  },
   async buscarHistoricoBruto() {
     throw new Error('esta suite nao le historico')
   },
@@ -130,6 +133,9 @@ describe('caminho positivo (AC #1, #5)', () => {
       ...repositorio,
       async excluirComAuditoria() {
         return false
+      },
+      async buscarIntakePorMessageId() {
+        throw new Error('esta suite nao faz intake por e-mail')
       },
       async buscarHistoricoBruto() {
         throw new Error('esta suite nao le historico')

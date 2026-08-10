@@ -26,6 +26,9 @@ const repositorioFake = (): TicketRepository & { chamadas: [NovoTicket, Principa
     async excluirComAuditoria() {
       throw new Error('esta suite nao exclui')
     },
+    async buscarIntakePorMessageId() {
+      throw new Error('esta suite nao faz intake por e-mail')
+    },
     async buscarHistoricoBruto() {
       throw new Error('esta suite nao le historico')
     },
@@ -67,6 +70,9 @@ it('propaga falha da persistencia sem mascarar', async () => {
     },
     async excluirComAuditoria() {
       throw new Error('esta suite nao exclui')
+    },
+    async buscarIntakePorMessageId() {
+      throw new Error('esta suite nao faz intake por e-mail')
     },
     async buscarHistoricoBruto() {
       throw new Error('esta suite nao le historico')

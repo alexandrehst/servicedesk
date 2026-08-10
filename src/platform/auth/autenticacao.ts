@@ -7,6 +7,7 @@ import type {
 import type { Principal } from '../../application/contracts/principal.js'
 import type { IdentityRepository } from '../../application/ports/identity-repository.js'
 import type { NotificadorDeLogin } from '../../application/ports/notificador-de-login.js'
+import { normalizarEmail } from '../../domain/email.js'
 import { DomainError } from '../../domain/errors.js'
 import { gerarToken, hashToken } from './token.js'
 
@@ -45,11 +46,9 @@ export type AutenticacaoDeps = {
 const credencialInvalida = (): DomainError =>
   new DomainError('CredencialInvalida', 'Credencial invalida.')
 
-/**
- * Um unico ponto de normalizacao. Se o adapter tambem normalizasse, os dois
- * poderiam divergir e a mesma pessoa viraria duas identidades.
- */
-const normalizarEmail = (email: string): string => email.trim().toLowerCase()
+// A normalizacao subiu para `domain/email.ts` na Story 1.9, quando o intake
+// por e-mail virou um segundo caminho de identidade. Duas copias divergiriam,
+// e a mesma pessoa viraria dois usuarios.
 
 /**
  * Pede um link de acesso.
