@@ -1,4 +1,4 @@
-import { bigserial, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import { bigserial, boolean, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
 
 /**
  * AD-4: o Numero vem de uma SEQUENCE do Postgres, atribuido no insert e
@@ -35,3 +35,21 @@ export const auditEntries = pgTable('audit_entries', {
 
 export type TicketRow = typeof tickets.$inferSelect
 export type AuditEntryRow = typeof auditEntries.$inferSelect
+
+/**
+ * Thread de Comentarios. A ESCRITA e a Story 2.1 — esta tabela existe aqui
+ * porque a Story 1.2 precisa ler a thread, e sem tabela nao ha o que ler.
+ *
+ * `internal` distingue Comentario Publico de Interno: o Solicitante so ve os
+ * publicos (FR-2, AD-8). O filtro acontece no dominio, nao numa query.
+ */
+export const comments = pgTable('comments', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  ticketNumber: integer('ticket_number').notNull(),
+  autor: text('autor').notNull(),
+  corpo: text('corpo').notNull(),
+  internal: boolean('internal').notNull().default(false),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export type CommentRow = typeof comments.$inferSelect
