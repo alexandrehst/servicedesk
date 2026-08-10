@@ -187,6 +187,7 @@ O sistema envia e-mail ao Solicitante na abertura e na resolução do Chamado. R
 **Consequências (testáveis):**
 - Apenas abertura e resolução no MVP (sem ruído).
 - E-mail contém Número, Status e link; o link também dá acesso no portal (mitiga spam).
+**Decidido em 2026-08-10 (Story 1.6):** o link é um **magic link de acesso ao Chamado** — escopo de um Chamado só, válido por **7 dias** e **reutilizável** (uso único seria hostil: a pessoa clica, fecha a aba e volta depois). Transporte por **Nodemailer sobre SMTP** configurável por ambiente. O envio acontece **fora** da transação do AD-3: e-mail dentro dela prenderia a linha do Chamado pelo tempo do SMTP e desfaria a abertura se falhasse.
 
 ### 4.6 Identidade e Papéis
 

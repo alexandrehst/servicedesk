@@ -113,7 +113,8 @@ graph TD
 | Estado / mutação | Só via command handlers (AD-2); transação por command, com auditoria junto (AD-3). |
 | Auth | Principal `{ identity, role, origin }` injetado em todo caso de uso (AD-8, AD-9). Magic link (FR-19): o adapter resolve a sessão em principal **a cada chamada** e carimba a `origin`; credencial só trafega em texto claro no envio do link e na resposta da troca, nunca no armazenamento, no log ou no erro. Cliente MCP usa **credencial de máquina** com identidade própria (FR-21) — é o que permite a auditoria separar agente autônomo de humano via IA. |
 | Rate limit | 60 chamadas por minuto **por identidade** (FR-21), contador no Postgres com incremento atômico e janela fixa de um minuto. Vive no adapter, não no domínio: protege o ponto de entrada, não muda regra de negócio. `LimiteExcedido` é erro **distinto** de `CredencialInvalida` — quem bateu no limite precisa saber que adianta tentar de novo. |
-| Logging | Log estruturado; toda mutação também vira registro de auditoria (não confundir log operacional com Log de auditoria de negócio). |
+| Logging | Log estruturado (JSON numa linha, `platform/logging`), escrito em **stderr** — o transporte MCP usa stdio e o stdout carrega o protocolo. Nunca registra token, credencial ou corpo de e-mail. Toda mutação também vira registro de auditoria (não confundir log operacional com Log de auditoria de negócio). |
+| Notificação | E-mail sai **fora** da transação do AD-3, depois do commit: I/O externo dentro dela prenderia a linha e desfaria a escrita se falhasse. Falha de envio não propaga e **não é engolida** — vira registro estruturado. |
 
 ## Stack
 
@@ -128,7 +129,7 @@ graph TD
 | Hono (framework HTTP + adapter MCP) | 4.13.x |
 | Zod (contratos/validação) | 4.4.x |
 | Drizzle ORM (persistência) | 0.45.x |
-| Nodemailer ou serviço SMTP/Resend (e-mail) | atual |
+| Nodemailer (e-mail, decidido na Story 1.6) | 9.x |
 
 ## Structural Seed
 
