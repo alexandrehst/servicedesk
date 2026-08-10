@@ -26,7 +26,15 @@ const principal = { identity: 'bruno@empresa.com', role: 'agente' } as const
  * sessao valida.
  */
 const autenticar = async () => principal
-const deps = { repositorio, autenticar }
+
+/** Duble do limitador: por padrao nao limita nada. */
+const semLimite = async () => {}
+/** Limitador que registra quem foi contado, para as assercoes de ordem. */
+const limitadosPor = (registro: string[]) => async (identity: string) => {
+  registro.push(identity)
+}
+
+const deps = { repositorio, autenticar, limitarChamadas: semLimite }
 
 const input = { titulo: 'VPN fora do ar', descricao: 'Nao conecta.', categoria: 'rede' } as const
 
@@ -70,7 +78,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     },
   }
   await expect(
-    criarHandlerAbrirChamado({ repositorio: quebrado, autenticar })(input),
+    criarHandlerAbrirChamado({ repositorio: quebrado, autenticar, limitarChamadas: semLimite })(
+      input,
+    ),
   ).rejects.toThrowError('conexao perdida')
 })
 
@@ -107,7 +117,7 @@ const repoLeitura: TicketRepository = {
   },
 }
 
-const depsLeitura = { repositorio: repoLeitura, autenticar }
+const depsLeitura = { repositorio: repoLeitura, autenticar, limitarChamadas: semLimite }
 
 it('registra a tool ver_chamado com o schema do contrato (AD-6)', () => {
   const schema = criarServidorMcp(deps).toolInputSchemaJson('ver_chamado')
@@ -150,11 +160,13 @@ it('entrega ao dominio a identidade de quem pergunta, nao uma fixa', async () =>
   const comoDona = await criarHandlerVerChamado({
     repositorio: repoLeitura,
     autenticar: async () => ({ identity: 'marina@empresa.com', role: 'solicitante' }) as const,
+    limitarChamadas: semLimite,
   })({ numero: 1042 })
 
   const comoTerceiro = await criarHandlerVerChamado({
     repositorio: repoLeitura,
     autenticar: async () => ({ identity: 'carlos@empresa.com', role: 'solicitante' }) as const,
+    limitarChamadas: semLimite,
   })({ numero: 1042 })
 
   expect(comoDona.isError).toBeUndefined()
@@ -171,9 +183,11 @@ const credencialRuim = async (): Promise<{ identity: string; role: 'agente' }> =
 it('recusa a escrita quando a credencial nao resolve, sem tocar no repositorio', async () => {
   registradas.length = 0
 
-  const resultado = await criarHandlerAbrirChamado({ repositorio, autenticar: credencialRuim })(
-    input,
-  )
+  const resultado = await criarHandlerAbrirChamado({
+    repositorio,
+    autenticar: credencialRuim,
+    limitarChamadas: semLimite,
+  })(input)
 
   expect(resultado.isError).toBe(true)
   expect(resultado.content[0]?.text).toContain('CredencialInvalida')
@@ -186,6 +200,7 @@ it('recusa a leitura quando a credencial nao resolve', async () => {
   const resultado = await criarHandlerVerChamado({
     repositorio: repoLeitura,
     autenticar: credencialRuim,
+    limitarChamadas: semLimite,
   })({ numero: 1042 })
 
   expect(resultado.isError).toBe(true)
@@ -203,7 +218,11 @@ it('resolve a credencial a CADA chamada, nao uma vez na montagem', async () => {
     return principal
   }
 
-  const handler = criarHandlerVerChamado({ repositorio: repoLeitura, autenticar: expiraNaSegunda })
+  const handler = criarHandlerVerChamado({
+    repositorio: repoLeitura,
+    autenticar: expiraNaSegunda,
+    limitarChamadas: semLimite,
+  })
 
   const primeira = await handler({ numero: 1042 })
   const segunda = await handler({ numero: 1042 })
@@ -224,6 +243,85 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     },
   }
   await expect(
-    criarHandlerVerChamado({ repositorio: quebrado, autenticar })({ numero: 1042 }),
+    criarHandlerVerChamado({ repositorio: quebrado, autenticar, limitarChamadas: semLimite })({
+      numero: 1042,
+    }),
   ).rejects.toThrowError('conexao perdida')
+})
+
+// --- Story 1.5: rate limit por identidade ---
+
+const estourado = async (): Promise<void> => {
+  throw new DomainError(
+    'LimiteExcedido',
+    'Limite de 60 chamadas por minuto atingido. Tente novamente a partir de 2026-08-10T12:01:00.000Z.',
+  )
+}
+
+it('recusa a escrita quando o limite estourou, sem tocar no repositorio', async () => {
+  registradas.length = 0
+
+  const resultado = await criarHandlerAbrirChamado({
+    repositorio,
+    autenticar,
+    limitarChamadas: estourado,
+  })(input)
+
+  expect(resultado.isError).toBe(true)
+  expect(resultado.content[0]?.text).toContain('LimiteExcedido')
+  // Contar depois de escrever deixaria a IA em loop gravar tudo antes de ser
+  // barrada — o limite serviria para nada.
+  expect(registradas).toHaveLength(0)
+})
+
+it('recusa a leitura quando o limite estourou', async () => {
+  const resultado = await criarHandlerVerChamado({
+    repositorio: repoLeitura,
+    autenticar,
+    limitarChamadas: estourado,
+  })({ numero: 1042 })
+
+  expect(resultado.isError).toBe(true)
+  expect(resultado.content[0]?.text).toContain('LimiteExcedido')
+  expect(resultado.structuredContent).toBeUndefined()
+})
+
+it('o erro de limite diz quando tentar de novo, e nao se confunde com credencial', async () => {
+  const resultado = await criarHandlerVerChamado({
+    repositorio: repoLeitura,
+    autenticar,
+    limitarChamadas: estourado,
+  })({ numero: 1042 })
+
+  const texto = resultado.content[0]?.text ?? ''
+  expect(texto).not.toContain('CredencialInvalida')
+  expect(texto).toContain('12:01:00')
+})
+
+it('conta pela IDENTIDADE autenticada, nao pelo nome da tool (FR-21, AD-9)', async () => {
+  const contados: string[] = []
+
+  await criarHandlerVerChamado({
+    repositorio: repoLeitura,
+    autenticar,
+    limitarChamadas: limitadosPor(contados),
+  })({ numero: 1042 })
+
+  expect(contados).toEqual(['bruno@empresa.com'])
+  expect(contados[0]).not.toContain('ver_chamado')
+})
+
+it('credencial invalida nao consome quota', async () => {
+  const contados: string[] = []
+
+  await criarHandlerVerChamado({
+    repositorio: repoLeitura,
+    autenticar: credencialRuim,
+    limitarChamadas: limitadosPor(contados),
+  })({ numero: 1042 })
+
+  // Consequencia de limitar por identidade: sem identidade, nao ha o que
+  // contar. Registrado no Dev Agent Record — contra 256 bits de entropia, forca
+  // bruta de token e irrelevante.
+  expect(contados).toHaveLength(0)
 })

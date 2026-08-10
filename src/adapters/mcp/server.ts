@@ -41,6 +41,19 @@ export type McpDeps = {
    * repositorio de Chamados seguem exatamente como estavam.
    */
   readonly autenticar: () => Promise<Omit<Principal, 'origin'>>
+  /**
+   * Story 1.5: rate limit por IDENTIDADE (FR-21). Lanca `LimiteExcedido`
+   * quando a janela estoura.
+   *
+   * Aplicado DEPOIS de autenticar, porque o limite e por identidade e ela so
+   * existe depois. A consequencia — credencial invalida nao consome quota, e
+   * portanto forca bruta de token nao e limitada — esta registrada no Dev
+   * Agent Record: contra 256 bits de entropia ela e irrelevante.
+   *
+   * Limitar por conexao em vez de por identidade seria contornavel abrindo
+   * outra conexao.
+   */
+  readonly limitarChamadas: (identity: string) => Promise<void>
 }
 
 /**
@@ -48,7 +61,7 @@ export type McpDeps = {
  * Sem isso, cobrir o caminho de erro exigiria subir um cliente MCP inteiro —
  * e o SDK nao expoe o callback registrado.
  */
-export const criarHandlerAbrirChamado = ({ repositorio, autenticar }: McpDeps) => {
+export const criarHandlerAbrirChamado = ({ repositorio, autenticar, limitarChamadas }: McpDeps) => {
   const executar = abrirChamado({ repositorio })
 
   return async (input: AbrirChamadoInput) => {
@@ -56,6 +69,10 @@ export const criarHandlerAbrirChamado = ({ repositorio, autenticar }: McpDeps) =
       // Autenticar PRIMEIRO: um Chamado gravado antes de saber quem o abriu
       // ficaria no banco com autoria indefinida, contra o AD-3.
       const autor: Principal = { ...(await autenticar()), origin: 'mcp' }
+
+      // E limitar antes de executar: contar depois deixaria a escrita
+      // acontecer, e o limite serviria para nada numa IA em loop.
+      await limitarChamadas(autor.identity)
 
       const saida = await executar(input, autor)
       return {
@@ -80,12 +97,16 @@ export const criarHandlerAbrirChamado = ({ repositorio, autenticar }: McpDeps) =
 }
 
 /** Handler da tool de leitura, extraido para ser testavel sem transporte. */
-export const criarHandlerVerChamado = ({ repositorio, autenticar }: McpDeps) => {
+export const criarHandlerVerChamado = ({ repositorio, autenticar, limitarChamadas }: McpDeps) => {
   const executar = verChamado({ repositorio })
 
   return async (input: VerChamadoInput) => {
     try {
       const quem: Principal = { ...(await autenticar()), origin: 'mcp' }
+
+      // A leitura tambem conta: uma IA em loop consultando sem parar custa
+      // banco igual, e o FR-21 fala de chamadas, nao de escritas.
+      await limitarChamadas(quem.identity)
 
       const saida = await executar(input, quem)
       return {

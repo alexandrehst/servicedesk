@@ -17,6 +17,10 @@ export type DomainErrorCode =
   // os erros de dominio tipados, entao o shape continua nascendo aqui em vez
   // de o modulo de auth inventar uma classe paralela.
   | 'CredencialInvalida'
+  // Rate limit estourado (Story 1.5). DISTINTO de `CredencialInvalida` de
+  // proposito: quem bate no limite ja provou quem e, e precisa saber que
+  // adianta tentar de novo — confundir os dois faria reemitir um token bom.
+  | 'LimiteExcedido'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode

@@ -154,3 +154,39 @@ export const resolverPrincipal =
 
     return { identity: sessao.email, role: sessao.papel }
   }
+
+/**
+ * Resolve a credencial de MAQUINA do cliente MCP (Story 1.5, FR-21).
+ *
+ * Separada da sessao humana por causa do AD-9: um agente autonomo que usasse a
+ * sessao da pessoa gravaria as acoes dele como se fossem dela, e a auditoria
+ * perderia justamente a distincao que o AD-9 existe para fazer. Aqui o bot tem
+ * identidade propria — e, como ela e uma linha de `users`, toda a autorizacao
+ * por papel da Story 1.4 vale para ele sem nada novo.
+ *
+ * Inexistente, revogado e expirado devolvem o MESMO `CredencialInvalida`:
+ * dentro da categoria "credencial ruim", a regra da 1.3 continua valendo. O que
+ * a Story 1.5 separa e credencial ruim de LIMITE — coisas que quem chama
+ * precisa distinguir para saber se adianta tentar de novo.
+ */
+export const resolverPrincipalDeTokenMcp =
+  ({ repositorio, agora }: AutenticacaoDeps) =>
+  async (tokenDoCliente: string): Promise<Omit<Principal, 'origin'>> => {
+    if (tokenDoCliente.length === 0) {
+      throw credencialInvalida()
+    }
+
+    const token = await repositorio.buscarTokenMcpPorHash(hashToken(tokenDoCliente))
+
+    if (token === null || token.revogadoEm !== null) {
+      throw credencialInvalida()
+    }
+
+    // `expiraEm` nulo = sem prazo. O prazo nao foi decidido pelo dono, entao
+    // nao ha padrao inventado aqui — so o mecanismo, para quem emitir usar.
+    if (token.expiraEm !== null && token.expiraEm.getTime() <= agora().getTime()) {
+      throw credencialInvalida()
+    }
+
+    return { identity: token.identity, role: token.papel }
+  }

@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
-import { loginLinks, sessions, users } from '../../../drizzle/schema.js'
+import { loginLinks, mcpTokens, sessions, users } from '../../../drizzle/schema.js'
 import { papelSchema } from '../../application/contracts/principal.js'
 import type { IdentityRepository } from '../../application/ports/identity-repository.js'
 
@@ -66,6 +66,38 @@ export const criarIdentityRepository = (db: PostgresJsDatabase): IdentityReposit
    * cadastro simplesmente nao casa — a sessao morre junto, sem esperar as 8
    * horas.
    */
+  /**
+   * Mesmo join da sessao: o papel vem do cadastro no momento da resolucao, e
+   * um bot removido de `users` para de resolver mesmo com token valido.
+   *
+   * Revogacao e expiracao NAO sao filtradas aqui — sao devolvidas para o
+   * servico decidir, que e onde o relogio vive (Story 1.3).
+   */
+  async buscarTokenMcpPorHash(tokenHash) {
+    const [linha] = await db
+      .select({
+        identity: mcpTokens.identity,
+        papel: users.papel,
+        expiraEm: mcpTokens.expiraEm,
+        revogadoEm: mcpTokens.revogadoEm,
+      })
+      .from(mcpTokens)
+      .innerJoin(users, eq(users.email, mcpTokens.identity))
+      .where(eq(mcpTokens.tokenHash, tokenHash))
+      .limit(1)
+
+    if (linha === undefined) {
+      return null
+    }
+
+    return {
+      identity: linha.identity,
+      papel: papelSchema.parse(linha.papel),
+      expiraEm: linha.expiraEm,
+      revogadoEm: linha.revogadoEm,
+    }
+  },
+
   async buscarSessaoPorHash(tokenHash) {
     const [linha] = await db
       .select({ email: sessions.email, papel: users.papel, expiraEm: sessions.expiraEm })
