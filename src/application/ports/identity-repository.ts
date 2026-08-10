@@ -27,6 +27,23 @@ export type SessaoEncontrada = {
   readonly expiraEm: Date
 }
 
+/**
+ * Credencial de maquina do cliente MCP (Story 1.5).
+ *
+ * `expiraEm` nulo significa "nao expira": o prazo nao foi decidido, e inventar
+ * um padrao aqui seria politica de seguranca fabricada. Quem emite decide.
+ *
+ * O adapter devolve `revogadoEm` e `expiraEm` em vez de ja filtrar: quem tem o
+ * relogio — e quem decide o que cada estado significa — e o servico, como na
+ * Story 1.3.
+ */
+export type TokenMcpEncontrado = {
+  readonly identity: string
+  readonly papel: Papel
+  readonly expiraEm: Date | null
+  readonly revogadoEm: Date | null
+}
+
 export type IdentityRepository = {
   /** `null` quando o e-mail nao esta cadastrado. Quem decide o que fazer com isso e o servico. */
   buscarUsuarioPorEmail(email: string): Promise<UsuarioCadastrado | null>
@@ -62,4 +79,7 @@ export type IdentityRepository = {
    * com sessao dentro da validade.
    */
   buscarSessaoPorHash(tokenHash: string): Promise<SessaoEncontrada | null>
+
+  /** Token de maquina + papel ATUAL do cadastro, pelo mesmo join da sessao. */
+  buscarTokenMcpPorHash(tokenHash: string): Promise<TokenMcpEncontrado | null>
 }

@@ -203,6 +203,7 @@ O sistema reconhece dois papéis: Agente e Solicitante. Sem matriz de permissõe
 
 #### FR-21: Token MCP escopado e rate limit
 Cada cliente MCP autentica com token escopado por identidade e está sujeito a rate limit.
+**Decidido em 2026-08-10 (Story 1.5):** o token é uma **credencial de máquina** separada da sessão humana (revogável, identidade própria — sem isso o AD-9 não consegue distinguir agente autônomo de "humano via IA"); o limite é de **60 chamadas por minuto por identidade**, com o contador no **Postgres**. Prazo de validade do token não foi definido: a coluna existe e aceita nulo (não expira), e quem emitir decide.
 **Consequências (testáveis):**
 - Ações via token são atribuídas à identidade correspondente no Log de auditoria.
 - Excesso de chamadas é limitado para uma IA em loop não sobrecarregar o sistema.

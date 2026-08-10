@@ -1,4 +1,12 @@
-import { bigserial, boolean, integer, pgTable, text, timestamp } from 'drizzle-orm/pg-core'
+import {
+  bigserial,
+  boolean,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from 'drizzle-orm/pg-core'
 
 /**
  * AD-4: o Numero vem de uma SEQUENCE do Postgres, atribuido no insert e
@@ -87,6 +95,37 @@ export const sessions = pgTable('sessions', {
   expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
 })
+
+/**
+ * Story 1.5 — credencial de maquina do cliente MCP e contador de chamadas.
+ *
+ * `mcpTokens` e separada de `sessions` de proposito (AD-9): o agente autonomo
+ * tem identidade propria, e e isso que permite a auditoria distinguir uma acao
+ * dele de uma acao "humano via IA".
+ */
+export const mcpTokens = pgTable('mcp_tokens', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  identity: text('identity').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  descricao: text('descricao').notNull(),
+  // NULL = nao expira. Prazo nao foi decidido; ver a migration.
+  expiraEm: timestamp('expira_em', { withTimezone: true }),
+  revogadoEm: timestamp('revogado_em', { withTimezone: true }),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export const rateLimit = pgTable(
+  'rate_limit',
+  {
+    identity: text('identity').notNull(),
+    janela: timestamp('janela', { withTimezone: true }).notNull(),
+    chamadas: integer('chamadas').notNull().default(0),
+  },
+  (tabela) => [primaryKey({ columns: [tabela.identity, tabela.janela] })],
+)
+
+export type McpTokenRow = typeof mcpTokens.$inferSelect
+export type RateLimitRow = typeof rateLimit.$inferSelect
 
 export type UserRow = typeof users.$inferSelect
 export type LoginLinkRow = typeof loginLinks.$inferSelect

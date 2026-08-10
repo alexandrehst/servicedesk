@@ -3,11 +3,17 @@ import type {
   IdentityRepository,
   LinkConsumido,
   SessaoEncontrada,
+  TokenMcpEncontrado,
   UsuarioCadastrado,
 } from '../../application/ports/identity-repository.js'
 import type { NotificadorDeLogin } from '../../application/ports/notificador-de-login.js'
 import { ehDomainError } from '../../domain/errors.js'
-import { autenticarComLink, resolverPrincipal, solicitarLink } from './autenticacao.js'
+import {
+  autenticarComLink,
+  resolverPrincipal,
+  resolverPrincipalDeTokenMcp,
+  solicitarLink,
+} from './autenticacao.js'
 import { hashToken } from './token.js'
 
 /**
@@ -43,8 +49,10 @@ type EstadoDoDuble = {
   enviados: { email: string; token: string }[]
   linkAoConsumir: LinkConsumido | null
   sessaoEncontrada: SessaoEncontrada | null
+  tokenMcp: TokenMcpEncontrado | null
   hashesConsumidos: string[]
   hashesBuscados: string[]
+  hashesDeTokenMcp: string[]
 }
 
 let estado: EstadoDoDuble
@@ -67,6 +75,10 @@ const repositorio: IdentityRepository = {
     estado.hashesBuscados.push(tokenHash)
     return estado.sessaoEncontrada
   },
+  async buscarTokenMcpPorHash(tokenHash) {
+    estado.hashesDeTokenMcp.push(tokenHash)
+    return estado.tokenMcp
+  },
 }
 
 const notificador: NotificadorDeLogin = {
@@ -85,8 +97,10 @@ beforeEach(() => {
     enviados: [],
     linkAoConsumir: null,
     sessaoEncontrada: null,
+    tokenMcp: null,
     hashesConsumidos: [],
     hashesBuscados: [],
+    hashesDeTokenMcp: [],
   }
 })
 
@@ -280,6 +294,92 @@ describe('solicitarLink (AC #3)', () => {
     // como digitou — e o cadastro nao seria encontrado.
     expect(estado.linksCriados).toHaveLength(1)
     expect(estado.linksCriados[0]?.email).toBe('ana@empresa.com')
+  })
+})
+
+describe('token de maquina do cliente MCP (Story 1.5)', () => {
+  const valido = {
+    identity: 'bot-triagem@empresa.com',
+    papel: 'agente' as const,
+    expiraEm: null,
+    revogadoEm: null,
+  }
+
+  it('recusa token que nao existe', async () => {
+    estado.tokenMcp = null
+
+    const erro = await erroDe(resolverPrincipalDeTokenMcp(deps)('inventado'))
+
+    expect(ehDomainError(erro) && erro.code).toBe('CredencialInvalida')
+  })
+
+  it('recusa token revogado', async () => {
+    estado.tokenMcp = { ...valido, revogadoEm: new Date(AGORA.getTime() - 1_000) }
+
+    const erro = await erroDe(resolverPrincipalDeTokenMcp(deps)('revogado'))
+
+    expect(ehDomainError(erro) && erro.code).toBe('CredencialInvalida')
+  })
+
+  it('recusa token expirado', async () => {
+    estado.tokenMcp = { ...valido, expiraEm: new Date(AGORA.getTime() - 1) }
+
+    const erro = await erroDe(resolverPrincipalDeTokenMcp(deps)('velho'))
+
+    expect(ehDomainError(erro) && erro.code).toBe('CredencialInvalida')
+  })
+
+  it('recusa token vazio sem consultar o repositorio', async () => {
+    const erro = await erroDe(resolverPrincipalDeTokenMcp(deps)(''))
+
+    expect(ehDomainError(erro) && erro.code).toBe('CredencialInvalida')
+    expect(estado.hashesDeTokenMcp).toHaveLength(0)
+  })
+
+  it('revogado, expirado e inexistente devolvem erro identico', async () => {
+    estado.tokenMcp = null
+    const inexistente = await erroDe(resolverPrincipalDeTokenMcp(deps)('a'))
+
+    estado.tokenMcp = { ...valido, revogadoEm: AGORA }
+    const revogado = await erroDe(resolverPrincipalDeTokenMcp(deps)('b'))
+
+    estado.tokenMcp = { ...valido, expiraEm: new Date(AGORA.getTime() - 1) }
+    const expirado = await erroDe(resolverPrincipalDeTokenMcp(deps)('c'))
+
+    const forma = (e: Error) => ({
+      name: e.name,
+      code: ehDomainError(e) ? e.code : undefined,
+      message: e.message,
+    })
+
+    expect(forma(revogado)).toEqual(forma(inexistente))
+    expect(forma(expirado)).toEqual(forma(inexistente))
+  })
+
+  it('busca pelo HASH, nunca pelo token cru', async () => {
+    estado.tokenMcp = null
+
+    await erroDe(resolverPrincipalDeTokenMcp(deps)('token-do-bot'))
+
+    expect(estado.hashesDeTokenMcp).toEqual([hashToken('token-do-bot')])
+  })
+
+  it('token sem prazo (expira_em nulo) continua valendo', async () => {
+    estado.tokenMcp = valido
+
+    const principal = await resolverPrincipalDeTokenMcp(deps)('bom')
+
+    expect(principal).toEqual({ identity: 'bot-triagem@empresa.com', role: 'agente' })
+  })
+
+  it('o papel do bot vem do cadastro, como o de qualquer um', async () => {
+    estado.tokenMcp = { ...valido, papel: 'solicitante' }
+
+    const principal = await resolverPrincipalDeTokenMcp(deps)('bom')
+
+    // O bot e uma linha de `users` com papel. Toda a autorizacao da Story 1.4
+    // vale para ele sem codigo novo — inclusive para rebaixa-lo.
+    expect(principal.role).toBe('solicitante')
   })
 })
 
