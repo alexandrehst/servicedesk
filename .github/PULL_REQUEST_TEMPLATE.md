@@ -33,3 +33,5 @@ Story _._ — <titulo da story>
 
 <!-- Limitacoes conhecidas, decisoes adiadas, coisas que a story NAO cobre.
      Escopo declarado nao e escopo escondido. -->
+
+<!-- Teste de canal do review por IA — Story 0.6. Revertido em seguida. -->
