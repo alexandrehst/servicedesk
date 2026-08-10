@@ -13,7 +13,7 @@ const mensagem = {
   de: 'marina@empresa.com',
   assunto: 'Notebook nao liga',
   corpo: 'Apertei o botao e nada acontece.',
-  autenticacao: 'aprovada',
+  autenticacaoBruta: ['Authentication-Results: mx.empresa.com; dmarc=pass'],
 } as const
 
 describe('mensagemRecebidaSchema', () => {
@@ -22,16 +22,23 @@ describe('mensagemRecebidaSchema', () => {
   })
 
   /**
-   * O enum fechado e a defesa: um adapter que devolvesse `'ok'`, `true` ou
-   * `'pass'` por engano seria recusado aqui, e nao viraria "autenticado" por
-   * acidente de truthiness.
+   * O contrato carrega os cabecalhos CRUS, e nao um veredito pronto.
+   *
+   * Essa e a fronteira que o review do PR #43 corrigiu: com um campo
+   * `autenticacao: 'aprovada'`, um adapter de entrada novo poderia calcular o
+   * veredito com regra mais fraca — aceitar `spf=pass` sozinho, ou ler o
+   * cabecalho errado — e o caso de uso nao teria como perceber. Entregando
+   * texto, a unica implementacao possivel da politica e a do dominio.
    */
-  it.each(['ok', 'pass', 'true', '', 'APROVADA'])('recusa autenticacao %j', (autenticacao) => {
-    expect(mensagemRecebidaSchema.safeParse({ ...mensagem, autenticacao }).success).toBe(false)
+  it('nao aceita veredito pronto no lugar dos cabecalhos', () => {
+    const comVeredito = { ...mensagem, autenticacaoBruta: 'aprovada' }
+    expect(mensagemRecebidaSchema.safeParse(comVeredito).success).toBe(false)
   })
 
-  it.each(['aprovada', 'reprovada', 'ausente'])('aceita o veredito %s', (autenticacao) => {
-    expect(mensagemRecebidaSchema.safeParse({ ...mensagem, autenticacao }).success).toBe(true)
+  it('aceita lista vazia — mensagem sem cabecalho de autenticacao', () => {
+    expect(mensagemRecebidaSchema.safeParse({ ...mensagem, autenticacaoBruta: [] }).success).toBe(
+      true,
+    )
   })
 
   /**
@@ -44,8 +51,12 @@ describe('mensagemRecebidaSchema', () => {
     expect(mensagemRecebidaSchema.safeParse({ ...mensagem, messageId: null }).success).toBe(true)
   })
 
+  /**
+   * Campo ausente e recusa, e nao "sem cabecalho": um adapter que esquecesse de
+   * preencher viraria, em silencio, um adapter sem verificacao de autenticidade.
+   */
   it('recusa a mensagem sem o campo de autenticidade', () => {
-    const { autenticacao: _, ...semVeredito } = mensagem
+    const { autenticacaoBruta: _, ...semVeredito } = mensagem
     expect(mensagemRecebidaSchema.safeParse(semVeredito).success).toBe(false)
   })
 })

@@ -1,3 +1,4 @@
+import { avaliarAutenticidade } from '../../domain/autenticidade-de-email.js'
 import { normalizarEmail } from '../../domain/email.js'
 import { ehDomainError } from '../../domain/errors.js'
 import type {
@@ -65,7 +66,11 @@ export const abrirChamadoPorEmail =
     // PRIMEIRO de tudo, e a ordem e a regra: o `From` e escrito por quem envia.
     // Checar o cadastro antes disto faria a verificacao existir sem valer nada
     // — bastaria escrever o e-mail de um funcionario para virar ele.
-    if (mensagem.autenticacao !== 'aprovada') {
+    //
+    // Quem avalia e o DOMINIO, a partir dos cabecalhos crus. O adapter nao
+    // entrega veredito pronto: se entregasse, um adapter de entrada novo
+    // poderia calcula-lo com regra mais fraca e nada aqui perceberia.
+    if (avaliarAutenticidade(mensagem.autenticacaoBruta) !== 'aprovada') {
       return recusar('autenticidade')
     }
 

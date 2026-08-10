@@ -120,53 +120,42 @@ describe('multipart', () => {
   })
 })
 
-describe('veredito de autenticidade', () => {
-  it('sem cabecalho de autenticacao o veredito e ausente', async () => {
-    expect((await analisarMensagem(basica())).autenticacao).toBe('ausente')
-  })
-
-  it.each([
-    'Authentication-Results: mx.empresa.com; dmarc=pass header.from=empresa.com',
-    'Authentication-Results: mx.empresa.com; dkim=pass header.i=@empresa.com; spf=pass',
-  ])('aprova quando %s', async (cabecalho) => {
-    expect((await analisarMensagem(basica([cabecalho]))).autenticacao).toBe('aprovada')
-  })
-
-  it.each([
-    'Authentication-Results: mx.empresa.com; dkim=fail; spf=fail; dmarc=fail',
-    'Authentication-Results: mx.empresa.com; dkim=none; spf=softfail',
-  ])('reprova quando %s', async (cabecalho) => {
-    expect((await analisarMensagem(basica([cabecalho]))).autenticacao).toBe('reprovada')
+/**
+ * O adapter entrega os cabecalhos; quem os JULGA e `avaliarAutenticidade`, no
+ * dominio (ver `domain/autenticidade-de-email.test.ts`). O que se testa aqui e
+ * so a extracao — e, sobretudo, a ORDEM, porque a regra "so o primeiro vale"
+ * depende dela.
+ */
+describe('cabecalhos de autenticidade', () => {
+  it('mensagem sem o cabecalho devolve lista vazia', async () => {
+    expect((await analisarMensagem(basica())).autenticacaoBruta).toEqual([])
   })
 
   /**
-   * SPF sozinho NAO basta, e esta e a decisao mais sutil do adapter.
-   *
-   * SPF valida o envelope (`MAIL FROM`), e a identidade que o intake usa e o
-   * cabecalho `From` — sao campos diferentes, e nada obriga que combinem. Um
-   * dominio proprio com SPF valido pode enviar mensagem cujo `From` diz
-   * `marina@empresa.com`. DKIM assina o cabecalho; DMARC exige alinhamento.
+   * O `mailparser` entrega o VALOR do cabecalho, sem o nome — e e o valor que
+   * o dominio julga.
    */
-  it('spf=pass sozinho nao aprova', async () => {
-    const so_spf = 'Authentication-Results: mx.empresa.com; spf=pass smtp.mailfrom=fora.com'
+  it('um cabecalho vira lista de um, com o valor', async () => {
+    const valor = 'mx.empresa.com; dmarc=pass'
 
-    expect((await analisarMensagem(basica([so_spf]))).autenticacao).toBe('reprovada')
+    expect(
+      (await analisarMensagem(basica([`Authentication-Results: ${valor}`]))).autenticacaoBruta,
+    ).toEqual([valor])
   })
 
   /**
-   * O ATAQUE OBVIO: `Authentication-Results` e um cabecalho comum, e quem
-   * envia pode escrever um. O servidor de recepcao adiciona o dele no TOPO
-   * (cabecalhos sao prefixados), entao o primeiro e o unico confiavel.
-   *
-   * Ler "algum cabecalho diz pass" entregaria o intake a qualquer um.
+   * A ordem e a defesa contra cabecalho forjado: o servidor de recepcao escreve
+   * o dele no topo. Se o adapter embaralhasse ou invertesse, a regra do dominio
+   * julgaria o cabecalho errado — e o teste do dominio continuaria verde.
    */
-  it('ignora cabecalho forjado abaixo do que o servidor escreveu', async () => {
-    const comForjado = basica([
-      'Authentication-Results: mx.empresa.com; dkim=fail; dmarc=fail',
-      'Authentication-Results: mx.forjado.com; dkim=pass; dmarc=pass',
-    ])
+  it('preserva a ordem: o do servidor vem primeiro', async () => {
+    const doServidor = 'Authentication-Results: mx.empresa.com; dkim=fail'
+    const forjado = 'Authentication-Results: mx.forjado.com; dkim=pass'
 
-    expect((await analisarMensagem(comForjado)).autenticacao).toBe('reprovada')
+    const m = await analisarMensagem(basica([doServidor, forjado]))
+
+    expect(m.autenticacaoBruta[0]).toContain('mx.empresa.com')
+    expect(m.autenticacaoBruta).toHaveLength(2)
   })
 })
 
@@ -179,7 +168,7 @@ describe('o resultado obedece ao contrato', () => {
       de: 'Marina@Empresa.com',
       assunto: 'Notebook nao liga',
       corpo: expect.stringContaining('Apertei o botao'),
-      autenticacao: 'aprovada',
+      autenticacaoBruta: ['mx.e.com; dmarc=pass'],
     })
   })
 })

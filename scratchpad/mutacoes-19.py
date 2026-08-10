@@ -18,6 +18,7 @@ RAIZ = pathlib.Path(__file__).resolve().parent.parent
 
 INTAKE = "src/application/commands/abrir-chamado-por-email.ts"
 MENSAGEM = "src/adapters/email/mensagem.ts"
+AUTENTICIDADE = "src/domain/autenticidade-de-email.ts"
 VARREDURA = "src/adapters/email/varredura.ts"
 REPO = "src/adapters/persistence/ticket-repository.ts"
 IMAP = "src/adapters/email/imap.ts"
@@ -26,7 +27,7 @@ MUTACOES = [
     (
         "Aceitar mensagem nao autenticada",
         INTAKE,
-        "if (mensagem.autenticacao !== 'aprovada') {",
+        "if (avaliarAutenticidade(mensagem.autenticacaoBruta) !== 'aprovada') {",
         "if (false) {",
     ),
     # Esta e uma REORDENACAO de verdade, e nao a remocao da checagem (que seria
@@ -37,10 +38,10 @@ MUTACOES = [
         INTAKE,
         "    if (usuario === null) {\n      return recusar('remetente_desconhecido')\n    }\n",
         "    if (usuario === null) {\n      return recusar('remetente_desconhecido')\n    }\n"
-        "\n    if (mensagem.autenticacao !== 'aprovada') {\n"
+        "\n    if (avaliarAutenticidade(mensagem.autenticacaoBruta) !== 'aprovada') {\n"
         "      return recusar('autenticidade')\n    }\n",
-        # O bloco original tambem precisa sair de cima; ver PRE_MUTACAO abaixo.
-        "    if (mensagem.autenticacao !== 'aprovada') {\n      return recusar('autenticidade')\n    }\n\n",
+        # O bloco original tambem precisa sair de cima (quinto elemento).
+        "    if (avaliarAutenticidade(mensagem.autenticacaoBruta) !== 'aprovada') {\n      return recusar('autenticidade')\n    }\n\n",
     ),
     (
         "Usar o From cru como identidade, em vez do cadastro",
@@ -68,19 +69,19 @@ MUTACOES = [
     ),
     (
         "Aceitar spf=pass sozinho como autenticacao valida",
-        MENSAGEM,
+        AUTENTICIDADE,
         "return passou('dmarc') || passou('dkim') ? 'aprovada' : 'reprovada'",
         "return passou('dmarc') || passou('dkim') || passou('spf') ? 'aprovada' : 'reprovada'",
     ),
     (
-        "Ler o ULTIMO Authentication-Results (aceita cabecalho forjado)",
-        MENSAGEM,
-        "if (Array.isArray(valor) && typeof valor[0] === 'string') return valor[0]",
-        "if (Array.isArray(valor)) return valor.at(-1) as string | undefined",
+        "Julgar o ULTIMO Authentication-Results (aceita cabecalho forjado)",
+        AUTENTICIDADE,
+        "const doServidor = cabecalhos[0]",
+        "const doServidor = cabecalhos.at(-1)",
     ),
     (
         "Tratar ausencia de autenticacao como aprovada",
-        MENSAGEM,
+        AUTENTICIDADE,
         "return 'ausente'",
         "return 'aprovada'",
     ),
@@ -101,6 +102,12 @@ MUTACOES = [
         REPO,
         "if (ehViolacaoDeUnicidade(erro)) {",
         "if (false) {",
+    ),
+    (
+        "Adapter inverter a ordem dos cabecalhos de autenticidade",
+        MENSAGEM,
+        "if (Array.isArray(valor)) return valor.filter((v): v is string => typeof v === 'string')",
+        "if (Array.isArray(valor))\n    return valor.filter((v): v is string => typeof v === 'string').reverse()",
     ),
     (
         "Remover o teto de mensagens por varredura",

@@ -46,7 +46,7 @@ const mensagem = (parcial: Partial<MensagemRecebida> = {}): MensagemRecebida => 
   de: 'marina@empresa.com',
   assunto: 'Notebook nao liga',
   corpo: 'Apertei o botao e nada acontece.',
-  autenticacao: 'aprovada',
+  autenticacaoBruta: ['Authentication-Results: mx.empresa.com; dmarc=pass'],
   ...parcial,
 })
 
@@ -148,7 +148,7 @@ describe('reentrega contra o banco de verdade (AC #4)', () => {
 
 describe('recusa nao deixa rastro no banco (AC #2, #3)', () => {
   it.each([
-    ['autenticidade', mensagem({ autenticacao: 'reprovada' })],
+    ['autenticidade', mensagem({ autenticacaoBruta: ['Authentication-Results: mx; dkim=fail'] })],
     ['remetente desconhecido', mensagem({ de: 'estranho@fora.com' })],
   ] as const)('%s nao cria Chamado nem auditoria', async (_caso, entrada) => {
     await processar(entrada)

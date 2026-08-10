@@ -12,24 +12,6 @@ import { z } from 'zod'
  * do adapter: quem processa a mensagem NAO pode esquecer de perguntar.
  */
 
-/**
- * O que o servidor de recepcao concluiu sobre SPF/DKIM.
- *
- * O ServiceDesk nao valida criptografia de e-mail por conta propria — isso e um
- * sistema inteiro, e o MTA corporativo (Workspace, Microsoft 365, Postfix) ja o
- * fez e escreveu o resultado em `Authentication-Results`. Aqui so se consome o
- * veredito.
- *
- * `ausente` e um estado de primeira classe, e nao um sinonimo de `reprovada`,
- * porque as duas causas sao diferentes e o operador precisa distingui-las no
- * log: "o remetente falhou na verificacao" e "ninguem verificou" pedem acoes
- * opostas — a primeira e ataque provavel, a segunda e servidor mal configurado.
- * Para a decisao de abrir Chamado, porem, as duas recusam.
- */
-export const RESULTADOS_DE_AUTENTICACAO = ['aprovada', 'reprovada', 'ausente'] as const
-export const autenticacaoSchema = z.enum(RESULTADOS_DE_AUTENTICACAO)
-export type ResultadoDeAutenticacao = z.infer<typeof autenticacaoSchema>
-
 export const mensagemRecebidaSchema = z.object({
   /**
    * `null` quando o cabecalho nao veio — e opcional no RFC 5322.
@@ -43,7 +25,19 @@ export const mensagemRecebidaSchema = z.object({
   de: z.string(),
   assunto: z.string(),
   corpo: z.string(),
-  autenticacao: autenticacaoSchema,
+  /**
+   * Os cabecalhos `Authentication-Results` COMO VIERAM, em ordem — o primeiro
+   * e o do servidor de recepcao.
+   *
+   * O adapter entrega texto; ele NAO conclui nada. A conclusao e
+   * `avaliarAutenticidade`, no dominio, e essa separacao e o ponto: enquanto a
+   * politica morou no adapter IMAP, um segundo adapter de entrada (o webhook
+   * que esta story antecipa) teria que redescobri-la, e uma versao mais fraca
+   * dela abriria bypass num canal que o caso de uso trata como fonte de
+   * identidade. Mesmo raciocinio do AD-8 — quem decide sobre confianca nao e o
+   * adapter.
+   */
+  autenticacaoBruta: z.array(z.string()).readonly(),
 })
 
 export type MensagemRecebida = z.infer<typeof mensagemRecebidaSchema>

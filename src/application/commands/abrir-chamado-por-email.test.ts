@@ -70,12 +70,14 @@ const abrir = async (
 // biome-ignore lint/suspicious/noExplicitAny: o duble cobre a forma que o caso de uso consome
 const processar = abrirChamadoPorEmail({ identidades, repositorio, abrir: abrir as any, logger })
 
+const REPROVADO = ['Authentication-Results: mx.empresa.com; dkim=fail']
+
 const mensagem = (parcial: Partial<MensagemRecebida> = {}): MensagemRecebida => ({
   messageId: '<abc@empresa.com>',
   de: 'marina@empresa.com',
   assunto: 'Notebook nao liga',
   corpo: 'Apertei o botao e nada acontece.',
-  autenticacao: 'aprovada',
+  autenticacaoBruta: ['Authentication-Results: mx.empresa.com; dmarc=pass'],
   ...parcial,
 })
 
@@ -92,8 +94,11 @@ beforeEach(() => {
 })
 
 describe('autenticidade do remetente (AC #3)', () => {
-  it.each(['reprovada', 'ausente'] as const)('recusa mensagem com veredito %s', async (v) => {
-    const resultado = await processar(mensagem({ autenticacao: v }))
+  it.each([
+    ['reprovado pelo servidor', ['Authentication-Results: mx.empresa.com; dkim=fail']],
+    ['ausente', []],
+  ] as const)('recusa mensagem com veredito %s', async (_caso, autenticacaoBruta) => {
+    const resultado = await processar(mensagem({ autenticacaoBruta }))
 
     expect(resultado).toEqual({ tipo: 'recusado', motivo: 'autenticidade' })
     expect(estado.aberturas).toHaveLength(0)
@@ -109,7 +114,7 @@ describe('autenticidade do remetente (AC #3)', () => {
    */
   it('recusa mesmo quando o From casa com um usuario cadastrado', async () => {
     const resultado = await processar(
-      mensagem({ de: 'bruno@empresa.com', autenticacao: 'reprovada' }),
+      mensagem({ de: 'bruno@empresa.com', autenticacaoBruta: REPROVADO }),
     )
 
     expect(resultado).toEqual({ tipo: 'recusado', motivo: 'autenticidade' })
@@ -128,7 +133,7 @@ describe('autenticidade do remetente (AC #3)', () => {
    */
   it('mensagem forjada de endereco desconhecido e recusada por autenticidade', async () => {
     const resultado = await processar(
-      mensagem({ de: 'ninguem@fora.com', autenticacao: 'reprovada' }),
+      mensagem({ de: 'ninguem@fora.com', autenticacaoBruta: REPROVADO }),
     )
 
     expect(resultado).toEqual({ tipo: 'recusado', motivo: 'autenticidade' })
@@ -175,7 +180,7 @@ describe('mensagem que nao da para processar (AC #4)', () => {
 
 describe('toda recusa vira registro estruturado', () => {
   it.each([
-    ['autenticidade', mensagem({ autenticacao: 'reprovada' })],
+    ['autenticidade', mensagem({ autenticacaoBruta: REPROVADO })],
     ['remetente_desconhecido', mensagem({ de: 'estranho@fora.com' })],
     ['sem_message_id', mensagem({ messageId: null })],
     ['mensagem_vazia', mensagem({ assunto: '', corpo: '' })],
