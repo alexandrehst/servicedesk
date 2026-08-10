@@ -147,58 +147,59 @@ tomada por delegação. O que ele quer preservado é o registro, não a consulta
 que já foi feito, o que falta), rode `/ralph-loop:cancel-ralph` e encerre com
 um resumo do bloqueio.
 
-### 6. Atenção redobrada na Story 1.7
+### 6. Atenção redobrada na Story 1.8
 
-A 1.7 é **soft-delete base** (FR-23, AD-3): exclusão vira marcação, nunca
-`DELETE`. É uma story curta com uma armadilha grande.
+A 1.8 é **revisão do Log de auditoria / ações MCP**: um Agente ou Gestor
+consulta o histórico de um Chamado, vê autor, timestamp e `origin`, e consegue
+filtrar por `origin=mcp` para revisar o que a IA executou.
 
-**A armadilha:** acrescentar `deleted_at` nas tabelas é a parte fácil. O que
-decide se a story presta é **quem passa a filtrar** — e hoje há caminhos de
-leitura que não sabem que a coluna existe (`buscarPorNumero`, a thread de
-Comentários) e outros que virão no Epic 3 (fila, busca, resumo). Um filtro
-esquecido devolve Chamado excluído; um filtro duplicado em SQL **e** no domínio
-diverge no dia em que um dos dois mudar.
+É a primeira **leitura nova** desde a 1.2 — e a primeira depois de o gargalo do
+domínio existir. Isso muda tudo sobre como ela deve ser escrita:
 
-O projeto já resolveu esse tipo de problema quatro vezes, sempre do mesmo jeito:
-**torne impossível esquecer, em vez de lembrar**. `NovoTicket` sem `number`
-(1.1), handler de leitura sem caminho de escrita (1.2), `ChamadoBruto` que só
-abre por `visivelPara` (1.4). Procure a forma equivalente aqui antes de sair
-espalhando `WHERE deleted_at IS NULL`.
-
-- **Excluído e inexistente devem ser indistinguíveis** para quem consulta —
-  mesmo `TicketNaoEncontrado`, pelo motivo da 1.2 (Números são sequenciais).
-- **Soft-delete não pode apagar rastro de auditoria** (FR-23 existe justamente
-  para isso). `audit_entries` **não** ganha soft-delete: ela é append-only.
-- **Quem pode excluir?** O epics não diz. Decida pela recomendação (Agente, não
-  Solicitante, é o palpite coerente com FR-20) e registre — não bloqueie.
-- **Verifique por mutação**: remova o filtro de excluídos e confirme que um
+- **Passe pelo gargalo.** Toda leitura de Chamado sai por `visivelPara`
+  (Story 1.4), que já filtra alheio e excluído (1.7). O histórico é de um
+  Chamado: quem não pode ver o Chamado não pode ver o histórico dele. Se você
+  precisar reimplementar autorização aqui, parou no lugar errado.
+- **Cuidado com o que o Log revela.** `audit_entries` guarda identidade de
+  quem agiu. Um Solicitante que enxergasse o histórico veria nomes de Agentes e
+  o ritmo interno do time. O epics diz "Agente/Gestor" — decida se Solicitante
+  vê algo e **registre**; a matriz de `papeis.ts` é onde isso mora.
+- **O Log é append-only** (FR-22) e não tem soft-delete, por decisão da 1.7.
+  Nenhuma leitura pode sugerir que uma entrada seja editável.
+- **Ordem cronológica precisa de `ORDER BY` explícito**, com desempate — a
+  Story 1.2 provou isso inserindo fora de ordem.
+- **Datas em ISO 8601 UTC** no contrato de saída.
+- **Verifique por mutação**: remova o filtro de `origin` e confirme que um
   teste reprova.
 
-**O que a 1.6 acrescentou e vale daqui em diante:**
+**Uma dívida que esta story pode querer pagar:** o `audit_entries` tem
+`ticket_number` obrigatório, então ações que não são de Chamado — login,
+emissão e revogação de token de máquina — **não** estão auditadas. O
+`claude-review` levantou isso no PR #35 e ficou registrado como lacuna para a
+1.8 decidir. Não é obrigatório resolver aqui; é obrigatório **decidir
+conscientemente** e escrever a decisão.
 
-- **I/O externo fica fora da transação**, e sua falha não propaga nem some:
-  vira registro estruturado no `Logger` (`platform/logging`).
-- **Log em `stderr`**, nunca `stdout` — o transporte MCP é stdio.
-- **Dependência opcional em `Deps`** quando o caso de uso continua correto sem
-  ela (`notificacao?`), para não transformar conveniência em acoplamento.
-- **Teste que inspeciona efeito através da própria biblioteca costuma mentir.**
-  O primeiro teste do adapter de e-mail passaria sem enviar nada. Duble para
-  capturar; a biblioteca real num teste separado, só para validar o formato.
-- **Cobertura esconde o caminho de produção**: o `escrever` padrão do logger
-  estava descoberto enquanto o injetado nos testes estava coberto.
+**O que a 1.7 acrescentou e vale daqui em diante:**
 
-**E o de sempre, que já pegou algo em todas as stories:**
+- **Garantia estrutural rende juros.** O filtro de excluídos entrou no gargalo
+  da 1.4 e toda leitura o herdou de graça. Antes de espalhar uma condição por
+  queries, procure o gargalo.
+- **Matriz de política na direção que obriga a decidir**
+  (`Record<Capacidade, Papel[]>`): capacidade nova sem política é erro de
+  compilação.
+- **Asserção contra o catálogo do banco** quando a AC é sobre schema — e prove
+  os dois lados, senão "não tem a coluna" passa com a migration ausente.
+- **Escrita que não aconteceu não vira auditoria.**
+- **Campo que só existe depois de persistir vai em `Ticket`, não em
+  `NovoTicket`.**
 
-- Atomicidade mora no **banco** (`UPDATE ... WHERE ... RETURNING`,
-  `INSERT ... ON CONFLICT ... RETURNING`); teste de concorrência exige
-  `Promise.all`.
-- Erros só se separam quando a distinção **ajuda quem tem direito**.
-- Decisão que se repete vira **tabela** com `switch` exaustivo.
-- Relógio injetado; cobertura lida **por arquivo**; mutação obrigatória.
+**E o de sempre:** atomicidade no banco com `Promise.all` no teste; erros só se
+separam quando a distinção ajuda quem tem direito; relógio injetado; cobertura
+lida **por arquivo**; mutação obrigatória com tabela no Dev Agent Record.
 
-**Sobre o `claude-review`:** silêncio intermitente. Ficou mudo em #31–#34, falou
-no #35 (com raciocínio específico, e levantou uma lacuna real de auditoria),
-voltou a não comentar no #37. Confira antes de tratá-lo como opinião:
+**Sobre o `claude-review`:** revisou de verdade duas vezes em nove rodadas
+(#35 e #39), e nas duas levantou algo que virou registro — a auditoria de token
+no #35, o AD-7 no #39. Nas outras, silêncio verde. Sempre confira:
 
 ```bash
 gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
