@@ -19,6 +19,7 @@ const ticket: Ticket = {
   requester: 'marina@empresa.com',
   assignee: null,
   criadoEm: new Date('2026-08-10T12:00:00.000Z'),
+  excluidoEm: null,
 }
 
 const thread: readonly Comentario[] = [
@@ -27,12 +28,14 @@ const thread: readonly Comentario[] = [
     corpo: 'Parou hoje.',
     internal: false,
     criadoEm: new Date('2026-08-10T12:05:00.000Z'),
+    excluidoEm: null,
   },
   {
     autor: 'bruno@empresa.com',
     corpo: 'Fonte queimada.',
     internal: true,
     criadoEm: new Date('2026-08-10T12:10:00.000Z'),
+    excluidoEm: null,
   },
 ]
 
@@ -64,6 +67,9 @@ const repo = (
     // objeto cru nao compila mais — e essa e a garantia: nenhum caminho
     // entrega Chamado sem passar pela autorizacao do dominio.
     return achado === null ? null : embrulharBruto(achado)
+  },
+  async excluirComAuditoria() {
+    throw new Error('esta suite nao exclui')
   },
 })
 

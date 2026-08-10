@@ -11,6 +11,12 @@ describe('Solicitante', () => {
     expect(pode('solicitante', 'veChamadoDeTerceiro')).toBe(false)
   })
 
+  it('nao exclui Chamado, nem o proprio', () => {
+    // Excluir e acao de quem atende (FR-20 so tem dois papeis). O dono do
+    // Chamado nao decide que ele deixa de existir.
+    expect(pode('solicitante', 'excluiChamado')).toBe(false)
+  })
+
   it('nao ve Comentario Interno', () => {
     expect(pode('solicitante', 'veComentarioInterno')).toBe(false)
   })
@@ -24,6 +30,10 @@ describe('Agente', () => {
   it('ve Comentario Interno', () => {
     expect(pode('agente', 'veComentarioInterno')).toBe(true)
   })
+
+  it('exclui Chamado', () => {
+    expect(pode('agente', 'excluiChamado')).toBe(true)
+  })
 })
 
 describe('a matriz cobre todos os papeis declarados', () => {
@@ -33,6 +43,7 @@ describe('a matriz cobre todos os papeis declarados', () => {
   it.each(PAPEIS)('%s tem decisao explicita para toda capacidade', (papel: Papel) => {
     expect(typeof pode(papel, 'veChamadoDeTerceiro')).toBe('boolean')
     expect(typeof pode(papel, 'veComentarioInterno')).toBe('boolean')
+    expect(typeof pode(papel, 'excluiChamado')).toBe('boolean')
   })
 
   it('os dois papeis do MVP sao exatamente solicitante e agente (FR-20)', () => {

@@ -23,6 +23,7 @@ const chamadoDaMarina: Ticket = {
   requester: 'marina@empresa.com',
   assignee: null,
   criadoEm: new Date('2026-08-10T12:00:00Z'),
+  excluidoEm: null,
 }
 
 describe('podeVerTicket', () => {
@@ -41,9 +42,27 @@ describe('podeVerTicket', () => {
 
 describe('filtrarComentarios', () => {
   const thread: readonly Comentario[] = [
-    { autor: 'marina@empresa.com', corpo: 'Parou hoje.', internal: false, criadoEm: new Date(1) },
-    { autor: 'bruno@empresa.com', corpo: 'Fonte queimada.', internal: true, criadoEm: new Date(2) },
-    { autor: 'bruno@empresa.com', corpo: 'Peca pedida.', internal: false, criadoEm: new Date(3) },
+    {
+      autor: 'marina@empresa.com',
+      corpo: 'Parou hoje.',
+      internal: false,
+      criadoEm: new Date(1),
+      excluidoEm: null,
+    },
+    {
+      autor: 'bruno@empresa.com',
+      corpo: 'Fonte queimada.',
+      internal: true,
+      criadoEm: new Date(2),
+      excluidoEm: null,
+    },
+    {
+      autor: 'bruno@empresa.com',
+      corpo: 'Peca pedida.',
+      internal: false,
+      criadoEm: new Date(3),
+      excluidoEm: null,
+    },
   ]
 
   it('Agente recebe publicos e internos', () => {
@@ -66,8 +85,20 @@ describe('filtrarComentarios', () => {
 
 describe('visivelPara — a unica saida do dado bruto (AC #4)', () => {
   const thread: readonly Comentario[] = [
-    { autor: 'marina@empresa.com', corpo: 'Parou hoje.', internal: false, criadoEm: new Date(1) },
-    { autor: 'bruno@empresa.com', corpo: 'Fonte queimada.', internal: true, criadoEm: new Date(2) },
+    {
+      autor: 'marina@empresa.com',
+      corpo: 'Parou hoje.',
+      internal: false,
+      criadoEm: new Date(1),
+      excluidoEm: null,
+    },
+    {
+      autor: 'bruno@empresa.com',
+      corpo: 'Fonte queimada.',
+      internal: true,
+      criadoEm: new Date(2),
+      excluidoEm: null,
+    },
   ]
 
   const bruto = () => embrulharBruto({ ticket: chamadoDaMarina, comentarios: thread })

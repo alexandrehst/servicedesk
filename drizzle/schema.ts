@@ -26,11 +26,17 @@ export const tickets = pgTable('tickets', {
   requester: text('requester').notNull(),
   assignee: text('assignee'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  // Story 1.7 — soft-delete (FR-23): exclusao e marcacao, a linha fica.
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 })
 
 /**
  * AD-3 e AD-9: cada mutacao gera um registro com AUTOR e ORIGEM (api|mcp),
  * gravado na mesma transacao da mudanca.
+ */
+/**
+ * Sem `deletedAt` de proposito (Story 1.7): o Log e append-only (FR-22). Uma
+ * coluna de exclusao aqui permitiria apagar a prova de que algo aconteceu.
  */
 export const auditEntries = pgTable('audit_entries', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
@@ -58,6 +64,7 @@ export const comments = pgTable('comments', {
   corpo: text('corpo').notNull(),
   internal: boolean('internal').notNull().default(false),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 })
 
 export type CommentRow = typeof comments.$inferSelect

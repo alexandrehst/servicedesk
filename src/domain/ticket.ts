@@ -40,6 +40,14 @@ export type NovoTicket = {
 export type Ticket = NovoTicket & {
   readonly number: number
   readonly criadoEm: Date
+  /**
+   * Story 1.7 — soft-delete (FR-23). `null` = vivo.
+   *
+   * Fica em `Ticket` e nao em `NovoTicket` pelo mesmo motivo do `number`: um
+   * Chamado que ainda nao existe nao pode ter sido excluido, e deixar o campo
+   * fora do tipo torna isso impossivel de escrever por engano (AD-4, 1.1).
+   */
+  readonly excluidoEm: Date | null
 }
 
 export type AbrirTicketInput = {

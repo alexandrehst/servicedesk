@@ -11,10 +11,13 @@ const registradas: Principal[] = []
 const repositorio: TicketRepository = {
   async criarComAuditoria(novo, autor): Promise<Ticket> {
     registradas.push(autor)
-    return { ...novo, number: 1042, criadoEm: new Date('2026-08-10T12:00:00Z') }
+    return { ...novo, number: 1042, criadoEm: new Date('2026-08-10T12:00:00Z'), excluidoEm: null }
   },
   async buscarPorNumero() {
     return null
+  },
+  async excluirComAuditoria() {
+    throw new Error('esta suite nao exclui')
   },
 }
 
@@ -76,6 +79,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     async buscarPorNumero() {
       return null
     },
+    async excluirComAuditoria() {
+      throw new Error('esta suite nao exclui')
+    },
   }
   await expect(
     criarHandlerAbrirChamado({ repositorio: quebrado, autenticar, limitarChamadas: semLimite })(
@@ -95,6 +101,7 @@ const chamado: Ticket = {
   requester: 'marina@empresa.com',
   assignee: null,
   criadoEm: new Date('2026-08-10T12:00:00Z'),
+  excluidoEm: null,
 }
 
 const thread: readonly Comentario[] = [
@@ -103,6 +110,7 @@ const thread: readonly Comentario[] = [
     corpo: 'Parou hoje.',
     internal: false,
     criadoEm: new Date('2026-08-10T12:05:00Z'),
+    excluidoEm: null,
   },
 ]
 
@@ -114,6 +122,9 @@ const repoLeitura: TicketRepository = {
     return numero === chamado.number
       ? embrulharBruto({ ticket: chamado, comentarios: thread })
       : null
+  },
+  async excluirComAuditoria() {
+    throw new Error('esta suite nao exclui')
   },
 }
 
@@ -240,6 +251,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     },
     async buscarPorNumero() {
       throw new Error('conexao perdida')
+    },
+    async excluirComAuditoria() {
+      throw new Error('esta suite nao exclui')
     },
   }
   await expect(
