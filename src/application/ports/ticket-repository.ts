@@ -1,3 +1,5 @@
+import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
+import type { NovoComentario } from '../../domain/comentario.js'
 import type { Origem } from '../../domain/origem.js'
 import type { NovoTicket, Ticket } from '../../domain/ticket.js'
 import type { ChamadoBruto, HistoricoBruto } from '../../domain/visibilidade.js'
@@ -59,6 +61,29 @@ export type TicketRepository = {
    * compila — antes disso, o AD-8 dependia de quem escrevia lembrar.
    */
   buscarPorNumero(numero: number): Promise<ChamadoBruto | null>
+
+  /**
+   * Anexa um Comentario ao Chamado e grava a auditoria na MESMA transacao
+   * (Story 2.1, AD-3). Devolve o instante atribuido pela persistencia.
+   *
+   * NAO recebe versao esperada, e isso e decisao registrada (refinamento do
+   * AD-10 na 2.1): comentar e escrita ADITIVA — dois Agentes comentando ao
+   * mesmo tempo produzem dois Comentarios corretos, e nao ha update a perder.
+   * Concorrencia otimista aqui inventaria conflito.
+   */
+  criarComentarioComAuditoria(
+    numero: number,
+    novo: NovoComentario,
+    autor: Principal,
+    /**
+     * O rotulo que vai ao Log, ja resolvido pelo dominio
+     * (`acaoDeComentario`). O adapter NAO o deduz: se ele ramificasse sobre
+     * `novo.internal`, seria o unico lugar do sistema a saber o que aquele
+     * booleano significa para a auditoria — e um segundo caminho de escrita
+     * poderia gravar rotulo divergente sem nada reprovar.
+     */
+    acao: AcaoDeAuditoria,
+  ): Promise<{ readonly criadoEm: Date }>
 
   /**
    * Soft-delete (Story 1.7, FR-23): MARCA o Chamado e grava a auditoria na

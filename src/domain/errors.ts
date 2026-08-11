@@ -30,6 +30,9 @@ export type DomainErrorCode =
   // funcionando. Quem chama traduz para "duplicado" e aponta o Chamado que ja
   // existe; nada disso chega ao remetente.
   | 'MensagemJaProcessada'
+  // Story 2.1: Comentario sem corpo. Mesma familia de `TituloObrigatorio` e
+  // `DescricaoObrigatoria` — o dominio recusa o vazio antes de qualquer I/O.
+  | 'CorpoObrigatorio'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode

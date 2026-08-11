@@ -79,6 +79,7 @@ Mapa paradigma → diretórios:
 - **Binds:** FR-7 (edição concorrente), FR-3..FR-6
 - **Prevents:** MCP e API tratarem edição concorrente de formas diferentes — um sobrescreve em silêncio, o outro rejeita.
 - **Rule:** todo command de mutação recebe a versão esperada do Chamado (coluna `version` ou `updated_at`); divergência faz o domínio rejeitar com erro `Conflict`. A checagem vive no command handler (`application`), então todo ponto de entrada a herda igual.
+- **Refinado em 2026-08-11 (Story 2.1):** aplica-se a **mutação de campo** do Chamado (status, dono, prioridade, título). Escrita **aditiva** — Comentário, entrada de Log — **não** versiona o Chamado: concorrência otimista existe para impedir *lost update*, e não há update a perder quando a escrita só acrescenta. Dois Agentes comentando ao mesmo tempo produzem dois Comentários corretos; rejeitar o segundo com `Conflict` inventaria um conflito e treinaria quem usa a IA a repetir a chamada até passar. A coluna de versão nasce na Story 2.2, a primeira que muda campo.
 
 ### AD-11 — Gateway de governança de CI é obrigatório
 - **Binds:** all, pipeline de CI

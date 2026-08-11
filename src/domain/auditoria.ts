@@ -9,6 +9,40 @@ import type { Origem } from './origem.js'
  * `visibilidade.ts` — junto das outras decisoes de visibilidade, e onde mora a
  * chave que abre o dado bruto.
  */
+/**
+ * O vocabulario do Log (Story 2.1).
+ *
+ * Vive no dominio porque a acao registrada e **rotulo de negocio**, nao detalhe
+ * de armazenamento: e por ela que a revisao da Story 1.8 responde "o que a IA
+ * fez neste Chamado?". Enquanto cada adapter escolhia a propria string, um
+ * segundo caminho de escrita — outro adapter, um script de migracao — poderia
+ * gravar rotulo diferente para a mesma acao, e o filtro do historico passaria
+ * ao largo dela sem ninguem notar.
+ *
+ * Lista fechada pelo mesmo motivo de `STATUS`, `CATEGORIAS` e `ORIGENS`: acao
+ * nova exige uma linha aqui, e o compilador cobra.
+ */
+export const ACOES = [
+  'abrir_chamado',
+  'excluir_chamado',
+  'comentar_chamado',
+  'comentar_chamado_interno',
+] as const
+
+export type AcaoDeAuditoria = (typeof ACOES)[number]
+
+/**
+ * Qual rotulo um Comentario grava no Log.
+ *
+ * A distincao publico/interno importa para quem audita: um Comentario Interno
+ * criado pela IA e conversa do time, com publico diferente do publico. Mas
+ * quem faz o mapeamento e o DOMINIO — antes desta funcao, o adapter Postgres
+ * ramificava sobre `novo.internal` dentro do INSERT, e era o unico lugar do
+ * sistema que sabia o que aquele booleano significa para a auditoria.
+ */
+export const acaoDeComentario = (interno: boolean): AcaoDeAuditoria =>
+  interno ? 'comentar_chamado_interno' : 'comentar_chamado'
+
 export type EntradaDeAuditoria = {
   readonly acao: string
   /** A IDENTIDADE de quem agiu — nunca o nome da tool (AD-9). */

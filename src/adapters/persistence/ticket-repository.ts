@@ -6,6 +6,8 @@ import type {
   RegistroDeIntake,
   TicketRepository,
 } from '../../application/ports/ticket-repository.js'
+import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
+import type { NovoComentario } from '../../domain/comentario.js'
 import { DomainError } from '../../domain/errors.js'
 import type { Origem } from '../../domain/origem.js'
 import type { Categoria, NovoTicket, Status, Ticket } from '../../domain/ticket.js'
@@ -209,6 +211,46 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         origin: e.origin as Origem,
         registradoEm: e.registradoEm,
       })),
+    })
+  },
+
+  async criarComentarioComAuditoria(
+    numero: number,
+    novo: NovoComentario,
+    autor: Principal,
+    acao: AcaoDeAuditoria,
+  ): Promise<{ criadoEm: Date }> {
+    return db.transaction(async (tx) => {
+      const [linha] = await tx
+        .insert(comments)
+        .values({
+          ticketNumber: numero,
+          autor: novo.autor,
+          corpo: novo.corpo,
+          internal: novo.internal,
+        })
+        .returning({ criadoEm: comments.criadoEm })
+
+      if (linha === undefined) {
+        throw new Error('INSERT do Comentario nao retornou linha.')
+      }
+
+      await tx.insert(auditEntries).values({
+        ticketNumber: numero,
+        // O rotulo chega PRONTO do dominio (`acaoDeComentario`). Deduzi-lo
+        // aqui — ramificando sobre `novo.internal` — faria deste adapter o
+        // unico lugar do sistema a saber o que aquele booleano significa para
+        // a auditoria, e um segundo caminho de escrita poderia divergir.
+        //
+        // O CORPO nao entra na auditoria: `audit_entries` e append-only
+        // (FR-22) e nao tem soft-delete, entao o texto viraria uma segunda
+        // copia que sobreviveria a exclusao do Comentario.
+        acao,
+        autor: autor.identity,
+        origin: autor.origin,
+      })
+
+      return { criadoEm: linha.criadoEm }
     })
   },
 

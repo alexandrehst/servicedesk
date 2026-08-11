@@ -101,6 +101,14 @@ Um Agente pode adicionar Comentário Público ou Interno; um Solicitante pode ad
 - Comentário Interno nunca aparece para o Solicitante (FR-2).
 - Cada Comentário registra autor e timestamp (timezone único da empresa).
 
+**Decidido em 2026-08-11 (Story 2.1):**
+
+- **A capacidade é `comentaInterno`, não "comentar".** O Solicitante comenta o próprio Chamado — é a única escrita que ele tem no sistema; o que ele não pode é criar Comentário **Interno**. Posse quem resolve é `visivelPara`; a matriz de papéis decide só o "interno".
+- **Pedido de Comentário Interno por quem não pode é recusado com `SemPermissao`**, e não rebaixado em silêncio para público: quem escreveu achando que era interno veria o texto aparecer para quem quis esconder.
+- **O default de `interno` é `false`** no contrato Zod — quem não pediu conversa do time não cria uma por acidente.
+- **A ação auditada distingue** `comentar_chamado` de `comentar_chamado_interno`: quem revisa o que a IA fez (FR-22, Story 1.8) precisa saber se ela criou conversa interna. **O corpo do Comentário não vai para o Log** — `audit_entries` é append-only e não tem soft-delete, então o texto viraria uma cópia que sobreviveria à exclusão do Comentário.
+- **Comentar não usa concorrência otimista** (refinamento do AD-10, registrado na spine): é escrita aditiva, e não há update a perder.
+
 #### FR-4: Mudar status
 Um Agente pode alterar o Status de um Chamado entre os valores do conjunto fechado. Realiza UJ-1.
 **Consequências (testáveis):**
