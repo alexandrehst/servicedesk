@@ -20,7 +20,7 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 2 `done` | Encerre o épico (ver seção 7) |
 
-A **2.1 está `done`** (PR #46). A próxima é a **2.2**.
+**2.1 e 2.2 estão `done`** (PRs #46 e #48). A próxima é a **2.3**.
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de
 uma volta interrompida. **PR de story aberto com checks verdes é a prioridade
@@ -219,41 +219,33 @@ Duas coisas nessa ordem não são estilo:
   `if (ticket.deletedAt)` ou `if (ticket.requester === ...)` numa mutação nova,
   parou no lugar errado.
 
-#### ⚠️ A 2.2 é quem constrói o AD-10, e a 2.1 já decidiu metade
+#### O AD-10 existe agora — e toda mutação nova precisa usá-lo
 
-O AD-10 diz: *"todo command de mutação recebe a versão esperada do Chamado
-(coluna `version` ou `updated_at`); divergência faz o domínio rejeitar com erro
-`Conflict`"*. **Nada disso existe** — não há `version`, não há `updated_at`,
-não há `Conflict` em `DomainErrorCode`.
+A 2.2 construiu o mecanismo, e ele **não é opcional** para 2.3, 2.4 e 2.5:
 
-A 2.1 refinou o AD-10 na spine, por delegação, e o refinamento vale para o
-épico inteiro:
+```sql
+UPDATE tickets SET <campo> = $novo, version = version + 1
+ WHERE number = $n AND version = $esperada AND deleted_at IS NULL
+RETURNING version
+```
 
-> **AD-10 aplica-se a mutação de CAMPO do Chamado** (status, dono, prioridade,
-> título). Escrita **aditiva** — Comentário, entrada de Log — não versiona,
-> porque não há update a perder.
+O que copiar de `mudarStatusComAuditoria` e `mudar-status.ts`:
 
-O raciocínio: concorrência otimista existe para impedir *lost update*. Dois
-Agentes comentando ao mesmo tempo produzem dois Comentários **corretos**;
-rejeitar o segundo inventaria um conflito e treinaria quem usa a IA a repetir a
-chamada até passar. Já dois Agentes mudando o Status **é** lost update — e é a
-2.2.
+- **A checagem vive no `WHERE`**, não em JavaScript. Ler-comparar-escrever
+  deixa a janela que o AD-10 fecha.
+- **`deleted_at IS NULL` no mesmo `UPDATE`** — defesa contra o Chamado ser
+  excluído entre a leitura do command e a escrita. Teste isso chamando o
+  **repositório direto**: pelo command não prova nada, porque `visivelPara`
+  barra antes (foi uma mutação sobrevivente na 2.2).
+- **Zero linhas afetadas tem duas causas.** O command **relê** para distinguir
+  `Conflict` (versão divergiu — releia e tente) de `TicketNaoEncontrado`
+  (sumiu — desista). Sem isso, a IA tenta para sempre num Chamado excluído.
+- **A versão esperada vem da ENTRADA**, nunca do Chamado que o command acabou
+  de ler. Usar a lida faria o command estar sempre "certo", e não haveria
+  conflito nenhum.
+- **`versao` é obrigatória no contrato** (AD-6), e sai em `ver_chamado`.
 
-**Então a 2.2 constrói o mecanismo**, e o que ela escolher vale para 2.3, 2.4,
-2.5 e 2.6:
-
-| Opção | Consequência |
-| --- | --- |
-| Coluna `version integer`, incrementada em cada mutação de campo | Explícito, e o `UPDATE ... WHERE version = $esperada RETURNING` dá a garantia no **banco**, não na ordem em que o código roda — o mesmo padrão do `consumirLinkDeLogin` (1.3) e do soft-delete (1.7) |
-| `updated_at` como versão | Uma coluna a menos, mas timestamps iguais são o caso comum aqui: a mutação e sua auditoria saem na mesma transação (lição da 1.8) |
-
-A **recomendação** é `version`, pelo motivo da segunda linha. Seja qual for,
-o `UPDATE` condicional é o ponto: ler-verificar-escrever em três passos deixa
-janela entre a leitura e a escrita, e é exatamente o que o AD-10 quer fechar.
-
-`Conflict` nasce em `domain/errors.ts`, como todos os outros. E a versão
-esperada entra no **contrato** (AD-6), porque quem chama precisa informá-la —
-o que significa que a tool MCP passa a exigir um campo novo.
+Escrita **aditiva** (Comentário) não versiona — refinamento da 2.1, já na spine.
 
 #### O que cada story encontra faltando
 
@@ -261,24 +253,17 @@ Verificado no código em 2026-08-11 — **não descubra de novo**:
 
 | Story | O que **não existe** hoje |
 | --- | --- |
-| ~~2.1~~ | ✅ `done` (PR #46) — o command, a capacidade `comentaInterno` e o vocabulário do Log |
-| 2.2 | **As transições de status.** `STATUS` é só uma lista; `abrirTicket` só produz `'aberto'`. A máquina do AD-5 precisa ser definida — e ela é um mapa `Status -> Status[]`, no domínio, uma vez só. Mais o mecanismo de versão (acima) |
+| ~~2.1~~ | ✅ `done` (PR #46) — command, capacidade `comentaInterno`, vocabulário do Log |
+| ~~2.2~~ | ✅ `done` (PR #48) — máquina de estados, `version`, `Conflict`, par `de`/`para` |
 | 2.3 | Nada de `assignee` além da coluna (que existe e é sempre `null`). Reatribuição precisa registrar **Dono anterior e novo** no audit — e `audit_entries` hoje só tem `acao`, `autor`, `origin`: não há onde guardar "de X para Y" |
 | 2.4 | **A Prioridade inteira.** Não existe coluna `priority` em `tickets`, nem tipo `Prioridade` no domínio. Precisa de migration **e** de lista fechada (`Baixa..Crítica`), no padrão de `STATUS`/`CATEGORIAS`/`ORIGENS`/`PAPEIS` |
 | 2.5 | `enviarChamadoResolvido` no port `NotificadorDeChamado` — que hoje só tem `enviarChamadoAberto`. O e-mail traz **quem resolveu e o tempo total** (exige `criadoEm` e o instante da resolução) |
 | 2.6 | **AD-7 inteiro.** Não existe `ConfirmationRequired`, nem sinal de confirmação em nenhum contrato |
 
-**A 2.3 esbarra num limite real do Log, e a 2.1 deixou a decisão para a 2.2.**
-"Registrar Dono anterior e novo" não cabe em `audit_entries` como ela está. A
-2.1 resolveu o caso dela codificando na própria ação
-(`comentar_chamado_interno`) e **não inventou coluna**, porque seria especular
-sobre o formato que a 2.2 precisa.
-
-**A 2.2 é o lugar de decidir**: ela é a primeira que muda o valor de um campo
-("de `aberto` para `em_andamento`"), e lá a necessidade é real. Opções: coluna
-de detalhe (`detalhe jsonb`/`text`), duas colunas (`de`/`para`), ou continuar
-codificando na ação. Lembre que o Log é **append-only** (FR-22) e que a 1.8 lê
-e filtra essa tabela — mudar o shape mexe no contrato de saída do histórico.
+**A dívida do Log foi paga na 2.2.** `audit_entries` tem `de` e `para` (texto,
+nulos quando a ação não muda valor), e o histórico da 1.8 já os expõe. A 2.3
+grava o Dono anterior e o novo nessas colunas — **não** invente estrutura nova,
+e **não** preencha com `'nenhum'` quando não houver par.
 
 **Acrescentar ação nova agora exige uma linha em `ACOES`** (`domain/auditoria.ts`,
 criado na 2.1): o vocabulário do Log é lista fechada, e o compilador cobra.
@@ -320,6 +305,26 @@ vezes (PR #39 e #43).
 
 **Verifique por mutação:** remova a checagem de confirmação e confirme que um
 teste reprova. Se nenhum reprovar, o guardrail não existe.
+
+#### O que a 2.2 mediu
+
+- **Mutação sobrevivente pode apontar redundância, não lacuna.** Uma guarda
+  `de !== para` na máquina de estados era inalcançável (nenhuma tabela lista o
+  próprio estado como destino). O certo não foi reforçar o teste: foi **remover
+  o código morto** e mover a invariante para um teste sobre os **dados**. Se a
+  mutação não muda comportamento observável, o problema pode ser o código.
+- **Teste no nível errado não prova a garantia.** O `deleted_at IS NULL` do
+  `UPDATE` protege a janela entre leitura e escrita; testá-lo pelo command é
+  inútil porque `visivelPara` barra antes. Foi preciso chamar o **repositório
+  direto**.
+- **Cuidado com teste de corrida que fixa timing.** O erro da perdedora não é
+  determinístico — `Conflict` ou `TransicaoInvalida`, conforme o instante da
+  leitura. Teste a **invariante** (uma escrita só), não o código do erro; e
+  rode três vezes antes de confiar.
+- **Separe tabelas de política quando o guardrail depender disso.** As
+  transições irreversíveis ficaram numa tabela própria para que a tool genérica
+  não vire porta dos fundos da 2.6 — com um teste garantindo que as duas não se
+  sobrepõem.
 
 #### O que a 2.1 mediu — a primeira mutação do épico
 
@@ -381,11 +386,11 @@ teste reprova. Se nenhum reprovar, o guardrail não existe.
 - Migration nova entra em `drizzle/migrations/` e o `pnpm db:migrate` já itera
   sobre todas — **não** referencie arquivo por nome.
 
-**Sobre o `claude-review`:** revisou de verdade cinco vezes em doze rodadas
-(#35, #39, #41, #43, #46), e nas cinco levantou algo que virou registro ou
-código. No #43 foram dois achados reais no mesmo PR; no #46, um de fronteira
-(AD-1/AD-2) que melhorou o desenho. Nas outras, silêncio verde — e o silêncio
-tem assinatura: menos de um minuto de execução. Sempre confira:
+**Sobre o `claude-review`:** revisou de verdade cinco vezes em quatorze rodadas
+(#35, #39, #41, #43, #46). No #48 ficou mudo nas **duas** rodadas (36s e 34s) —
+o silêncio tem assinatura clara: **menos de um minuto** de execução, contra 4–5
+minutos quando revisa. Não conte com ele; conte com as mutações. Sempre
+confira:
 
 ```bash
 gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
@@ -414,7 +419,8 @@ encerre para escapar de um bloqueio: bloqueio se resolve com a seção 5.
 
 | Você vai escrever | Copie |
 | --- | --- |
-| Command de mutação | `excluir-chamado.ts` (1.7) e `comentar-chamado.ts` (2.1) |
+| Command de mutação de campo | `mudar-status.ts` (2.2) — com versão e `Conflict` |
+| Command de mutação simples | `excluir-chamado.ts` (1.7), `comentar-chamado.ts` (2.1) |
 | Regra de domínio com política | `papeis.ts` + `visibilidade.ts` (1.4) |
 | Contrato Zod | `contracts/abrir-chamado.ts` (1.1) |
 | Port com auditoria transacional | `ports/ticket-repository.ts` (1.1, 1.7) |
@@ -422,8 +428,8 @@ encerre para escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/soft-delete.test.ts` (1.7) |
 | Caso de uso que orquestra sem escrever | `abrir-chamado-por-email.ts` (1.9) |
 
-**Estado do código em 2026-08-11:** 400 testes, cobertura 98,4%, 7 migrations
-aplicadas, Epic 0 e Epic 1 completos, Epic 2 com a 2.1 `done`.
+**Estado do código em 2026-08-11:** 472 testes, cobertura 98,6%, 8 migrations
+aplicadas, Epic 0 e Epic 1 completos, Epic 2 com 2.1 e 2.2 `done`.
 
 **Gate ativo:** nove required checks na `main` — `lint`, `typecheck`, `test`,
 `arch`, `traceability`, `security-deps`, `security-secrets`, `sonar`,

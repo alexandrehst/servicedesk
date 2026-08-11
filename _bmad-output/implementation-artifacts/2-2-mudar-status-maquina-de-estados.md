@@ -4,7 +4,7 @@ baseline_commit: f5ff36a
 
 # Story 2.2: Mudar Status (máquina de estados)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -375,3 +375,4 @@ verdade, a outra que a porta dos fundos da 2.6 está fechada.
 | 2026-08-11 | Duas mutações sobreviveram: uma era redundância (guarda removida), outra lacuna real (teste no repositório). 15 de 15 reprovaram |
 | 2026-08-11 | Task 8: AD-5 e AD-10 registrados na spine; FR-4 no PRD |
 | 2026-08-11 | PR #48: nove checks verdes; `claude-review` mudo em 36s |
+| 2026-08-11 | PR #48 mergeado com os nove checks verdes. Story `done` |
