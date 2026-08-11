@@ -225,8 +225,10 @@ agora atacam os helpers e valem para esta story sem uma linha nova:
    nenhum código compara duas prioridades.
 4. **Duas guardas defensivas seguem sem teste** em `ticket-repository.ts`, e a
    conexão IMAP real (1.9).
-5. **O `claude-review` ainda não se manifestou** nesta story no momento em que
-   este registro foi escrito.
+5. **O `claude-review` foi mudo:** verde em **47s**, zero comentários. Pelo
+   sinal medido desde o PR #46, menos de um minuto é silêncio. O que sustenta
+   esta story são os 551 testes e as mutações — 11 próprias mais as 21 da 2.3,
+   que cobrem os helpers.
 
 ### File List
 
@@ -257,3 +259,4 @@ agora atacam os helpers e valem para esta story sem uma linha nova:
 | 2026-08-11 | Task 6: 551 testes, cobertura 98,7% |
 | 2026-08-11 | Duas mutações sobreviveram por erro do script (alvo ambíguo e alvo evaporado pelo formatador); 11 de 11 reprovaram |
 | 2026-08-11 | Task 7: FR-6 registrado no PRD |
+| 2026-08-11 | PR #52: 14 checks verdes; `claude-review` mudo em 47s |
