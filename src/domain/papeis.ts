@@ -26,6 +26,7 @@ export type Capacidade =
   | 'mudaStatus'
   | 'atribuiChamado'
   | 'recebeAtribuicao'
+  | 'mudaPrioridade'
 
 /**
  * Quem pode o quê. `Record<Capacidade, ...>` é deliberado: o TypeScript exige
@@ -71,6 +72,12 @@ const QUEM_PODE: Record<Capacidade, readonly Papel[]> = {
   // reutilizacao da capacidade errada so apareceria como Chamado atribuido a
   // quem nao atende.
   recebeAtribuicao: ['agente'],
+  // Story 2.4: prioridade e COMPARATIVA — ordena um Chamado contra os outros,
+  // e quem enxerga a fila inteira e quem atende. Um campo de urgencia
+  // preenchido por quem abre vira, na pratica, uma coluna onde todo mundo
+  // escreve "critica"; o Solicitante tem a Descricao e o Comentario para
+  // explicar a urgencia dele.
+  mudaPrioridade: ['agente'],
 }
 
 export const pode = (papel: Papel, capacidade: Capacidade): boolean => {

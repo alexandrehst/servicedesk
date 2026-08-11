@@ -27,6 +27,24 @@ export type Status = (typeof STATUS)[number]
 export const CATEGORIAS = ['hardware', 'software', 'rede', 'acesso', 'nao_classificado'] as const
 export type Categoria = (typeof CATEGORIAS)[number]
 
+/**
+ * Urgencia do Chamado (FR-6, Story 2.4). Conjunto fechado, como STATUS.
+ *
+ * Minusculas sem acento, no padrao dos outros enums do projeto: a apresentacao
+ * com acento e problema de quem exibe, e a UI e Fase 1.5.
+ */
+export const PRIORIDADES = ['baixa', 'media', 'alta', 'critica'] as const
+export type Prioridade = (typeof PRIORIDADES)[number]
+
+/**
+ * Com o que um Chamado nasce quando ninguem escolhe.
+ *
+ * Prioridade NULA seria um terceiro estado — "sem prioridade" — que a fila do
+ * Epic 3 teria que tratar em toda ordenacao e que nao significa nada para quem
+ * atende. Um Chamado sem urgencia declarada TEM urgencia: a normal.
+ */
+export const PRIORIDADE_PADRAO: Prioridade = 'media'
+
 export const ehCategoria = (valor: string): valor is Categoria =>
   (CATEGORIAS as readonly string[]).includes(valor)
 
@@ -39,6 +57,12 @@ export type NovoTicket = {
   readonly titulo: string
   readonly descricao: string
   readonly categoria: Categoria
+  /**
+   * Story 2.4 — fica em `NovoTicket`, e isso e o OPOSTO de `number`, `version`
+   * e `excluidoEm`. Aqueles so existem depois de persistir; Prioridade existe
+   * antes, porque e uma escolha de quem abre, nao um efeito da gravacao.
+   */
+  readonly prioridade: Prioridade
   readonly status: Status
   readonly requester: string
   /**
@@ -82,6 +106,11 @@ export type AbrirTicketInput = {
   readonly descricao: string
   readonly categoria: string
   readonly requester: string
+  /**
+   * Opcional na abertura: quem abre por e-mail (1.9) nao informa, e a tool MCP
+   * nao passou a exigir um campo novo. Ausente vira `PRIORIDADE_PADRAO`.
+   */
+  readonly prioridade?: Prioridade
 }
 
 /**
@@ -93,6 +122,7 @@ export const abrirTicket = ({
   descricao,
   categoria,
   requester,
+  prioridade,
 }: AbrirTicketInput): NovoTicket => {
   const tituloLimpo = titulo.trim()
   if (tituloLimpo.length === 0) {
@@ -115,6 +145,7 @@ export const abrirTicket = ({
     titulo: tituloLimpo,
     descricao: descricaoLimpa,
     categoria,
+    prioridade: prioridade ?? PRIORIDADE_PADRAO,
     // Chamado nasce Aberto e sem Dono (FR-1).
     status: 'aberto',
     requester,

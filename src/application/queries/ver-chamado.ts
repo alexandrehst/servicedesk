@@ -42,6 +42,7 @@ export const verChamado =
       descricao: ticket.descricao,
       categoria: ticket.categoria,
       status: ticket.status,
+      prioridade: ticket.prioridade,
       requester: ticket.requester,
       assignee: ticket.assignee,
       criadoEm: ticket.criadoEm.toISOString(),

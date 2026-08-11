@@ -146,6 +146,14 @@ Um Agente pode alterar a Prioridade de um Chamado.
 **Consequências (testáveis):**
 - Aceita apenas valores do conjunto fechado (Baixa…Crítica).
 
+**Decidido em 2026-08-11 (Story 2.4):**
+
+- **Todo Chamado nasce com Prioridade** (`media`), e a coluna é `NOT NULL`. Prioridade nula seria um terceiro estado — "sem prioridade" — que a fila do Epic 3 teria que tratar em toda ordenação e que não significa nada para quem atende: um Chamado sem urgência declarada **tem** urgência, a normal.
+- **`prioridade` entra em `NovoTicket`**, e isso é o oposto de `number`, `version` e `excluidoEm` — aqueles só existem depois de persistir; Prioridade existe antes, porque é escolha de quem abre, não efeito da gravação. O campo é **opcional** na abertura, então o intake por e-mail (FR-1) e a tool `abrir_chamado` não passaram a exigir nada novo.
+- **Só o Agente muda a Prioridade.** Ela é **comparativa** — ordena um Chamado contra os outros — e quem enxerga a fila inteira é quem atende. Um campo de urgência preenchido por quem abre vira, na prática, uma coluna onde todo mundo escreve "crítica"; o Solicitante tem a Descrição e o Comentário (FR-3) para explicar a urgência dele.
+- **Valores em minúsculas sem acento** (`baixa`, `media`, `alta`, `critica`), como todos os enums do projeto. A apresentação com acento é de quem exibe.
+- **Pedir a prioridade que o Chamado já tem é recusado** (`PrioridadeInalterada`) — não é mudança, e gravaria no Log um evento que não aconteceu.
+
 #### FR-7: Encerrar, cancelar e reabrir
 Um Agente pode Resolver, Fechar, Cancelar ou Reabrir um Chamado. Fechar, Cancelar e Reabrir são Ações irreversíveis.
 **Consequências (testáveis):**

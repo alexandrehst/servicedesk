@@ -10,7 +10,7 @@ import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import { DomainError } from '../../domain/errors.js'
 import type { Origem } from '../../domain/origem.js'
-import type { Categoria, NovoTicket, Status, Ticket } from '../../domain/ticket.js'
+import type { Categoria, NovoTicket, Prioridade, Status, Ticket } from '../../domain/ticket.js'
 import { type Comentario, embrulharBruto } from '../../domain/visibilidade.js'
 
 /**
@@ -120,6 +120,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
           descricao: novo.descricao,
           categoria: novo.categoria,
           status: novo.status,
+          priority: novo.prioridade,
           requester: novo.requester,
           assignee: novo.assignee,
           number: sql`nextval('ticket_number_seq')`,
@@ -163,6 +164,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         titulo: linha.titulo,
         descricao: linha.descricao,
         categoria: novo.categoria,
+        prioridade: linha.priority as Prioridade,
         status: linha.status as Status,
         requester: linha.requester,
         assignee: linha.assignee,
@@ -200,6 +202,8 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       titulo: linha.titulo,
       descricao: linha.descricao,
       categoria: linha.categoria as Categoria,
+      // Story 2.4 — LIDA do banco, pela licao do `assignee` na 2.3.
+      prioridade: linha.priority as Prioridade,
       status: linha.status as Status,
       requester: linha.requester,
       // Story 2.3 — LIDO do banco. Ate aqui era `null` fixo: a coluna existe
@@ -263,6 +267,8 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       titulo: linha.titulo,
       descricao: linha.descricao,
       categoria: linha.categoria as Categoria,
+      // Story 2.4 — LIDA do banco, pela licao do `assignee` na 2.3.
+      prioridade: linha.priority as Prioridade,
       status: linha.status as Status,
       requester: linha.requester,
       // Story 2.3 — LIDO do banco. Ate aqui era `null` fixo: a coluna existe
@@ -334,6 +340,17 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       {
         ...entrada,
         acao: 'mudar_status',
+      },
+    )
+  },
+
+  async mudarPrioridadeComAuditoria(entrada) {
+    return mutarCampoComAuditoria(
+      db,
+      { priority: entrada.para },
+      {
+        ...entrada,
+        acao: 'mudar_prioridade',
       },
     )
   },

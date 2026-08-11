@@ -41,6 +41,9 @@ const repositorioFake = (): TicketRepository & { chamadas: [NovoTicket, Principa
     async atribuirComAuditoria() {
       throw new Error('esta suite nao atribui')
     },
+    async mudarPrioridadeComAuditoria() {
+      throw new Error('esta suite nao muda Prioridade')
+    },
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
     },
@@ -94,6 +97,9 @@ it('propaga falha da persistencia sem mascarar', async () => {
     },
     async atribuirComAuditoria() {
       throw new Error('esta suite nao atribui')
+    },
+    async mudarPrioridadeComAuditoria() {
+      throw new Error('esta suite nao muda Prioridade')
     },
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')

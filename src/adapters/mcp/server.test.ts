@@ -9,6 +9,7 @@ import {
   criarHandlerAbrirChamado,
   criarHandlerAtribuirChamado,
   criarHandlerComentarChamado,
+  criarHandlerMudarPrioridade,
   criarHandlerMudarStatus,
   criarHandlerVerChamado,
   criarServidorMcp,
@@ -41,6 +42,9 @@ const repositorio: TicketRepository = {
   },
   async atribuirComAuditoria() {
     throw new Error('esta suite nao atribui')
+  },
+  async mudarPrioridadeComAuditoria() {
+    throw new Error('esta suite nao muda Prioridade')
   },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
@@ -136,6 +140,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     async atribuirComAuditoria() {
       throw new Error('esta suite nao atribui')
     },
+    async mudarPrioridadeComAuditoria() {
+      throw new Error('esta suite nao muda Prioridade')
+    },
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
     },
@@ -161,6 +168,7 @@ const chamado: Ticket = {
   descricao: 'Sem resposta ao botao.',
   categoria: 'hardware',
   status: 'aberto',
+  prioridade: 'media',
   requester: 'marina@empresa.com',
   assignee: null,
   criadoEm: new Date('2026-08-10T12:00:00Z'),
@@ -198,6 +206,9 @@ const repoLeitura: TicketRepository = {
   },
   async atribuirComAuditoria() {
     throw new Error('esta suite nao atribui')
+  },
+  async mudarPrioridadeComAuditoria() {
+    throw new Error('esta suite nao muda Prioridade')
   },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
@@ -353,6 +364,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     async atribuirComAuditoria() {
       throw new Error('esta suite nao atribui')
     },
+    async mudarPrioridadeComAuditoria() {
+      throw new Error('esta suite nao muda Prioridade')
+    },
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
     },
@@ -468,6 +482,7 @@ const repoComentario: TicketRepository = {
         descricao: 'Nao conecta.',
         categoria: 'rede',
         status: 'aberto',
+        prioridade: 'media',
         requester: 'marina@empresa.com',
         assignee: null,
         criadoEm: new Date('2026-08-11T12:00:00.000Z'),
@@ -614,6 +629,7 @@ const repoStatus: TicketRepository = {
         descricao: 'Nao conecta.',
         categoria: 'rede',
         status: 'aberto',
+        prioridade: 'media',
         requester: 'marina@empresa.com',
         assignee: null,
         criadoEm: new Date('2026-08-11T12:00:00.000Z'),
@@ -771,6 +787,7 @@ const repoAtribuicao: TicketRepository = {
         descricao: 'Nao conecta.',
         categoria: 'rede',
         status: 'aberto',
+        prioridade: 'media',
         requester: 'marina@empresa.com',
         assignee: null,
         criadoEm: new Date('2026-08-11T12:00:00.000Z'),
@@ -870,4 +887,92 @@ it('erro nao-tipado sobe em vez de virar erro de tool', async () => {
       limitarChamadas: semLimite,
     })({ numero: 1042, versao: 1, agente: 'ana@empresa.com' }),
   ).rejects.toThrow('conexao com o banco caiu')
+})
+
+// --- Story 2.4: tool de Prioridade ---
+
+const prioridadesMudadas: { de: string; para: string; esperada: number }[] = []
+
+const repoPrioridade: TicketRepository = {
+  ...repositorio,
+  async buscarPorNumero() {
+    return embrulharBruto({
+      ticket: {
+        number: 1042,
+        titulo: 'VPN fora do ar',
+        descricao: 'Nao conecta.',
+        categoria: 'rede',
+        prioridade: 'media',
+        status: 'aberto',
+        requester: 'marina@empresa.com',
+        assignee: null,
+        criadoEm: new Date('2026-08-11T12:00:00.000Z'),
+        excluidoEm: null,
+        version: 1,
+      },
+      comentarios: [],
+    })
+  },
+  async mudarPrioridadeComAuditoria({ de, para, esperada }) {
+    prioridadesMudadas.push({ de, para, esperada })
+    return { version: esperada + 1 }
+  },
+}
+
+const depsPrioridade = {
+  repositorio: repoPrioridade,
+  identidades,
+  autenticar,
+  limitarChamadas: semLimite,
+}
+
+it('registra a tool mudar_prioridade com o schema do contrato (AD-6)', () => {
+  const schema = criarServidorMcp(depsPrioridade).toolInputSchemaJson('mudar_prioridade')
+
+  expect(schema).toBeDefined()
+  expect(JSON.stringify(schema)).toContain('critica')
+  expect(JSON.stringify(schema)).toContain('versao')
+})
+
+it('muda a prioridade e devolve o resultado estruturado', async () => {
+  prioridadesMudadas.length = 0
+
+  const resultado = await criarHandlerMudarPrioridade(depsPrioridade)({
+    numero: 1042,
+    prioridade: 'critica',
+    versao: 1,
+  })
+
+  expect(resultado.isError).toBeUndefined()
+  expect(resultado.structuredContent).toEqual({
+    numero: 1042,
+    de: 'media',
+    para: 'critica',
+    versao: 2,
+  })
+})
+
+it('traduz prioridade inalterada em erro de tool', async () => {
+  const resultado = await criarHandlerMudarPrioridade(depsPrioridade)({
+    numero: 1042,
+    prioridade: 'media',
+    versao: 1,
+  })
+
+  expect(resultado.isError).toBe(true)
+  expect(resultado.content[0]?.text).toContain('PrioridadeInalterada')
+})
+
+it('recusa a mudanca de prioridade quando o limite estourou', async () => {
+  prioridadesMudadas.length = 0
+
+  const resultado = await criarHandlerMudarPrioridade({
+    repositorio: repoPrioridade,
+    identidades,
+    autenticar,
+    limitarChamadas: estourado,
+  })({ numero: 1042, prioridade: 'alta', versao: 1 })
+
+  expect(resultado.isError).toBe(true)
+  expect(prioridadesMudadas).toHaveLength(0)
 })
