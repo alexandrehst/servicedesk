@@ -131,10 +131,28 @@ MUTACOES = [
     ),
     # --- FR-21 ---
     (
-        "Esquecer o rate limit no handler de atribuicao",
+        "Esquecer o rate limit no esqueleto das tools",
         MCP,
-        "  return async (input: AtribuirChamadoInput) => {\n    try {\n      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }\n      await limitarChamadas(autor.identity)",
-        "  return async (input: AtribuirChamadoInput) => {\n    try {\n      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }",
+        "      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }\n      await limitarChamadas(autor.identity)",
+        "      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }",
+    ),
+    (
+        "Limitar DEPOIS de executar, em vez de antes",
+        MCP,
+        "      await limitarChamadas(autor.identity)\n\n      const saida = await executar(input, autor)",
+        "      const saida = await executar(input, autor)\n      await limitarChamadas(autor.identity)",
+    ),
+    (
+        "Engolir erro nao-tipado no esqueleto das tools",
+        MCP,
+        "      if (ehDomainError(erro)) {\n        return {\n          content: [{ type: 'text' as const, text: `[${erro.code}] ${erro.message}` }],\n          isError: true,\n        }\n      }\n      throw erro",
+        "      return {\n        content: [{ type: 'text' as const, text: 'falhou' }],\n        isError: true,\n      }",
+    ),
+    (
+        "Perder a releitura que distingue Conflict de sumico",
+        "src/application/commands/mutacao-versionada.ts",
+        "  if (aindaVisivel === null) {\n    throw ticketNaoEncontrado(numero)\n  }",
+        "  if (false) {\n    throw ticketNaoEncontrado(numero)\n  }",
     ),
 ]
 

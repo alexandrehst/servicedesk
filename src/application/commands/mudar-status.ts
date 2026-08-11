@@ -6,6 +6,7 @@ import { ticketNaoEncontrado, visivelPara } from '../../domain/visibilidade.js'
 import type { MudarStatusInput, MudarStatusOutput } from '../contracts/mudar-status.js'
 import type { Principal } from '../contracts/principal.js'
 import type { TicketRepository } from '../ports/ticket-repository.js'
+import { conflitoOuSumico } from './mutacao-versionada.js'
 
 /**
  * Command handler de mudanca de Status (Story 2.2, FR-4).
@@ -76,21 +77,9 @@ export const mudarStatus =
     })
 
     if (resultado === null) {
-      // Nenhuma linha casou. Duas causas possiveis, e elas pedem acoes
-      // OPOSTAS de quem chamou: releia para distinguir. Sem isso, um Chamado
-      // excluido no meio do caminho viraria "conflito", e quem chamou tentaria
-      // de novo para sempre.
-      const agora = await repositorio.buscarPorNumero(input.numero)
-      const aindaVisivel = agora === null ? null : visivelPara(autor, agora)
-
-      if (aindaVisivel === null) {
-        throw ticketNaoEncontrado(input.numero)
-      }
-
-      throw new DomainError(
-        'Conflict',
-        `O Chamado #${input.numero} mudou desde que voce o leu (versao atual: ${aindaVisivel.ticket.version}). Releia e tente de novo.`,
-      )
+      // `return` e nao `await`: a funcao devolve `Promise<never>`, e o `return`
+      // e o que faz o TypeScript entender que o fluxo termina aqui.
+      return conflitoOuSumico(repositorio, input.numero, autor)
     }
 
     return { numero: input.numero, de, para, versao: resultado.version }

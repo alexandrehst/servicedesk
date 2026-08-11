@@ -6,6 +6,7 @@ import type { AtribuirChamadoInput, AtribuirChamadoOutput } from '../contracts/a
 import type { Principal } from '../contracts/principal.js'
 import type { IdentityRepository } from '../ports/identity-repository.js'
 import type { TicketRepository } from '../ports/ticket-repository.js'
+import { conflitoOuSumico } from './mutacao-versionada.js'
 
 /**
  * Command handler de atribuicao de Dono (Story 2.3, FR-5).
@@ -88,19 +89,9 @@ export const atribuirChamado =
     })
 
     if (resultado === null) {
-      // Duas causas para zero linhas, e elas pedem acoes opostas de quem
-      // chamou: releia-e-tente, ou desista (padrao da 2.2).
-      const agora = await repositorio.buscarPorNumero(input.numero)
-      const aindaVisivel = agora === null ? null : visivelPara(autor, agora)
-
-      if (aindaVisivel === null) {
-        throw ticketNaoEncontrado(input.numero)
-      }
-
-      throw new DomainError(
-        'Conflict',
-        `O Chamado #${input.numero} mudou desde que voce o leu (versao atual: ${aindaVisivel.ticket.version}). Releia e tente de novo.`,
-      )
+      // `return` e nao `await`: a funcao devolve `Promise<never>`, e o `return`
+      // e o que faz o TypeScript entender que o fluxo termina aqui.
+      return conflitoOuSumico(repositorio, input.numero, autor)
     }
 
     return {

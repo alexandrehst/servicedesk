@@ -210,7 +210,25 @@ devolvendo grafia canônica diferente da chave buscada, que é o que aconteceria
 com índice case-insensitive (`citext`) ou dado legado. A mutação passou a
 reprovar.
 
-**Dezessete mutações aplicadas, dezessete reprovações** (script versionado em
+**O SonarCloud reprovou o PR com 9% de duplicação em código novo (limite 3%), e
+estava certo.** Eu havia copiado o padrão da 2.2 literalmente — o bloco de
+quinze linhas que traduz "zero linhas afetadas" em `Conflict` ou
+`TicketNaoEncontrado` estava duplicado entre `mudar-status.ts` e
+`atribuir-chamado.ts`, e 2.4, 2.5 e 2.6 o repetiriam de novo.
+
+A duplicação aqui não era questão de estilo, era **risco**: cada cópia é uma
+chance de alguém "simplificar" a releitura e transformar Chamado excluído em
+conflito eterno. Extraí para `commands/mutacao-versionada.ts`.
+
+O gate expôs uma segunda duplicação que eu não tinha visto: **os cinco handlers
+MCP eram o mesmo esqueleto** — autenticar, limitar, executar, traduzir erro.
+Extraí `criarHandler`, e `server.ts` caiu de 342 para 250 linhas. O ganho não é
+de tamanho: a mutação "esquecer o `limitarChamadas`" passou a reprovar **8
+testes em vez de 1**, porque agora existe **um** lugar onde esse esquecimento é
+possível — e ele protege as cinco tools de uma vez. O esquecimento mais provável
+do Epic 2 ficou estruturalmente mais difícil.
+
+**Vinte mutações aplicadas, vinte reprovações** (script versionado em
 `scratchpad/mutacoes-23.py`):
 
 | Mutação aplicada | Reprovou |
@@ -231,7 +249,10 @@ reprovar.
 | Usar a versão do Chamado lido | 3 testes |
 | Conflito vira sucesso silencioso | 3 testes |
 | Não registrar o Dono anterior no Log | 1 teste |
-| Esquecer o `limitarChamadas` | 1 teste |
+| **Esquecer o `limitarChamadas` no esqueleto** | 8 testes |
+| Limitar depois de executar, em vez de antes | 4 testes |
+| Engolir erro não-tipado no esqueleto | 20 testes |
+| Perder a releitura que distingue `Conflict` de sumiço | 2 testes |
 
 ### Completion Notes List
 
@@ -243,7 +264,7 @@ reprovar.
 - **Task 4** — mesmo `UPDATE` condicional da 2.2, com `de`/`para` no Log.
 - **Task 5** — command com `Pick` do port (padrão da 1.9).
 - **Task 6** — tool `atribuir_chamado`; `McpDeps` ganhou `identidades`.
-- **Task 7** — **518 testes** (eram 472); cobertura **98,71%**.
+- **Task 7** — **518 testes** (eram 472); cobertura **98,64%**.
 - **Task 8** — FR-5 registrado no PRD.
 
 **Não provado — registrado em vez de deixado implícito:**
@@ -258,8 +279,11 @@ reprovar.
    cruzamento. Se a 2.5 ou a 2.6 quiserem barrar, o lugar é o command.
 4. **Duas guardas defensivas seguem sem teste** em `ticket-repository.ts`
    (linhas 69 e 96, herdadas), e a conexão IMAP real (1.9).
-5. **O `claude-review` ainda não se manifestou** nesta story no momento em que
-   este registro foi escrito.
+5. **O `claude-review` revisou de verdade** (PR #50, **4m34s**) e não encontrou
+   violação — confirmou a auditoria transacional, a autorização no domínio e a
+   ausência de N+1. Quem reprovou o PR foi o **SonarCloud**, com duplicação de
+   código novo, e o achado dele era real (acima). Os dois gates se
+   complementaram: o review por IA olhou semântica, o Sonar olhou forma.
 
 ### File List
 
@@ -274,6 +298,8 @@ reprovar.
 - `src/adapters/persistence/atribuicao.test.ts` (novo — integração)
 - `src/adapters/mcp/server.ts` + teste (modificados — tool e `identidades`)
 - Dubles de teste (modificados)
+- `src/application/commands/mutacao-versionada.ts` (novo — `conflitoOuSumico`,
+  extraído após o Sonar reprovar duplicação)
 - `scratchpad/mutacoes-23.py` (novo)
 - `prd.md` (FR-5)
 
@@ -286,3 +312,5 @@ reprovar.
 | 2026-08-11 | Task 7: 518 testes, cobertura 98,71% |
 | 2026-08-11 | Uma mutação sobreviveu por ser inócua; tornada detectável. 17 de 17 reprovaram |
 | 2026-08-11 | Task 8: FR-5 registrado no PRD |
+| 2026-08-11 | PR #50: SonarCloud reprovou com 9% de duplicação; extraídos `conflitoOuSumico` e o esqueleto `criarHandler` das tools |
+| 2026-08-11 | 20 mutações e 20 reprovações; `server.ts` de 342 para 250 linhas |
