@@ -130,6 +130,17 @@ Um Agente pode atribuir o Dono de um Chamado a si (self-assign) ou a outro Agent
 - Chamado "sem Dono" é claramente identificável na Fila (FR-9).
 - Reatribuição registra Dono anterior e novo no Log de auditoria.
 
+**Decidido em 2026-08-11 (Story 2.3):**
+
+- **O destinatário é verificado no cadastro, e precisa poder atender.** Atribuir a um Solicitante — ou a um e-mail que ninguém usa — produz um Chamado que *parece* ter Dono e não tem: a fila o mostraria como atendido e ninguém estaria atendendo.
+- **"Não está cadastrado" e "não é Agente" devolvem a MESMA resposta.** Distingui-las transformaria a tool num verificador de quadro de funcionários (mesmo raciocínio da resposta cega do FR-19).
+- **Capacidade `recebeAtribuicao`, separada de `atribuiChamado`:** "pode distribuir trabalho" e "pode receber trabalho" hoje coincidem porque só há um papel de atendimento, mas não são a mesma pergunta — um Gestor que distribui sem atender quebraria a coincidência.
+- **Self-assign é a ausência do campo `agente`**, não um valor mágico. E também passa pelo cadastro: um Agente removido de `users` não pega Chamado para si.
+- **Reatribuir ao mesmo Dono é recusado** — não é mudança, e gravaria no Log um evento que não aconteceu (mesmo raciocínio da auto-transição do FR-4). A comparação é sobre o e-mail **normalizado**.
+- **O Log registra Dono anterior → novo** nas colunas `de`/`para` da Story 2.2, com `de` **nulo** na primeira atribuição.
+
+**Dívida paga aqui:** a coluna `assignee` existia desde a Story 1.1, mas o adapter devolvia `null` **fixo** nas três leituras. Ninguém notou porque nada atribuía Dono; a partir desta story teria virado bug visível.
+
 #### FR-6: Mudar prioridade
 Um Agente pode alterar a Prioridade de um Chamado.
 **Consequências (testáveis):**

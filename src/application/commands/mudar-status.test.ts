@@ -53,6 +53,9 @@ const repositorio: TicketRepository = {
   async excluirComAuditoria() {
     throw new Error('esta suite nao exclui')
   },
+  async atribuirComAuditoria() {
+    throw new Error('esta suite nao atribui')
+  },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake')
   },

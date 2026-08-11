@@ -82,7 +82,7 @@ development_status:
   epic-2: in-progress
   2-1-comentar-chamado-publico-interno: done
   2-2-mudar-status-maquina-de-estados: done
-  2-3-atribuir-dono-self-assign: backlog
+  2-3-atribuir-dono-self-assign: review
   2-4-mudar-prioridade: backlog
   2-5-resolver-chamado-e-mail-de-resolucao: backlog
   2-6-acoes-irreversiveis-com-confirmacao: backlog

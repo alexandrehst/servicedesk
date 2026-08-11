@@ -28,6 +28,7 @@ export const ACOES = [
   'comentar_chamado',
   'comentar_chamado_interno',
   'mudar_status',
+  'atribuir_chamado',
 ] as const
 
 export type AcaoDeAuditoria = (typeof ACOES)[number]

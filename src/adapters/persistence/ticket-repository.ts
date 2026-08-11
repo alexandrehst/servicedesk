@@ -104,7 +104,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         categoria: novo.categoria,
         status: linha.status as Status,
         requester: linha.requester,
-        assignee: null,
+        assignee: linha.assignee,
         criadoEm: linha.criadoEm,
         // Chamado nasce vivo; o soft-delete e a Story 1.7.
         excluidoEm: null,
@@ -141,7 +141,10 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       categoria: linha.categoria as Categoria,
       status: linha.status as Status,
       requester: linha.requester,
-      assignee: null,
+      // Story 2.3 — LIDO do banco. Ate aqui era `null` fixo: a coluna existe
+      // desde a 1.1, mas nada atribuia Dono, entao ninguem notou. A partir da
+      // atribuicao, o literal viraria bug visivel.
+      assignee: linha.assignee,
       criadoEm: linha.criadoEm,
       // O adapter entrega o dado BRUTO, inclusive o excluido: quem descarta e
       // `visivelPara`, no dominio (AD-8, Story 1.4). Filtrar aqui tambem
@@ -201,7 +204,10 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       categoria: linha.categoria as Categoria,
       status: linha.status as Status,
       requester: linha.requester,
-      assignee: null,
+      // Story 2.3 — LIDO do banco. Ate aqui era `null` fixo: a coluna existe
+      // desde a 1.1, mas nada atribuia Dono, entao ninguem notou. A partir da
+      // atribuicao, o literal viraria bug visivel.
+      assignee: linha.assignee,
       criadoEm: linha.criadoEm,
       excluidoEm: linha.deletedAt,
       version: linha.version,
@@ -297,6 +303,47 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         autor: entrada.autor.identity,
         origin: entrada.autor.origin,
         // O par vem pronto do command — o adapter grava, nao interpreta.
+        de: entrada.de,
+        para: entrada.para,
+      })
+
+      return { version: linha.version }
+    })
+  },
+
+  async atribuirComAuditoria(entrada: {
+    numero: number
+    de: string | null
+    para: string
+    esperada: number
+    autor: Principal
+  }): Promise<{ version: number } | null> {
+    return db.transaction(async (tx) => {
+      // Mesmo UPDATE condicional da Story 2.2: a checagem de versao e o filtro
+      // de excluido vivem no WHERE, nao em JavaScript.
+      const [linha] = await tx
+        .update(tickets)
+        .set({ assignee: entrada.para, version: sql`${tickets.version} + 1` })
+        .where(
+          and(
+            eq(tickets.number, entrada.numero),
+            eq(tickets.version, entrada.esperada),
+            isNull(tickets.deletedAt),
+          ),
+        )
+        .returning({ version: tickets.version })
+
+      if (linha === undefined) {
+        // Escrita que nao aconteceu nao vira auditoria (licao da 1.7).
+        return null
+      }
+
+      await tx.insert(auditEntries).values({
+        ticketNumber: entrada.numero,
+        acao: 'atribuir_chamado',
+        autor: entrada.autor.identity,
+        origin: entrada.autor.origin,
+        // `de` nulo na primeira atribuicao — o Chamado saiu de "sem Dono".
         de: entrada.de,
         para: entrada.para,
       })

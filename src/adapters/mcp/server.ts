@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/server'
 import { abrirChamado } from '../../application/commands/abrir-chamado.js'
+import { atribuirChamado } from '../../application/commands/atribuir-chamado.js'
 import { comentarChamado } from '../../application/commands/comentar-chamado.js'
 import { mudarStatus } from '../../application/commands/mudar-status.js'
 import type { AbrirChamadoInput } from '../../application/contracts/abrir-chamado.js'
@@ -7,6 +8,11 @@ import {
   abrirChamadoInputSchema,
   abrirChamadoOutputSchema,
 } from '../../application/contracts/abrir-chamado.js'
+import type { AtribuirChamadoInput } from '../../application/contracts/atribuir-chamado.js'
+import {
+  atribuirChamadoInputSchema,
+  atribuirChamadoOutputSchema,
+} from '../../application/contracts/atribuir-chamado.js'
 import type { ComentarChamadoInput } from '../../application/contracts/comentar-chamado.js'
 import {
   comentarChamadoInputSchema,
@@ -23,6 +29,7 @@ import {
   verChamadoInputSchema,
   verChamadoOutputSchema,
 } from '../../application/contracts/ver-chamado.js'
+import type { IdentityRepository } from '../../application/ports/identity-repository.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
 import { verChamado } from '../../application/queries/ver-chamado.js'
 import { ehDomainError } from '../../domain/errors.js'
@@ -66,6 +73,11 @@ export type McpDeps = {
    * outra conexao.
    */
   readonly limitarChamadas: (identity: string) => Promise<void>
+  /**
+   * Story 2.3: o cadastro, para validar o DESTINATARIO de uma atribuicao. So
+   * `buscarUsuarioPorEmail` — o adapter MCP nao cria sessao nem emite token.
+   */
+  readonly identidades: Pick<IdentityRepository, 'buscarUsuarioPorEmail'>
 }
 
 /**
@@ -227,6 +239,43 @@ export const criarHandlerMudarStatus = ({ repositorio, autenticar, limitarChamad
   }
 }
 
+/** Handler de atribuicao (Story 2.3). */
+export const criarHandlerAtribuirChamado = ({
+  repositorio,
+  identidades,
+  autenticar,
+  limitarChamadas,
+}: McpDeps) => {
+  const executar = atribuirChamado({ repositorio, identidades })
+
+  return async (input: AtribuirChamadoInput) => {
+    try {
+      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }
+      await limitarChamadas(autor.identity)
+
+      const saida = await executar(input, autor)
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Chamado #${saida.numero} atribuido a ${saida.para} (versao ${saida.versao}).`,
+          },
+        ],
+        structuredContent: saida,
+      }
+    } catch (erro) {
+      if (ehDomainError(erro)) {
+        return {
+          content: [{ type: 'text' as const, text: `[${erro.code}] ${erro.message}` }],
+          isError: true,
+        }
+      }
+      throw erro
+    }
+  }
+}
+
 export const criarServidorMcp = (deps: McpDeps): McpServer => {
   const servidor = new McpServer({ name: 'servicedesk', version: '0.1.0' })
 
@@ -263,6 +312,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: mudarStatusOutputSchema,
     },
     criarHandlerMudarStatus(deps),
+  )
+
+  servidor.registerTool(
+    'atribuir_chamado',
+    {
+      title: 'Atribuir Chamado',
+      description:
+        'Define o Dono do Chamado. Omita `agente` para atribuir a si mesmo. Exige a versao lida em ver_chamado.',
+      inputSchema: atribuirChamadoInputSchema,
+      outputSchema: atribuirChamadoOutputSchema,
+    },
+    criarHandlerAtribuirChamado(deps),
   )
 
   servidor.registerTool(

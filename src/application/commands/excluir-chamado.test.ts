@@ -43,6 +43,9 @@ const repositorio: TicketRepository = {
   async mudarStatusComAuditoria() {
     throw new Error('esta suite nao muda Status')
   },
+  async atribuirComAuditoria() {
+    throw new Error('esta suite nao atribui')
+  },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
   },
@@ -146,6 +149,9 @@ describe('caminho positivo (AC #1, #5)', () => {
       },
       async mudarStatusComAuditoria() {
         throw new Error('esta suite nao muda Status')
+      },
+      async atribuirComAuditoria() {
+        throw new Error('esta suite nao atribui')
       },
       async buscarIntakePorMessageId() {
         throw new Error('esta suite nao faz intake por e-mail')

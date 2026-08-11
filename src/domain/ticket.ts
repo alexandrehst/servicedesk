@@ -41,7 +41,15 @@ export type NovoTicket = {
   readonly categoria: Categoria
   readonly status: Status
   readonly requester: string
-  readonly assignee: null
+  /**
+   * O Dono (Story 2.3, FR-5). `null` = sem Dono.
+   *
+   * Ate a 2.3 o tipo era literalmente `null`, e nao `string | null`: a Story
+   * 1.1 so criava Chamado sem Dono, e nada atribuia. O tipo estreito estava
+   * certo enquanto ninguem podia atribuir — e virou mentira no instante em que
+   * a atribuicao existiu.
+   */
+  readonly assignee: string | null
 }
 
 /** Chamado persistido: ganhou Numero (imutavel, AD-4) e data de criacao. */

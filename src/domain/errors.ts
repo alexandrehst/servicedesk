@@ -40,6 +40,11 @@ export type DomainErrorCode =
   // num conflito pode reler e tentar de novo, e quem bateu num Chamado que
   // sumiu nao pode.
   | 'Conflict'
+  // Story 2.3: o destinatario da atribuicao nao serve — nao esta no cadastro,
+  // nao e Agente, ou ja e o Dono atual. UM codigo para os tres: distinguir
+  // "nao cadastrado" de "nao e Agente" transformaria a tool num verificador de
+  // quem trabalha na empresa (raciocinio da resposta cega da 1.3).
+  | 'AtribuicaoInvalida'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode
