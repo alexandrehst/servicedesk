@@ -109,6 +109,23 @@ export type TicketRepository = {
   }): Promise<{ readonly version: number } | null>
 
   /**
+   * Define o Dono e grava a auditoria na MESMA transacao (Story 2.3, FR-5).
+   *
+   * Mesmo contrato de `mudarStatusComAuditoria`: a versao esperada e conferida
+   * pelo proprio `UPDATE` (AD-10), e `null` significa que nenhuma linha casou —
+   * versao divergente ou Chamado excluido, e quem distingue e o command.
+   *
+   * `de` pode ser nulo: a primeira atribuicao sai de "sem Dono".
+   */
+  atribuirComAuditoria(entrada: {
+    readonly numero: number
+    readonly de: string | null
+    readonly para: string
+    readonly esperada: number
+    readonly autor: Principal
+  }): Promise<{ readonly version: number } | null>
+
+  /**
    * Soft-delete (Story 1.7, FR-23): MARCA o Chamado e grava a auditoria na
    * mesma transacao (AD-3). A linha continua no banco.
    *

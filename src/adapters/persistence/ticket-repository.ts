@@ -45,6 +45,67 @@ export const ehViolacaoDeUnicidade = (erro: unknown): boolean => {
   return false
 }
 
+/**
+ * O corpo de TODA mutacao de campo versionada (AD-3 + AD-10).
+ *
+ * Extraido na Story 2.3, quando o Sonar apontou duplicacao: `mudar_status` e
+ * `atribuir_chamado` faziam exatamente o mesmo UPDATE condicional seguido do
+ * mesmo INSERT de auditoria, mudando so a coluna e o rotulo. As Stories 2.4,
+ * 2.5 e 2.6 repetiriam.
+ *
+ * As tres garantias que este bloco carrega, e que uma copia mal feita perderia:
+ *
+ * - `version = $esperada` no WHERE (AD-10) — a checagem e do BANCO, nao de um
+ *   `if` entre uma leitura e uma escrita;
+ * - `deleted_at IS NULL` junto — o Chamado pode ter sido excluido depois que o
+ *   command o leu;
+ * - auditoria na MESMA transacao (AD-3), e **nenhuma** linha de auditoria
+ *   quando o UPDATE nao afeta nada (licao da 1.7: escrita que nao aconteceu
+ *   nao vira registro).
+ */
+const mutarCampoComAuditoria = async (
+  db: PostgresJsDatabase,
+  campos: Record<string, unknown>,
+  entrada: {
+    numero: number
+    acao: AcaoDeAuditoria
+    de: string | null
+    para: string
+    esperada: number
+    autor: Principal
+  },
+): Promise<{ version: number } | null> =>
+  db.transaction(async (tx) => {
+    const [linha] = await tx
+      .update(tickets)
+      .set({ ...campos, version: sql`${tickets.version} + 1` })
+      .where(
+        and(
+          eq(tickets.number, entrada.numero),
+          eq(tickets.version, entrada.esperada),
+          isNull(tickets.deletedAt),
+        ),
+      )
+      .returning({ version: tickets.version })
+
+    if (linha === undefined) {
+      return null
+    }
+
+    await tx.insert(auditEntries).values({
+      ticketNumber: entrada.numero,
+      // O rotulo e o par de/para chegam PRONTOS do command: o adapter grava,
+      // nao interpreta (achado do review no PR #46).
+      acao: entrada.acao,
+      autor: entrada.autor.identity,
+      origin: entrada.autor.origin,
+      de: entrada.de,
+      para: entrada.para,
+    })
+
+    return { version: linha.version }
+  })
+
 export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository => ({
   async criarComAuditoria(
     novo: NovoTicket,
@@ -104,7 +165,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         categoria: novo.categoria,
         status: linha.status as Status,
         requester: linha.requester,
-        assignee: null,
+        assignee: linha.assignee,
         criadoEm: linha.criadoEm,
         // Chamado nasce vivo; o soft-delete e a Story 1.7.
         excluidoEm: null,
@@ -141,7 +202,10 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       categoria: linha.categoria as Categoria,
       status: linha.status as Status,
       requester: linha.requester,
-      assignee: null,
+      // Story 2.3 — LIDO do banco. Ate aqui era `null` fixo: a coluna existe
+      // desde a 1.1, mas nada atribuia Dono, entao ninguem notou. A partir da
+      // atribuicao, o literal viraria bug visivel.
+      assignee: linha.assignee,
       criadoEm: linha.criadoEm,
       // O adapter entrega o dado BRUTO, inclusive o excluido: quem descarta e
       // `visivelPara`, no dominio (AD-8, Story 1.4). Filtrar aqui tambem
@@ -201,7 +265,10 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       categoria: linha.categoria as Categoria,
       status: linha.status as Status,
       requester: linha.requester,
-      assignee: null,
+      // Story 2.3 — LIDO do banco. Ate aqui era `null` fixo: a coluna existe
+      // desde a 1.1, mas nada atribuia Dono, entao ninguem notou. A partir da
+      // atribuicao, o literal viraria bug visivel.
+      assignee: linha.assignee,
       criadoEm: linha.criadoEm,
       excluidoEm: linha.deletedAt,
       version: linha.version,
@@ -260,49 +327,26 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
     })
   },
 
-  async mudarStatusComAuditoria(entrada: {
-    numero: number
-    de: Status
-    para: Status
-    esperada: number
-    autor: Principal
-  }): Promise<{ version: number } | null> {
-    return db.transaction(async (tx) => {
-      // A checagem de versao acontece AQUI, no WHERE — nao em JavaScript entre
-      // uma leitura e uma escrita. Ler, comparar e escrever seriam tres passos
-      // com uma janela entre eles, e e exatamente essa janela que o AD-10
-      // existe para fechar. `deleted_at IS NULL` entra pelo mesmo motivo: o
-      // Chamado pode ter sido excluido depois que o command o leu.
-      const [linha] = await tx
-        .update(tickets)
-        .set({ status: entrada.para, version: sql`${tickets.version} + 1` })
-        .where(
-          and(
-            eq(tickets.number, entrada.numero),
-            eq(tickets.version, entrada.esperada),
-            isNull(tickets.deletedAt),
-          ),
-        )
-        .returning({ version: tickets.version })
-
-      if (linha === undefined) {
-        // Nada casou. Nenhuma linha de auditoria: registrar uma mudanca que
-        // nao aconteceu poluiria o Log com evento falso (licao da 1.7).
-        return null
-      }
-
-      await tx.insert(auditEntries).values({
-        ticketNumber: entrada.numero,
+  async mudarStatusComAuditoria(entrada) {
+    return mutarCampoComAuditoria(
+      db,
+      { status: entrada.para },
+      {
+        ...entrada,
         acao: 'mudar_status',
-        autor: entrada.autor.identity,
-        origin: entrada.autor.origin,
-        // O par vem pronto do command — o adapter grava, nao interpreta.
-        de: entrada.de,
-        para: entrada.para,
-      })
+      },
+    )
+  },
 
-      return { version: linha.version }
-    })
+  async atribuirComAuditoria(entrada) {
+    return mutarCampoComAuditoria(
+      db,
+      { assignee: entrada.para },
+      {
+        ...entrada,
+        acao: 'atribuir_chamado',
+      },
+    )
   },
 
   async excluirComAuditoria(numero: number, autor: Principal): Promise<boolean> {

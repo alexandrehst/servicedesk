@@ -1,28 +1,31 @@
 import { McpServer } from '@modelcontextprotocol/server'
 import { abrirChamado } from '../../application/commands/abrir-chamado.js'
+import { atribuirChamado } from '../../application/commands/atribuir-chamado.js'
 import { comentarChamado } from '../../application/commands/comentar-chamado.js'
 import { mudarStatus } from '../../application/commands/mudar-status.js'
-import type { AbrirChamadoInput } from '../../application/contracts/abrir-chamado.js'
 import {
   abrirChamadoInputSchema,
   abrirChamadoOutputSchema,
 } from '../../application/contracts/abrir-chamado.js'
+import {
+  atribuirChamadoInputSchema,
+  atribuirChamadoOutputSchema,
+} from '../../application/contracts/atribuir-chamado.js'
 import type { ComentarChamadoInput } from '../../application/contracts/comentar-chamado.js'
 import {
   comentarChamadoInputSchema,
   comentarChamadoOutputSchema,
 } from '../../application/contracts/comentar-chamado.js'
-import type { MudarStatusInput } from '../../application/contracts/mudar-status.js'
 import {
   mudarStatusInputSchema,
   mudarStatusOutputSchema,
 } from '../../application/contracts/mudar-status.js'
 import type { Principal } from '../../application/contracts/principal.js'
-import type { VerChamadoInput } from '../../application/contracts/ver-chamado.js'
 import {
   verChamadoInputSchema,
   verChamadoOutputSchema,
 } from '../../application/contracts/ver-chamado.js'
+import type { IdentityRepository } from '../../application/ports/identity-repository.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
 import { verChamado } from '../../application/queries/ver-chamado.js'
 import { ehDomainError } from '../../domain/errors.js'
@@ -66,166 +69,119 @@ export type McpDeps = {
    * outra conexao.
    */
   readonly limitarChamadas: (identity: string) => Promise<void>
+  /**
+   * Story 2.3: o cadastro, para validar o DESTINATARIO de uma atribuicao. So
+   * `buscarUsuarioPorEmail` — o adapter MCP nao cria sessao nem emite token.
+   */
+  readonly identidades: Pick<IdentityRepository, 'buscarUsuarioPorEmail'>
 }
+
+/**
+ * O esqueleto de TODA tool: autenticar, limitar, executar, traduzir erro.
+ *
+ * Extraido na Story 2.3, quando o gate do Sonar apontou duplicacao em codigo
+ * novo. Os cinco handlers repetiam as mesmas quinze linhas, e o Epic 2 traz
+ * mais dois — cada copia sendo uma chance de esquecer o `limitarChamadas`, que
+ * e justamente o esquecimento mais provavel do epico.
+ *
+ * A ordem das tres primeiras linhas nao e estilo:
+ *
+ * - **autenticar primeiro**, porque uma escrita gravada antes de saber quem a
+ *   fez fica com autoria indefinida (AD-3);
+ * - **limitar antes de executar**, porque contar depois deixaria a escrita
+ *   acontecer e o limite nao serviria para nada numa IA em loop (FR-21);
+ * - **`origin: 'mcp'`** carimbado aqui, para o Log distinguir "humano via IA"
+ *   de chamada nativa (AD-9).
+ *
+ * O `catch` traduz erro de DOMINIO em erro de tool e **relanca o resto**:
+ * engolir falha de banco atras de uma mensagem de negocio seria violacao
+ * direta do pilar Observavel.
+ */
+const criarHandler =
+  <Entrada, Saida>(
+    { autenticar, limitarChamadas }: Pick<McpDeps, 'autenticar' | 'limitarChamadas'>,
+    executar: (input: Entrada, autor: Principal) => Promise<Saida>,
+    texto: (saida: Saida) => string,
+  ) =>
+  async (input: Entrada) => {
+    try {
+      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }
+      await limitarChamadas(autor.identity)
+
+      const saida = await executar(input, autor)
+
+      return {
+        content: [{ type: 'text' as const, text: texto(saida) }],
+        structuredContent: saida,
+      }
+    } catch (erro) {
+      if (ehDomainError(erro)) {
+        return {
+          content: [{ type: 'text' as const, text: `[${erro.code}] ${erro.message}` }],
+          isError: true,
+        }
+      }
+      throw erro
+    }
+  }
 
 /**
  * Handler da tool, extraido do registro para ser testavel sem transporte.
  * Sem isso, cobrir o caminho de erro exigiria subir um cliente MCP inteiro —
  * e o SDK nao expoe o callback registrado.
  */
-export const criarHandlerAbrirChamado = ({ repositorio, autenticar, limitarChamadas }: McpDeps) => {
-  const executar = abrirChamado({ repositorio })
-
-  return async (input: AbrirChamadoInput) => {
-    try {
-      // Autenticar PRIMEIRO: um Chamado gravado antes de saber quem o abriu
-      // ficaria no banco com autoria indefinida, contra o AD-3.
-      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }
-
-      // E limitar antes de executar: contar depois deixaria a escrita
-      // acontecer, e o limite serviria para nada numa IA em loop.
-      await limitarChamadas(autor.identity)
-
-      const saida = await executar(input, autor)
-      return {
-        content: [
-          { type: 'text' as const, text: `Chamado #${saida.number} aberto (${saida.status}).` },
-        ],
-        structuredContent: saida,
-      }
-    } catch (erro) {
-      // O shape do erro nasce no dominio; aqui so traduzimos para erro de
-      // tool. Erro nao-tipado sobe sem mascarar — engolir seria violar o
-      // pilar Observavel.
-      if (ehDomainError(erro)) {
-        return {
-          content: [{ type: 'text' as const, text: `[${erro.code}] ${erro.message}` }],
-          isError: true,
-        }
-      }
-      throw erro
-    }
-  }
-}
+export const criarHandlerAbrirChamado = (deps: McpDeps) =>
+  criarHandler(
+    deps,
+    abrirChamado({ repositorio: deps.repositorio }),
+    (saida) => `Chamado #${saida.number} aberto (${saida.status}).`,
+  )
 
 /** Handler da tool de leitura, extraido para ser testavel sem transporte. */
-export const criarHandlerVerChamado = ({ repositorio, autenticar, limitarChamadas }: McpDeps) => {
-  const executar = verChamado({ repositorio })
+export const criarHandlerVerChamado = (deps: McpDeps) =>
+  criarHandler(
+    deps,
+    verChamado({ repositorio: deps.repositorio }),
+    (saida) =>
+      `Chamado #${saida.number} — ${saida.titulo} (${saida.status}), ${saida.comentarios.length} comentario(s).`,
+  )
 
-  return async (input: VerChamadoInput) => {
-    try {
-      const quem: Principal = { ...(await autenticar()), origin: 'mcp' }
+/** Handler de Comentario (Story 2.1). */
+export const criarHandlerComentarChamado = (deps: McpDeps) => {
+  const executar = comentarChamado({ repositorio: deps.repositorio })
 
-      // A leitura tambem conta: uma IA em loop consultando sem parar custa
-      // banco igual, e o FR-21 fala de chamadas, nao de escritas.
-      await limitarChamadas(quem.identity)
-
-      const saida = await executar(input, quem)
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Chamado #${saida.number} — ${saida.titulo} (${saida.status}), ${saida.comentarios.length} comentario(s).`,
-          },
-        ],
-        structuredContent: saida,
-      }
-    } catch (erro) {
-      if (ehDomainError(erro)) {
-        return {
-          content: [{ type: 'text' as const, text: `[${erro.code}] ${erro.message}` }],
-          isError: true,
-        }
-      }
-      throw erro
-    }
-  }
-}
-
-/**
- * Handler de Comentario (Story 2.1). Mesma forma dos anteriores: autenticar,
- * limitar, executar — nesta ordem, e por motivo, nao por costume.
- */
-export const criarHandlerComentarChamado = ({
-  repositorio,
-  autenticar,
-  limitarChamadas,
-}: McpDeps) => {
-  const executar = comentarChamado({ repositorio })
-
-  return async (input: ComentarChamadoInput) => {
-    try {
-      // Autenticar PRIMEIRO: um Comentario gravado antes de saber quem o
-      // escreveu ficaria com autoria indefinida, contra o AD-3.
-      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }
-
-      // E limitar antes de executar: contar depois deixaria a escrita
-      // acontecer, e o limite serviria para nada numa IA em loop (FR-21).
-      await limitarChamadas(autor.identity)
-
-      // O default de `interno` vive no schema (AD-6). Aqui ele ja chegou
-      // resolvido — mas o tipo de entrada e `z.input`, entao o campo e
-      // opcional e precisa do `?? false` para nao virar `undefined` no
-      // dominio.
-      const saida = await executar(
+  return criarHandler(
+    deps,
+    // O default de `interno` vive no schema (AD-6), mas o tipo de ENTRADA e
+    // `z.input`: o campo e opcional ali, e sem o `?? false` chegaria
+    // `undefined` ao dominio.
+    (input: ComentarChamadoInput, autor) =>
+      executar(
         { numero: input.numero, texto: input.texto, interno: input.interno ?? false },
         autor,
-      )
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: `Comentario ${saida.interno ? 'interno' : 'publico'} adicionado ao Chamado #${saida.numero}.`,
-          },
-        ],
-        structuredContent: saida,
-      }
-    } catch (erro) {
-      if (ehDomainError(erro)) {
-        return {
-          content: [{ type: 'text' as const, text: `[${erro.code}] ${erro.message}` }],
-          isError: true,
-        }
-      }
-      throw erro
-    }
-  }
+      ),
+    (saida) =>
+      `Comentario ${saida.interno ? 'interno' : 'publico'} adicionado ao Chamado #${saida.numero}.`,
+  )
 }
 
 /** Handler de mudanca de Status (Story 2.2). */
-export const criarHandlerMudarStatus = ({ repositorio, autenticar, limitarChamadas }: McpDeps) => {
-  const executar = mudarStatus({ repositorio })
+export const criarHandlerMudarStatus = (deps: McpDeps) =>
+  criarHandler(
+    deps,
+    mudarStatus({ repositorio: deps.repositorio }),
+    // A versao NOVA vai no texto: quem for mudar de novo precisa dela, e sem
+    // isso a IA teria que reler o Chamado a cada mutacao.
+    (saida) => `Chamado #${saida.numero}: ${saida.de} -> ${saida.para} (versao ${saida.versao}).`,
+  )
 
-  return async (input: MudarStatusInput) => {
-    try {
-      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }
-      await limitarChamadas(autor.identity)
-
-      const saida = await executar(input, autor)
-
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            // A versao nova vai no texto porque quem for mudar de novo precisa
-            // dela — sem isso a IA teria que reler o Chamado a cada mutacao.
-            text: `Chamado #${saida.numero}: ${saida.de} -> ${saida.para} (versao ${saida.versao}).`,
-          },
-        ],
-        structuredContent: saida,
-      }
-    } catch (erro) {
-      if (ehDomainError(erro)) {
-        return {
-          content: [{ type: 'text' as const, text: `[${erro.code}] ${erro.message}` }],
-          isError: true,
-        }
-      }
-      throw erro
-    }
-  }
-}
+/** Handler de atribuicao (Story 2.3). */
+export const criarHandlerAtribuirChamado = (deps: McpDeps) =>
+  criarHandler(
+    deps,
+    atribuirChamado({ repositorio: deps.repositorio, identidades: deps.identidades }),
+    (saida) => `Chamado #${saida.numero} atribuido a ${saida.para} (versao ${saida.versao}).`,
+  )
 
 export const criarServidorMcp = (deps: McpDeps): McpServer => {
   const servidor = new McpServer({ name: 'servicedesk', version: '0.1.0' })
@@ -263,6 +219,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: mudarStatusOutputSchema,
     },
     criarHandlerMudarStatus(deps),
+  )
+
+  servidor.registerTool(
+    'atribuir_chamado',
+    {
+      title: 'Atribuir Chamado',
+      description:
+        'Define o Dono do Chamado. Omita `agente` para atribuir a si mesmo. Exige a versao lida em ver_chamado.',
+      inputSchema: atribuirChamadoInputSchema,
+      outputSchema: atribuirChamadoOutputSchema,
+    },
+    criarHandlerAtribuirChamado(deps),
   )
 
   servidor.registerTool(

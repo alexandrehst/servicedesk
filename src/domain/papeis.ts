@@ -24,6 +24,8 @@ export type Capacidade =
   | 'veHistorico'
   | 'comentaInterno'
   | 'mudaStatus'
+  | 'atribuiChamado'
+  | 'recebeAtribuicao'
 
 /**
  * Quem pode o quê. `Record<Capacidade, ...>` é deliberado: o TypeScript exige
@@ -59,6 +61,16 @@ const QUEM_PODE: Record<Capacidade, readonly Papel[]> = {
   // proprio Chamado, mas nao declara que ele esta resolvido — quem faz isso e
   // quem atende (FR-4).
   mudaStatus: ['agente'],
+  // Story 2.3: atribuir e distribuir trabalho entre quem atende. O Solicitante
+  // nao escolhe quem cuida do Chamado dele (FR-5).
+  atribuiChamado: ['agente'],
+  // SEPARADA de `atribuiChamado` de proposito: "pode distribuir trabalho" e
+  // "pode receber trabalho" sao coisas diferentes, e hoje coincidem so porque
+  // ha um papel de atendimento. Um Gestor que distribui sem atender — ou um
+  // papel de auditoria que nunca recebe — quebraria a coincidencia, e a
+  // reutilizacao da capacidade errada so apareceria como Chamado atribuido a
+  // quem nao atende.
+  recebeAtribuicao: ['agente'],
 }
 
 export const pode = (papel: Papel, capacidade: Capacidade): boolean => {
