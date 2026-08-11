@@ -20,6 +20,15 @@ describe('Solicitante', () => {
   it('nao ve Comentario Interno', () => {
     expect(pode('solicitante', 'veComentarioInterno')).toBe(false)
   })
+
+  /**
+   * Story 2.1 — ele PODE comentar o proprio Chamado; e a unica escrita que ele
+   * tem no sistema. O que nao pode e criar Comentario Interno: a conversa do
+   * time nao e dele, mesmo no Chamado dele.
+   */
+  it('nao cria Comentario Interno', () => {
+    expect(pode('solicitante', 'comentaInterno')).toBe(false)
+  })
 })
 
 describe('Agente', () => {
@@ -34,6 +43,10 @@ describe('Agente', () => {
   it('exclui Chamado', () => {
     expect(pode('agente', 'excluiChamado')).toBe(true)
   })
+
+  it('cria Comentario Interno (Story 2.1)', () => {
+    expect(pode('agente', 'comentaInterno')).toBe(true)
+  })
 })
 
 describe('a matriz cobre todos os papeis declarados', () => {
@@ -44,6 +57,8 @@ describe('a matriz cobre todos os papeis declarados', () => {
     expect(typeof pode(papel, 'veChamadoDeTerceiro')).toBe('boolean')
     expect(typeof pode(papel, 'veComentarioInterno')).toBe('boolean')
     expect(typeof pode(papel, 'excluiChamado')).toBe('boolean')
+    expect(typeof pode(papel, 'veHistorico')).toBe('boolean')
+    expect(typeof pode(papel, 'comentaInterno')).toBe('boolean')
   })
 
   it('os dois papeis do MVP sao exatamente solicitante e agente (FR-20)', () => {

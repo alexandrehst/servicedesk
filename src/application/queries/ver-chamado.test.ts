@@ -71,6 +71,9 @@ const repo = (
   async excluirComAuditoria() {
     throw new Error('esta suite nao exclui')
   },
+  async criarComentarioComAuditoria() {
+    throw new Error('esta suite nao comenta')
+  },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
   },

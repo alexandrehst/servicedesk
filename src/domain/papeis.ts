@@ -22,6 +22,7 @@ export type Capacidade =
   | 'veComentarioInterno'
   | 'excluiChamado'
   | 'veHistorico'
+  | 'comentaInterno'
 
 /**
  * Quem pode o quê. `Record<Capacidade, ...>` é deliberado: o TypeScript exige
@@ -47,6 +48,12 @@ const QUEM_PODE: Record<Capacidade, readonly Papel[]> = {
   // Ver o Chamado nao basta para ver o Log dele (Story 1.8): o historico expoe
   // identidade de Agentes e o ritmo do time. Nem o dono do Chamado ve.
   veHistorico: ['agente'],
+  // Story 2.1: o Solicitante PODE comentar o proprio Chamado — e a unica
+  // escrita que ele tem. O que nao pode e criar Comentario INTERNO: a conversa
+  // do time nao e dele, mesmo no Chamado dele. Por isso a capacidade e sobre
+  // "interno", e nao sobre "comentar": comentar depende de posse, que quem
+  // decide e `visivelPara`, nao esta tabela.
+  comentaInterno: ['agente'],
 }
 
 export const pode = (papel: Papel, capacidade: Capacidade): boolean => {

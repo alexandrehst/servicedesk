@@ -6,6 +6,7 @@ import type {
   RegistroDeIntake,
   TicketRepository,
 } from '../../application/ports/ticket-repository.js'
+import type { NovoComentario } from '../../domain/comentario.js'
 import { DomainError } from '../../domain/errors.js'
 import type { Origem } from '../../domain/origem.js'
 import type { Categoria, NovoTicket, Status, Ticket } from '../../domain/ticket.js'
@@ -209,6 +210,45 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         origin: e.origin as Origem,
         registradoEm: e.registradoEm,
       })),
+    })
+  },
+
+  async criarComentarioComAuditoria(
+    numero: number,
+    novo: NovoComentario,
+    autor: Principal,
+  ): Promise<{ criadoEm: Date }> {
+    return db.transaction(async (tx) => {
+      const [linha] = await tx
+        .insert(comments)
+        .values({
+          ticketNumber: numero,
+          autor: novo.autor,
+          corpo: novo.corpo,
+          internal: novo.internal,
+        })
+        .returning({ criadoEm: comments.criadoEm })
+
+      if (linha === undefined) {
+        throw new Error('INSERT do Comentario nao retornou linha.')
+      }
+
+      await tx.insert(auditEntries).values({
+        ticketNumber: numero,
+        // A acao distingue publico de interno: quem revisa o que a IA fez
+        // (Story 1.8) precisa saber se ela criou conversa INTERNA do time.
+        // Nao ha vazamento nisso — o historico exige `veHistorico`, que so o
+        // Agente tem.
+        //
+        // O CORPO nao entra na auditoria: `audit_entries` e append-only
+        // (FR-22) e nao tem soft-delete, entao o texto viraria uma segunda
+        // copia que sobreviveria a exclusao do Comentario.
+        acao: novo.internal ? 'comentar_chamado_interno' : 'comentar_chamado',
+        autor: autor.identity,
+        origin: autor.origin,
+      })
+
+      return { criadoEm: linha.criadoEm }
     })
   },
 

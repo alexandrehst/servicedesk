@@ -1,10 +1,16 @@
 import { expect, it } from 'vitest'
 import type { Principal } from '../../application/contracts/principal.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
+import type { NovoComentario } from '../../domain/comentario.js'
 import { DomainError } from '../../domain/errors.js'
 import type { Ticket } from '../../domain/ticket.js'
 import { type Comentario, embrulharBruto } from '../../domain/visibilidade.js'
-import { criarHandlerAbrirChamado, criarHandlerVerChamado, criarServidorMcp } from './server.js'
+import {
+  criarHandlerAbrirChamado,
+  criarHandlerComentarChamado,
+  criarHandlerVerChamado,
+  criarServidorMcp,
+} from './server.js'
 
 const registradas: Principal[] = []
 
@@ -18,6 +24,9 @@ const repositorio: TicketRepository = {
   },
   async excluirComAuditoria() {
     throw new Error('esta suite nao exclui')
+  },
+  async criarComentarioComAuditoria() {
+    throw new Error('esta suite nao comenta')
   },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
@@ -88,6 +97,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     async excluirComAuditoria() {
       throw new Error('esta suite nao exclui')
     },
+    async criarComentarioComAuditoria() {
+      throw new Error('esta suite nao comenta')
+    },
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
     },
@@ -137,6 +149,9 @@ const repoLeitura: TicketRepository = {
   },
   async excluirComAuditoria() {
     throw new Error('esta suite nao exclui')
+  },
+  async criarComentarioComAuditoria() {
+    throw new Error('esta suite nao comenta')
   },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
@@ -273,6 +288,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     async excluirComAuditoria() {
       throw new Error('esta suite nao exclui')
     },
+    async criarComentarioComAuditoria() {
+      throw new Error('esta suite nao comenta')
+    },
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
     },
@@ -362,4 +380,137 @@ it('credencial invalida nao consome quota', async () => {
   // contar. Registrado no Dev Agent Record — contra 256 bits de entropia, forca
   // bruta de token e irrelevante.
   expect(contados).toHaveLength(0)
+})
+
+// --- Story 2.1: tool de Comentario ---
+
+const comentados: { numero: number; novo: NovoComentario; autor: Principal }[] = []
+
+const repoComentario: TicketRepository = {
+  ...repositorio,
+  async buscarPorNumero() {
+    return embrulharBruto({
+      ticket: {
+        number: 1042,
+        titulo: 'VPN fora do ar',
+        descricao: 'Nao conecta.',
+        categoria: 'rede',
+        status: 'aberto',
+        requester: 'marina@empresa.com',
+        assignee: null,
+        criadoEm: new Date('2026-08-11T12:00:00.000Z'),
+        excluidoEm: null,
+      },
+      comentarios: [],
+    })
+  },
+  async criarComentarioComAuditoria(numero, novo, autor) {
+    comentados.push({ numero, novo, autor })
+    return { criadoEm: new Date('2026-08-11T13:00:00.000Z') }
+  },
+}
+
+const depsComentario = { repositorio: repoComentario, autenticar, limitarChamadas: semLimite }
+
+it('registra a tool comentar_chamado com o schema do contrato (AD-6)', () => {
+  const schema = criarServidorMcp(depsComentario).toolInputSchemaJson('comentar_chamado')
+
+  expect(schema).toBeDefined()
+  expect(JSON.stringify(schema)).toContain('interno')
+})
+
+it('comenta e devolve o resultado estruturado', async () => {
+  comentados.length = 0
+
+  const resultado = await criarHandlerComentarChamado(depsComentario)({
+    numero: 1042,
+    texto: 'Reiniciei o concentrador',
+  })
+
+  expect(resultado.isError).toBeUndefined()
+  expect(resultado.structuredContent).toMatchObject({ numero: 1042, interno: false })
+})
+
+/**
+ * O default de `interno` e a decisao de seguranca do contrato: quem nao pediu
+ * Comentario Interno nao pode criar um por acidente. Sem o `?? false` no
+ * handler, o valor chegaria `undefined` ao dominio.
+ */
+it('sem o campo interno, o Comentario nasce PUBLICO', async () => {
+  comentados.length = 0
+
+  await criarHandlerComentarChamado(depsComentario)({ numero: 1042, texto: 'x' })
+
+  expect(comentados[0]?.novo.internal).toBe(false)
+})
+
+it('carimba origin mcp no autor da escrita (AD-9)', async () => {
+  comentados.length = 0
+
+  await criarHandlerComentarChamado(depsComentario)({ numero: 1042, texto: 'x' })
+
+  expect(comentados[0]?.autor.origin).toBe('mcp')
+  expect(comentados[0]?.novo.autor).toBe('bruno@empresa.com')
+})
+
+it('traduz erro de dominio em erro de tool', async () => {
+  const resultado = await criarHandlerComentarChamado(depsComentario)({
+    numero: 1042,
+    texto: '   ',
+  })
+
+  expect(resultado.isError).toBe(true)
+  expect(resultado.content[0]?.text).toContain('CorpoObrigatorio')
+})
+
+/**
+ * O esquecimento provavel do Epic 2: seis handlers novos, seis chances de
+ * omitir `limitarChamadas` copiando e colando. Sem este teste, a tool nasceria
+ * fora do FR-21 e ninguem notaria.
+ */
+it('recusa a escrita quando o limite estourou, sem tocar no repositorio', async () => {
+  comentados.length = 0
+
+  const resultado = await criarHandlerComentarChamado({
+    repositorio: repoComentario,
+    autenticar,
+    limitarChamadas: estourado,
+  })({ numero: 1042, texto: 'x' })
+
+  expect(resultado.isError).toBe(true)
+  expect(resultado.content[0]?.text).toContain('LimiteExcedido')
+  expect(comentados).toHaveLength(0)
+})
+
+it('conta o Comentario pela identidade autenticada (FR-21)', async () => {
+  const contados: string[] = []
+
+  await criarHandlerComentarChamado({
+    repositorio: repoComentario,
+    autenticar,
+    limitarChamadas: limitadosPor(contados),
+  })({ numero: 1042, texto: 'x' })
+
+  expect(contados).toEqual(['bruno@empresa.com'])
+})
+
+/**
+ * Erro que NAO e de dominio sobe sem mascarar. Engolir aqui — devolvendo
+ * `isError` com uma mensagem generica — esconderia falha de banco atras de algo
+ * que parece recusa de negocio, e e violacao direta do pilar Observavel.
+ */
+it('erro nao-tipado do repositorio sobe em vez de virar erro de tool', async () => {
+  const quebrado: TicketRepository = {
+    ...repoComentario,
+    async criarComentarioComAuditoria() {
+      throw new Error('conexao com o banco caiu')
+    },
+  }
+
+  await expect(
+    criarHandlerComentarChamado({ repositorio: quebrado, autenticar, limitarChamadas: semLimite })({
+      numero: 1042,
+      texto: 'x',
+    }),
+  ).rejects.toThrow('conexao com o banco caiu')
 })

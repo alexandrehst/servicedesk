@@ -1,10 +1,16 @@
 import { McpServer } from '@modelcontextprotocol/server'
 import { abrirChamado } from '../../application/commands/abrir-chamado.js'
+import { comentarChamado } from '../../application/commands/comentar-chamado.js'
 import type { AbrirChamadoInput } from '../../application/contracts/abrir-chamado.js'
 import {
   abrirChamadoInputSchema,
   abrirChamadoOutputSchema,
 } from '../../application/contracts/abrir-chamado.js'
+import type { ComentarChamadoInput } from '../../application/contracts/comentar-chamado.js'
+import {
+  comentarChamadoInputSchema,
+  comentarChamadoOutputSchema,
+} from '../../application/contracts/comentar-chamado.js'
 import type { Principal } from '../../application/contracts/principal.js'
 import type { VerChamadoInput } from '../../application/contracts/ver-chamado.js'
 import {
@@ -130,6 +136,57 @@ export const criarHandlerVerChamado = ({ repositorio, autenticar, limitarChamada
   }
 }
 
+/**
+ * Handler de Comentario (Story 2.1). Mesma forma dos anteriores: autenticar,
+ * limitar, executar — nesta ordem, e por motivo, nao por costume.
+ */
+export const criarHandlerComentarChamado = ({
+  repositorio,
+  autenticar,
+  limitarChamadas,
+}: McpDeps) => {
+  const executar = comentarChamado({ repositorio })
+
+  return async (input: ComentarChamadoInput) => {
+    try {
+      // Autenticar PRIMEIRO: um Comentario gravado antes de saber quem o
+      // escreveu ficaria com autoria indefinida, contra o AD-3.
+      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }
+
+      // E limitar antes de executar: contar depois deixaria a escrita
+      // acontecer, e o limite serviria para nada numa IA em loop (FR-21).
+      await limitarChamadas(autor.identity)
+
+      // O default de `interno` vive no schema (AD-6). Aqui ele ja chegou
+      // resolvido — mas o tipo de entrada e `z.input`, entao o campo e
+      // opcional e precisa do `?? false` para nao virar `undefined` no
+      // dominio.
+      const saida = await executar(
+        { numero: input.numero, texto: input.texto, interno: input.interno ?? false },
+        autor,
+      )
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Comentario ${saida.interno ? 'interno' : 'publico'} adicionado ao Chamado #${saida.numero}.`,
+          },
+        ],
+        structuredContent: saida,
+      }
+    } catch (erro) {
+      if (ehDomainError(erro)) {
+        return {
+          content: [{ type: 'text' as const, text: `[${erro.code}] ${erro.message}` }],
+          isError: true,
+        }
+      }
+      throw erro
+    }
+  }
+}
+
 export const criarServidorMcp = (deps: McpDeps): McpServer => {
   const servidor = new McpServer({ name: 'servicedesk', version: '0.1.0' })
 
@@ -142,6 +199,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: abrirChamadoOutputSchema,
     },
     criarHandlerAbrirChamado(deps),
+  )
+
+  servidor.registerTool(
+    'comentar_chamado',
+    {
+      title: 'Comentar Chamado',
+      description:
+        'Anexa um Comentario ao Chamado. Use interno=true para conversa do time, que o Solicitante nao ve.',
+      inputSchema: comentarChamadoInputSchema,
+      outputSchema: comentarChamadoOutputSchema,
+    },
+    criarHandlerComentarChamado(deps),
   )
 
   servidor.registerTool(
