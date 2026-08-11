@@ -276,7 +276,28 @@ entrada é `z.input`, então `interno` é opcional ali; sem o fallback, o valor
 chegaria `undefined` ao domínio. A mutação que troca o default para `true`
 reprova 2 testes.
 
-**Doze mutações aplicadas, doze reprovações** (script versionado em
+**O `claude-review` achou uma violação real na segunda rodada.** O adapter
+Postgres decidia sozinho o rótulo de auditoria, ramificando sobre
+`novo.internal` dentro do INSERT. O argumento que convence é a comparação com
+os métodos irmãos: `criarComAuditoria` grava `'abrir_chamado'` e
+`excluirComAuditoria` grava `'excluir_chamado'` — **sempre string estática,
+decidida por qual operação foi chamada**, nunca por um campo de negócio lido
+dentro do adapter. Este era o primeiro a introduzir esse branch.
+
+A consequência não é teórica: o adapter virava o único lugar do sistema que
+sabia o que aquele booleano significa para a auditoria. Um segundo caminho de
+escrita — outro adapter, um script de migração do Epic 4 — teria que
+redescobrir o mapeamento, e duas implementações poderiam divergir na string
+gravada sem nada reprovar. O filtro do histórico (1.8) passaria ao largo.
+
+A correção criou `ACOES` e `acaoDeComentario` em `domain/auditoria.ts`: o
+vocabulário do Log virou **lista fechada no domínio**, como `STATUS`,
+`CATEGORIAS` e `ORIGENS`. O command resolve o rótulo e o entrega pronto; o
+adapter grava, não interpreta. Isso rende juros no Epic 2 — as cinco stories
+seguintes acrescentam ações, e agora cada uma exige uma linha na lista que o
+compilador cobra.
+
+**Treze mutações aplicadas, treze reprovações** (script versionado em
 `scratchpad/mutacoes-21.py`):
 
 | Mutação aplicada | Reprovou |
@@ -287,7 +308,8 @@ reprova 2 testes.
 | **Pular o gargalo de visibilidade** | 4 testes |
 | Aceitar corpo vazio | 8 testes |
 | Autor gravado é o dono do Chamado, e não quem escreveu (AD-9) | 4 testes |
-| Não distinguir interno na ação auditada | 2 testes |
+| Não distinguir interno na ação auditada | 5 testes |
+| **Adapter volta a deduzir a ação em vez de receber a do domínio** | 2 testes |
 | Gravar o corpo do Comentário na auditoria | 3 testes |
 | Não gravar auditoria do Comentário | 2 testes |
 | **Esquecer o `limitarChamadas` no handler MCP** | 2 testes |
@@ -309,7 +331,7 @@ omitir o rate limit copiando e colando.
   transação. **Nenhuma migration**: `comments` existe desde a 1.2.
 - **Task 4** — command copiando a ordem de `excluirChamado`.
 - **Task 5** — tool `comentar_chamado`, com `autenticar` e `limitarChamadas`.
-- **Task 6** — **392 testes** (eram 350); cobertura **98,41%**.
+- **Task 6** — **400 testes** (eram 350); cobertura **98,43%**.
 - **Task 7** — AD-10 refinado na spine; FR-3 atualizado no PRD.
 
 **Não provado — registrado em vez de deixado implícito:**
@@ -332,16 +354,17 @@ omitir o rate limit copiando e colando.
    que mexer no shape afeta o contrato de saída do histórico da 1.8.
 4. **Sem limite de tamanho do corpo.** Um Comentário de 10 MB é aceito. Na
    escala do MVP não é problema; vira um se houver import de migração (Epic 4).
-5. **O `claude-review` não revisou esta story.** Passou verde em **44s** e não
-   deixou comentário nenhum (`/pulls/46/comments` → 0). É o modo mudo
-   catalogado desde o PR #31: quando ele revisa de verdade, leva 4–5 minutos
-   (#43 levou 4m38s, #41 levou 4m06s). Verde aqui **não é evidência de
-   revisão** — o que sustenta esta story são os 392 testes e as 12 mutações,
-   não o check.
+5. **O `claude-review` foi mudo numa rodada e revisou na seguinte, no mesmo
+   PR.** Na primeira passou verde em **44s** sem comentar nada
+   (`/pulls/46/comments` → 0); no commit seguinte levou **4m50s** e apontou a
+   violação de AD-1/AD-2 acima. A duração é o sinal mais confiável: revisão de
+   verdade leva 4–5 minutos (#41: 4m06s, #43: 4m38s), silêncio leva menos de
+   um. **Verde curto não é evidência de revisão.**
 
 ### File List
 
 - `src/domain/comentario.ts` + teste (novos)
+- `src/domain/auditoria.ts` + teste (modificado/novo — `ACOES` e `acaoDeComentario`, movidos do adapter após o review do PR #46)
 - `src/domain/papeis.ts` + teste (modificados — `comentaInterno`)
 - `src/domain/errors.ts` (modificado — `CorpoObrigatorio`)
 - `src/application/contracts/comentar-chamado.ts` (novo)
@@ -365,3 +388,5 @@ omitir o rate limit copiando e colando.
 | 2026-08-11 | Duas mutações sobreviveram por serem inócuas; corrigidas, 12 de 12 reprovaram |
 | 2026-08-11 | Task 7: AD-10 refinado na spine (escrita aditiva não versiona); FR-3 no PRD |
 | 2026-08-11 | PR #46: nove checks verdes; `claude-review` mudo em 44s (silêncio verde, sem comentário) |
+| 2026-08-11 | PR #46: `claude-review` apontou o adapter deduzindo o rótulo de auditoria; vocabulário do Log virou lista fechada no domínio |
+| 2026-08-11 | Treze mutações (uma nova, contra o adapter voltar a deduzir) aplicadas e reprovadas; 400 testes |

@@ -6,6 +6,7 @@ import type {
   RegistroDeIntake,
   TicketRepository,
 } from '../../application/ports/ticket-repository.js'
+import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import { DomainError } from '../../domain/errors.js'
 import type { Origem } from '../../domain/origem.js'
@@ -217,6 +218,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
     numero: number,
     novo: NovoComentario,
     autor: Principal,
+    acao: AcaoDeAuditoria,
   ): Promise<{ criadoEm: Date }> {
     return db.transaction(async (tx) => {
       const [linha] = await tx
@@ -235,15 +237,15 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
 
       await tx.insert(auditEntries).values({
         ticketNumber: numero,
-        // A acao distingue publico de interno: quem revisa o que a IA fez
-        // (Story 1.8) precisa saber se ela criou conversa INTERNA do time.
-        // Nao ha vazamento nisso — o historico exige `veHistorico`, que so o
-        // Agente tem.
+        // O rotulo chega PRONTO do dominio (`acaoDeComentario`). Deduzi-lo
+        // aqui — ramificando sobre `novo.internal` — faria deste adapter o
+        // unico lugar do sistema a saber o que aquele booleano significa para
+        // a auditoria, e um segundo caminho de escrita poderia divergir.
         //
         // O CORPO nao entra na auditoria: `audit_entries` e append-only
         // (FR-22) e nao tem soft-delete, entao o texto viraria uma segunda
         // copia que sobreviveria a exclusao do Comentario.
-        acao: novo.internal ? 'comentar_chamado_interno' : 'comentar_chamado',
+        acao,
         autor: autor.identity,
         origin: autor.origin,
       })

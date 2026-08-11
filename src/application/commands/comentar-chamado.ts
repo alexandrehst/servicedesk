@@ -1,3 +1,4 @@
+import { acaoDeComentario } from '../../domain/auditoria.js'
 import { criarComentario } from '../../domain/comentario.js'
 import { DomainError } from '../../domain/errors.js'
 import { pode } from '../../domain/papeis.js'
@@ -68,7 +69,14 @@ export const comentarChamado =
       interno: entrada.interno,
     })
 
-    const { criadoEm } = await repositorio.criarComentarioComAuditoria(entrada.numero, novo, autor)
+    // A acao do Log e decidida pelo DOMINIO, e chega pronta ao adapter — ele
+    // grava, nao interpreta (achado do `claude-review` no PR #46).
+    const { criadoEm } = await repositorio.criarComentarioComAuditoria(
+      entrada.numero,
+      novo,
+      autor,
+      acaoDeComentario(novo.internal),
+    )
 
     return {
       numero: entrada.numero,

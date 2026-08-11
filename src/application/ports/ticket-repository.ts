@@ -1,3 +1,4 @@
+import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import type { Origem } from '../../domain/origem.js'
 import type { NovoTicket, Ticket } from '../../domain/ticket.js'
@@ -74,6 +75,14 @@ export type TicketRepository = {
     numero: number,
     novo: NovoComentario,
     autor: Principal,
+    /**
+     * O rotulo que vai ao Log, ja resolvido pelo dominio
+     * (`acaoDeComentario`). O adapter NAO o deduz: se ele ramificasse sobre
+     * `novo.internal`, seria o unico lugar do sistema a saber o que aquele
+     * booleano significa para a auditoria — e um segundo caminho de escrita
+     * poderia gravar rotulo divergente sem nada reprovar.
+     */
+    acao: AcaoDeAuditoria,
   ): Promise<{ readonly criadoEm: Date }>
 
   /**

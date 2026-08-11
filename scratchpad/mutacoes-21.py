@@ -24,6 +24,7 @@ DOMINIO = "src/domain/comentario.ts"
 PAPEIS = "src/domain/papeis.ts"
 REPO = "src/adapters/persistence/ticket-repository.ts"
 MCP = "src/adapters/mcp/server.ts"
+AUDITORIA = "src/domain/auditoria.ts"
 
 MUTACOES = [
     (
@@ -64,15 +65,21 @@ MUTACOES = [
     ),
     (
         "Nao distinguir interno na acao auditada",
+        AUDITORIA,
+        "  interno ? 'comentar_chamado_interno' : 'comentar_chamado'",
+        "  'comentar_chamado'",
+    ),
+    (
+        "Adapter volta a deduzir a acao em vez de receber a do dominio",
         REPO,
-        "acao: novo.internal ? 'comentar_chamado_interno' : 'comentar_chamado',",
-        "acao: 'comentar_chamado',",
+        "        acao,",
+        "        acao: novo.internal ? 'comentar_chamado' : 'comentar_chamado_interno',",
     ),
     (
         "Gravar o corpo do Comentario na auditoria",
         REPO,
-        "        acao: novo.internal ? 'comentar_chamado_interno' : 'comentar_chamado',",
-        "        acao: `comentar_chamado:${novo.corpo}`,",
+        "        acao,",
+        "        acao: `comentar_chamado:${novo.corpo}` as typeof acao,",
     ),
     (
         "Nao gravar auditoria do Comentario",

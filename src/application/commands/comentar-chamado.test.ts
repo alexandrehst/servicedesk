@@ -32,7 +32,7 @@ const chamadoDaMarina: Ticket = {
 
 const CRIADO_EM = new Date('2026-08-11T13:00:00.000Z')
 
-let criados: { numero: number; novo: NovoComentario; autor: Principal }[]
+let criados: { numero: number; novo: NovoComentario; autor: Principal; acao: string }[]
 let existente: Ticket | null
 
 const repositorio: TicketRepository = {
@@ -42,8 +42,8 @@ const repositorio: TicketRepository = {
   async buscarPorNumero() {
     return existente === null ? null : embrulharBruto({ ticket: existente, comentarios: [] })
   },
-  async criarComentarioComAuditoria(numero, novo, autor) {
-    criados.push({ numero, novo, autor })
+  async criarComentarioComAuditoria(numero, novo, autor, acao) {
+    criados.push({ numero, novo, autor, acao })
     return { criadoEm: CRIADO_EM }
   },
   async excluirComAuditoria() {
@@ -201,5 +201,19 @@ describe('o que e gravado (AC #1)', () => {
     await comentar({ numero: 1000, texto: '  com espacos  ', interno: false }, bruno)
 
     expect(criados[0]?.novo.corpo).toBe('com espacos')
+  })
+})
+
+describe('o rotulo do Log nasce no dominio (achado do PR #46)', () => {
+  /**
+   * O adapter recebe a acao PRONTA. Se ele a deduzisse de `novo.internal`,
+   * seria o unico lugar do sistema a saber o que aquele booleano significa
+   * para a auditoria — e um segundo caminho de escrita poderia divergir.
+   */
+  it('o command resolve a acao e a entrega ao repositorio', async () => {
+    await comentar({ numero: 1000, texto: 'publico', interno: false }, bruno)
+    await comentar({ numero: 1000, texto: 'interno', interno: true }, bruno)
+
+    expect(criados.map((c) => c.acao)).toEqual(['comentar_chamado', 'comentar_chamado_interno'])
   })
 })
