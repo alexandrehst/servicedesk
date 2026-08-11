@@ -4,7 +4,7 @@ baseline_commit: 7bfc12f
 
 # Story 1.9: Abrir Chamado por e-mail (intake do Solicitante)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -473,3 +473,4 @@ extração) e a décima terceira (prova que o vínculo está na mesma transaçã
 | 2026-08-10 | PR #43: `claude-review` apontou política de confiança no adapter; movida para `domain/autenticidade-de-email.ts` e contrato passou a levar cabeçalhos crus |
 | 2026-08-10 | PR #43, segunda rodada: `claude-review` apontou 51 conexões IMAP por varredura; marcação virou lote (`marcarProcessadas`) |
 | 2026-08-10 | Dezessete mutações aplicadas e reprovadas; 350 testes |
+| 2026-08-11 | PR #43 mergeado com os nove checks verdes e as duas conversas resolvidas. Story `done` — Epic 1 completo |

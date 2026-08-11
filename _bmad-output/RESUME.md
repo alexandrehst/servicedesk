@@ -1,6 +1,6 @@
 # ServiceDesk — Ponto de Retomada
 
-**Última atualização:** 2026-08-10
+**Última atualização:** 2026-08-11
 **Repo:** https://github.com/alexandrehst/servicedesk (público)
 
 ## O que é o projeto
@@ -9,12 +9,14 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7).** **Stories 1.1 a 1.8 mergeadas.** Próximo: **Story 1.9** — abrir Chamado por e-mail (intake do Solicitante), a última do Epic 1.
+**Epic 0 completo (7/7). Epic 1 COMPLETO (9/9).** Próximo: **Epic 2** — ciclo de vida do Chamado (comentar, mudar status, atribuir dono, prioridade, resolver, ações irreversíveis).
+
+O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois papéis com autorização no domínio, token de máquina com rate limit, e-mail de abertura com link de acesso, soft-delete, revisão do Log de auditoria e intake por e-mail com remetente verificado.
 
 | Épico | Estado |
 | --- | --- |
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
-| Epic 1 — Fundação segura | 1.1 a 1.8 `done`; 1.9 `backlog` |
+| Epic 1 — Fundação segura | ✅ 9/9 `done` |
 | Epics 2–4 | `backlog` |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
