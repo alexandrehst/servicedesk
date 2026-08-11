@@ -4,7 +4,7 @@ baseline_commit: e2cf0b2
 
 # Story 2.3: Atribuir Dono / self-assign
 
-Status: review
+Status: done
 
 ## Story
 
@@ -327,3 +327,4 @@ resultado que importa é outro: **três garantias do épico passaram a ter um
 | 2026-08-11 | Task 8: FR-5 registrado no PRD |
 | 2026-08-11 | PR #50: SonarCloud reprovou com 9% de duplicação; extraídos `conflitoOuSumico` e o esqueleto `criarHandler` das tools |
 | 2026-08-11 | 20 mutações e 20 reprovações; `server.ts` de 342 para 250 linhas |
+| 2026-08-11 | PR #50 mergeado: Sonar com 0,0% de duplicação e os 14 checks verdes. Story `done` |
