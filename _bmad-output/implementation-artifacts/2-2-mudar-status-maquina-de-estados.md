@@ -338,8 +338,11 @@ verdade, a outra que a porta dos fundos da 2.6 está fechada.
    nas ACs desta story.
 4. **Duas guardas defensivas seguem sem teste** em `ticket-repository.ts`
    (linhas 69 e 96, herdadas), e a conexão IMAP real (1.9).
-5. **O `claude-review` ainda não se manifestou** nesta story no momento em que
-   este registro foi escrito.
+5. **O `claude-review` foi mudo na primeira rodada:** verde em **36s**, zero
+   comentários (`/pulls/48/comments` → 0). Pelo sinal medido na 2.1, revisão de
+   verdade leva 4–5 minutos; menos de um minuto é silêncio. **Verde curto não é
+   evidência de revisão** — o que sustenta esta story são os 472 testes e as 15
+   mutações.
 
 ### File List
 
@@ -371,3 +374,4 @@ verdade, a outra que a porta dos fundos da 2.6 está fechada.
 | 2026-08-11 | Task 7: 472 testes, cobertura 98,59% |
 | 2026-08-11 | Duas mutações sobreviveram: uma era redundância (guarda removida), outra lacuna real (teste no repositório). 15 de 15 reprovaram |
 | 2026-08-11 | Task 8: AD-5 e AD-10 registrados na spine; FR-4 no PRD |
+| 2026-08-11 | PR #48: nove checks verdes; `claude-review` mudo em 36s |
