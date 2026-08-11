@@ -1,8 +1,12 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
-import { auditEntries, comments, tickets } from '../../../drizzle/schema.js'
+import { auditEntries, comments, emailIntake, tickets } from '../../../drizzle/schema.js'
 import type { Principal } from '../../application/contracts/principal.js'
-import type { TicketRepository } from '../../application/ports/ticket-repository.js'
+import type {
+  RegistroDeIntake,
+  TicketRepository,
+} from '../../application/ports/ticket-repository.js'
+import { DomainError } from '../../domain/errors.js'
 import type { Origem } from '../../domain/origem.js'
 import type { Categoria, NovoTicket, Status, Ticket } from '../../domain/ticket.js'
 import { type Comentario, embrulharBruto } from '../../domain/visibilidade.js'
@@ -18,8 +22,33 @@ import { type Comentario, embrulharBruto } from '../../domain/visibilidade.js'
  * AD-4 — o `number` nao aparece no INSERT. Ele vem do DEFAULT nextval(...)
  * da coluna e volta pelo RETURNING. Nao ha caminho para gerar em codigo.
  */
+/**
+ * `23505` e o SQLSTATE de unique_violation. Ler o CODIGO, e nao a mensagem, e
+ * o que mantem isto funcionando em outra versao ou outro idioma do servidor.
+ *
+ * A cadeia de `cause` precisa ser percorrida porque o Drizzle embrulha o erro
+ * do driver num `Error` generico ("Failed query: ...") e o codigo do Postgres
+ * fica um nivel abaixo. Olhar so o topo daria `undefined` — e a violacao
+ * passaria por erro desconhecido, que e o pior desfecho possivel aqui: a
+ * reentrega viraria uma falha ruidosa em vez de uma duplicata silenciosa.
+ */
+export const ehViolacaoDeUnicidade = (erro: unknown): boolean => {
+  for (let atual = erro; atual !== undefined && atual !== null; ) {
+    if (typeof atual === 'object' && 'code' in atual && atual.code === '23505') {
+      return true
+    }
+    atual = typeof atual === 'object' && 'cause' in atual ? atual.cause : null
+  }
+
+  return false
+}
+
 export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository => ({
-  async criarComAuditoria(novo: NovoTicket, autor: Principal): Promise<Ticket> {
+  async criarComAuditoria(
+    novo: NovoTicket,
+    autor: Principal,
+    intake?: RegistroDeIntake,
+  ): Promise<Ticket> {
     return db.transaction(async (tx) => {
       const [linha] = await tx
         .insert(tickets)
@@ -45,6 +74,26 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         autor: autor.identity,
         origin: autor.origin,
       })
+
+      // Story 1.9 — dentro da MESMA transacao, pelo mesmo motivo da auditoria.
+      if (intake !== undefined) {
+        await tx
+          .insert(emailIntake)
+          .values({ messageId: intake.messageId, ticketNumber: linha.number })
+          .catch((erro: unknown) => {
+            // 23505 = unique_violation. A mensagem ja tinha sido processada por
+            // outra entrega que correu junto — o UNIQUE fez exatamente o que
+            // existe para fazer. Traduzir aqui evita que codigo de erro do
+            // Postgres vaze para `application`, que nao conhece banco.
+            if (ehViolacaoDeUnicidade(erro)) {
+              throw new DomainError(
+                'MensagemJaProcessada',
+                'Esta mensagem de e-mail ja gerou um Chamado.',
+              )
+            }
+            throw erro
+          })
+      }
 
       return {
         number: linha.number,
@@ -187,5 +236,15 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
 
       return true
     })
+  },
+
+  async buscarIntakePorMessageId(messageId: string): Promise<number | null> {
+    const [linha] = await db
+      .select({ ticketNumber: emailIntake.ticketNumber })
+      .from(emailIntake)
+      .where(eq(emailIntake.messageId, messageId))
+      .limit(1)
+
+    return linha?.ticketNumber ?? null
   },
 })

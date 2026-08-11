@@ -13,4 +13,17 @@
  */
 export type Logger = {
   erro(evento: string, dados: Readonly<Record<string, string | number>>): void
+
+  /**
+   * Story 1.9 — o que foi recusado de proposito.
+   *
+   * Separado de `erro` porque as duas coisas pedem reacoes diferentes: `erro`
+   * significa "algo quebrou e alguem precisa olhar"; um e-mail de remetente
+   * desconhecido e o intake funcionando. Registrar recusa como erro treinaria
+   * quem monitora a ignorar erro.
+   *
+   * O que junta as duas: silencio nao e opcao. Uma recusa invisivel faz um
+   * intake quebrado parecer um intake sem demanda.
+   */
+  aviso(evento: string, dados: Readonly<Record<string, string | number>>): void
 }

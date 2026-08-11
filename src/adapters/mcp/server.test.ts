@@ -19,6 +19,9 @@ const repositorio: TicketRepository = {
   async excluirComAuditoria() {
     throw new Error('esta suite nao exclui')
   },
+  async buscarIntakePorMessageId() {
+    throw new Error('esta suite nao faz intake por e-mail')
+  },
   async buscarHistoricoBruto() {
     throw new Error('esta suite nao le historico')
   },
@@ -85,6 +88,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     async excluirComAuditoria() {
       throw new Error('esta suite nao exclui')
     },
+    async buscarIntakePorMessageId() {
+      throw new Error('esta suite nao faz intake por e-mail')
+    },
     async buscarHistoricoBruto() {
       throw new Error('esta suite nao le historico')
     },
@@ -131,6 +137,9 @@ const repoLeitura: TicketRepository = {
   },
   async excluirComAuditoria() {
     throw new Error('esta suite nao exclui')
+  },
+  async buscarIntakePorMessageId() {
+    throw new Error('esta suite nao faz intake por e-mail')
   },
   async buscarHistoricoBruto() {
     throw new Error('esta suite nao le historico')
@@ -263,6 +272,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     },
     async excluirComAuditoria() {
       throw new Error('esta suite nao exclui')
+    },
+    async buscarIntakePorMessageId() {
+      throw new Error('esta suite nao faz intake por e-mail')
     },
     async buscarHistoricoBruto() {
       throw new Error('esta suite nao le historico')

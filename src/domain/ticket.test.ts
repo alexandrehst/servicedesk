@@ -67,4 +67,21 @@ describe('ehCategoria', () => {
   it('recusa valor fora da lista', () => {
     expect(ehCategoria('financeiro')).toBe(false)
   })
+
+  /**
+   * Story 1.9 — quem manda e-mail nao escolhe categoria, e nao ha formulario
+   * para pedir. Inventar 'software' gravaria dado errado; `nao_classificado`
+   * diz a verdade: ninguem avaliou ainda.
+   */
+  it('aceita nao_classificado, a categoria de quem chegou sem triagem', () => {
+    expect(ehCategoria('nao_classificado')).toBe(true)
+  })
+})
+
+describe('abrirTicket sem triagem', () => {
+  it('abre com nao_classificado sem reclamar (Story 1.9)', () => {
+    expect(abrirTicket({ ...valido, categoria: 'nao_classificado' }).categoria).toBe(
+      'nao_classificado',
+    )
+  })
 })

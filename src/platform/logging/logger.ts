@@ -16,4 +16,7 @@ export const criarLogger = (
   erro(evento, dados) {
     escrever(JSON.stringify({ nivel: 'erro', evento, ...dados }))
   },
+  aviso(evento, dados) {
+    escrever(JSON.stringify({ nivel: 'aviso', evento, ...dados }))
+  },
 })

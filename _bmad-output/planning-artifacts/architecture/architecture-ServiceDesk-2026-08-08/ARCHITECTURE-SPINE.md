@@ -73,7 +73,7 @@ Mapa paradigma → diretórios:
 ### AD-9 — Identidade e origem propagam até a auditoria
 - **Binds:** FR-21, FR-22
 - **Prevents:** autoria ambígua ("humano via IA" vs. agente autônomo).
-- **Rule:** cada adapter autentica um principal (identidade) e carimba a origem (`api|mcp`); a **identidade do token** — nunca o nome da tool — é o autor gravado no Log de auditoria.
+- **Rule:** cada adapter autentica um principal (identidade) e carimba a origem (`api|mcp|email`); a **identidade do token** — nunca o nome da tool — é o autor gravado no Log de auditoria. No intake por e-mail (Story 1.9) não há token: a identidade vem do **cadastro** (`users`), resolvida a partir do remetente já verificado, e nunca do texto do cabeçalho `From`.
 
 ### AD-10 — Concorrência otimista aplicada no command handler
 - **Binds:** FR-7 (edição concorrente), FR-3..FR-6
@@ -116,6 +116,7 @@ graph TD
 | Auth | Principal `{ identity, role, origin }` injetado em todo caso de uso (AD-8, AD-9). Magic link (FR-19): o adapter resolve a sessão em principal **a cada chamada** e carimba a `origin`; credencial só trafega em texto claro no envio do link e na resposta da troca, nunca no armazenamento, no log ou no erro. Cliente MCP usa **credencial de máquina** com identidade própria (FR-21) — é o que permite a auditoria separar agente autônomo de humano via IA. |
 | Rate limit | 60 chamadas por minuto **por identidade** (FR-21), contador no Postgres com incremento atômico e janela fixa de um minuto. Vive no adapter, não no domínio: protege o ponto de entrada, não muda regra de negócio. `LimiteExcedido` é erro **distinto** de `CredencialInvalida` — quem bateu no limite precisa saber que adianta tentar de novo. |
 | Logging | Log estruturado (JSON numa linha, `platform/logging`), escrito em **stderr** — o transporte MCP usa stdio e o stdout carrega o protocolo. Nunca registra token, credencial ou corpo de e-mail. Toda mutação também vira registro de auditoria (não confundir log operacional com Log de auditoria de negócio). |
+| Intake por e-mail | Direção de **entrada** (Story 1.9, FR-1). O adapter traduz RFC 5322 em `MensagemRecebida` e para aí; a decisão de abrir passa pelo **mesmo command** do FR-1 (AD-2). Autenticidade vem do veredito do servidor de recepção (`dmarc`/`dkim` — `spf` sozinho não basta), e só o **primeiro** `Authentication-Results` conta. Identidade e papel vêm do cadastro, nunca do `From`. Reentrega é deduplicada por `Message-ID` com `UNIQUE` gravado na **mesma transação** da abertura. Recusa é resultado tipado, silenciosa para fora e registrada para dentro. |
 | Notificação | E-mail sai **fora** da transação do AD-3, depois do commit: I/O externo dentro dela prenderia a linha e desfaria a escrita se falhasse. Falha de envio não propaga e **não é engolida** — vira registro estruturado. |
 
 ## Stack
@@ -132,6 +133,7 @@ graph TD
 | Zod (contratos/validação) | 4.4.x |
 | Drizzle ORM (persistência) | 0.45.x |
 | Nodemailer (e-mail, decidido na Story 1.6) | 9.x |
+| ImapFlow + mailparser (intake de e-mail, decididos na Story 1.9) | 1.6.x / 3.9.x |
 
 ## Structural Seed
 

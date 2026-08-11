@@ -14,6 +14,24 @@ describe('criarLogger', () => {
     })
   })
 
+  /**
+   * `aviso` entrou na Story 1.9, para as recusas do intake por e-mail. O nivel
+   * distinto e o ponto: registrar recusa esperada como `erro` treinaria quem
+   * monitora a ignorar erro.
+   */
+  it('marca aviso com nivel proprio, distinto de erro', () => {
+    const linhas: string[] = []
+    criarLogger((linha) => linhas.push(linha)).aviso('intake_de_email_recusado', {
+      motivo: 'remetente_desconhecido',
+    })
+
+    expect(JSON.parse(linhas[0] ?? '{}')).toEqual({
+      nivel: 'aviso',
+      evento: 'intake_de_email_recusado',
+      motivo: 'remetente_desconhecido',
+    })
+  })
+
   it('nao quebra a linha, para o coletor conseguir separar eventos', () => {
     const linhas: string[] = []
     criarLogger((linha) => linhas.push(linha)).erro('falhou', { causa: 'erro\ncom quebra' })

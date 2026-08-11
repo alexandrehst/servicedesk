@@ -78,6 +78,17 @@ Um Solicitante (ou Agente em seu nome) pode abrir um Chamado com Título, Descri
 - Chamado nasce com Status "Aberto" e sem Dono.
 - Título e Descrição obrigatórios; Categoria obrigatória a partir de lista fixa.
 
+**Decidido em 2026-08-10 (Story 1.9, intake por e-mail — seis decisões por delegação):**
+
+1. **Autenticidade do remetente é exigida, e quem a verifica é o servidor de recepção.** O ServiceDesk lê o veredito de `Authentication-Results` (RFC 8601) e só aceita `dmarc=pass` ou `dkim=pass`. **`spf=pass` sozinho não basta** — SPF valida o envelope (`MAIL FROM`), e a identidade usada é o cabeçalho `From`; são campos diferentes e nada obriga que combinem. **Ausência de cabeçalho é recusa, não permissão.** Só o **primeiro** `Authentication-Results` vale: qualquer remetente pode escrever um, e o servidor de recepção adiciona o dele no topo.
+2. **`origin` ganhou o valor `email`**, ao lado de `api` e `mcp`. Reaproveitar `api` faria o Log afirmar algo falso e cegaria a revisão da Story 1.8, que filtra por esse campo.
+3. **Categoria `nao_classificado` entrou na lista fixa.** Quem manda e-mail não escolhe categoria e não há formulário para perguntar. Não é sinônimo de "outros": "outros" afirma que alguém avaliou e não era nenhuma das anteriores; `nao_classificado` afirma que ninguém avaliou — só a segunda é verdade num intake automático, e é ela que a triagem do Epic 3 vai querer filtrar.
+4. **Deduplicação por `Message-ID`, garantida por `UNIQUE` no banco**, gravada na mesma transação da abertura (AD-3). Reentrega é comportamento normal de SMTP; a leitura prévia cobre o caso comum e a restrição cobre a corrida. Mensagem **sem** `Message-ID` é recusada — sem ele não há como deduplicar.
+5. **Direção de entrada: IMAP com polling.** Webhook exigiria endpoint público, e a topologia de deploy segue `Deferred`. Bibliotecas: `imapflow` e `mailparser`, do mesmo autor do Nodemailer (Story 1.6).
+6. **Remetente não reconhecido: recusa silenciosa.** Nada volta para o remetente — nem "você não está cadastrado". Bounce automático para endereço forjado transforma o suporte em amplificador de spam e confirma a quem sonda que o endereço existe (mesmo raciocínio da resposta cega do FR-19). Para dentro, toda recusa vira registro estruturado, **sem** assunto nem corpo.
+
+**Campos ausentes na mensagem:** assunto vazio vira `(sem assunto)`; corpo vazio faz a Descrição receber o assunto; **ambos** vazios é recusa.
+
 #### FR-2: Ver chamado
 Um Agente pode ver o detalhe completo de um Chamado, incluindo todos os Comentários em ordem cronológica. Um Solicitante vê apenas os próprios Chamados e apenas Comentários Públicos.
 **Consequências (testáveis):**

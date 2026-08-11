@@ -149,6 +149,22 @@ export const ticketAccessLinks = pgTable('ticket_access_links', {
 
 export type TicketAccessLinkRow = typeof ticketAccessLinks.$inferSelect
 
+/**
+ * Story 1.9 — uma linha por mensagem de e-mail que virou Chamado.
+ *
+ * O `unique()` em `messageId` nao e otimizacao: e a unica coisa que impede duas
+ * entregas simultaneas da mesma mensagem de abrirem dois Chamados. A leitura
+ * previa cobre o caso comum; a restricao cobre a corrida.
+ */
+export const emailIntake = pgTable('email_intake', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  messageId: text('message_id').notNull().unique(),
+  ticketNumber: integer('ticket_number').notNull(),
+  recebidoEm: timestamp('recebido_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
+export type EmailIntakeRow = typeof emailIntake.$inferSelect
+
 export type UserRow = typeof users.$inferSelect
 export type LoginLinkRow = typeof loginLinks.$inferSelect
 export type SessionRow = typeof sessions.$inferSelect

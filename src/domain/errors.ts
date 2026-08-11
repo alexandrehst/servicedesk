@@ -25,6 +25,11 @@ export type DomainErrorCode =
   // `TicketNaoEncontrado` de proposito — quem ja enxerga o Chamado nao ganha
   // protecao nenhuma com "nao encontrado", so confusao.
   | 'SemPermissao'
+  // Story 1.9: a mesma mensagem de e-mail chegou duas vezes ao mesmo tempo, e
+  // o UNIQUE de `email_intake` reprovou a segunda. NAO e falha — e a garantia
+  // funcionando. Quem chama traduz para "duplicado" e aponta o Chamado que ja
+  // existe; nada disso chega ao remetente.
+  | 'MensagemJaProcessada'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode
