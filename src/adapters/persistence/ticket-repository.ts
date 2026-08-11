@@ -108,6 +108,8 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         criadoEm: linha.criadoEm,
         // Chamado nasce vivo; o soft-delete e a Story 1.7.
         excluidoEm: null,
+        // Primeira versao (AD-10, Story 2.2): nunca foi mutado.
+        version: linha.version,
       }
     })
   },
@@ -145,6 +147,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       // `visivelPara`, no dominio (AD-8, Story 1.4). Filtrar aqui tambem
       // criaria a mesma regra em dois lugares.
       excluidoEm: linha.deletedAt,
+      version: linha.version,
     }
 
     const comentarios: readonly Comentario[] = thread.map((c) => ({
@@ -201,6 +204,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       assignee: null,
       criadoEm: linha.criadoEm,
       excluidoEm: linha.deletedAt,
+      version: linha.version,
     }
 
     return embrulharBruto({
@@ -209,6 +213,8 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         acao: e.acao,
         autor: e.autor,
         origin: e.origin as Origem,
+        de: e.de,
+        para: e.para,
         registradoEm: e.registradoEm,
       })),
     })
@@ -251,6 +257,51 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       })
 
       return { criadoEm: linha.criadoEm }
+    })
+  },
+
+  async mudarStatusComAuditoria(entrada: {
+    numero: number
+    de: Status
+    para: Status
+    esperada: number
+    autor: Principal
+  }): Promise<{ version: number } | null> {
+    return db.transaction(async (tx) => {
+      // A checagem de versao acontece AQUI, no WHERE — nao em JavaScript entre
+      // uma leitura e uma escrita. Ler, comparar e escrever seriam tres passos
+      // com uma janela entre eles, e e exatamente essa janela que o AD-10
+      // existe para fechar. `deleted_at IS NULL` entra pelo mesmo motivo: o
+      // Chamado pode ter sido excluido depois que o command o leu.
+      const [linha] = await tx
+        .update(tickets)
+        .set({ status: entrada.para, version: sql`${tickets.version} + 1` })
+        .where(
+          and(
+            eq(tickets.number, entrada.numero),
+            eq(tickets.version, entrada.esperada),
+            isNull(tickets.deletedAt),
+          ),
+        )
+        .returning({ version: tickets.version })
+
+      if (linha === undefined) {
+        // Nada casou. Nenhuma linha de auditoria: registrar uma mudanca que
+        // nao aconteceu poluiria o Log com evento falso (licao da 1.7).
+        return null
+      }
+
+      await tx.insert(auditEntries).values({
+        ticketNumber: entrada.numero,
+        acao: 'mudar_status',
+        autor: entrada.autor.identity,
+        origin: entrada.autor.origin,
+        // O par vem pronto do command — o adapter grava, nao interpreta.
+        de: entrada.de,
+        para: entrada.para,
+      })
+
+      return { version: linha.version }
     })
   },
 

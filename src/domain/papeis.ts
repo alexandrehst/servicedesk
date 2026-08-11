@@ -23,6 +23,7 @@ export type Capacidade =
   | 'excluiChamado'
   | 'veHistorico'
   | 'comentaInterno'
+  | 'mudaStatus'
 
 /**
  * Quem pode o quê. `Record<Capacidade, ...>` é deliberado: o TypeScript exige
@@ -54,6 +55,10 @@ const QUEM_PODE: Record<Capacidade, readonly Papel[]> = {
   // "interno", e nao sobre "comentar": comentar depende de posse, que quem
   // decide e `visivelPara`, nao esta tabela.
   comentaInterno: ['agente'],
+  // Story 2.2: mudar Status e ATENDIMENTO. O Solicitante acompanha e comenta o
+  // proprio Chamado, mas nao declara que ele esta resolvido — quem faz isso e
+  // quem atende (FR-4).
+  mudaStatus: ['agente'],
 }
 
 export const pode = (papel: Papel, capacidade: Capacidade): boolean => {

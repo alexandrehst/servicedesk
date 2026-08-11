@@ -115,6 +115,15 @@ Um Agente pode alterar o Status de um Chamado entre os valores do conjunto fecha
 - Só transições para valores válidos do Glossário são aceitas.
 - Mudança registra autor e origem no Log de auditoria.
 
+**Decidido em 2026-08-11 (Story 2.2):**
+
+- **A máquina de estados tem duas tabelas.** `mudar_status` executa as transições comuns (`aberto→em_andamento`, `em_andamento→resolvido`, `em_andamento→aberto`, `resolvido→em_andamento`). Fechar, cancelar e reabrir ficam numa tabela separada e só a Story 2.6 as executa, com confirmação explícita (AD-7) — senão a tool genérica seria uma porta dos fundos para a IA encerrar Chamado sem human-in-the-loop.
+- **`em_andamento→aberto` é comum, e não é reabertura:** devolver um Chamado à fila acontece quando o Agente percebe que não é com ele. Reabrir traz de volta algo já encerrado.
+- **Concorrência otimista com coluna `version`** (AD-10), verificada no próprio `UPDATE`. A versão é obrigatória no contrato e sai em `ver_chamado`.
+- **Mudar Status é atendimento:** capacidade `mudaStatus` só do Agente. O Solicitante acompanha e comenta o próprio Chamado, mas não declara que ele está resolvido.
+- **A autorização vem antes da validação da transição:** um Solicitante pedindo transição inválida recebe `SemPermissao`, não `TransicaoInvalida` — o segundo lhe ensinaria como a máquina funciona sem que ele tenha direito de agir.
+- **O Log passa a registrar o par `de`/`para`** em duas colunas de texto (nulas quando a ação não muda valor). Não `jsonb`: toda mudança do Epic 2 é de um valor escalar para outro, e forma livre aceitaria até o corpo de um Comentário, que a 2.1 manteve fora do Log de propósito.
+
 #### FR-5: Atribuir responsável
 Um Agente pode atribuir o Dono de um Chamado a si (self-assign) ou a outro Agente. Realiza UJ-1.
 **Consequências (testáveis):**

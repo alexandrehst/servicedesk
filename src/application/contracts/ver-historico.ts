@@ -25,6 +25,13 @@ export const entradaDeHistoricoSchema = z.object({
   /** A identidade de quem agiu (AD-9), nunca o nome da tool. */
   autor: z.string(),
   origin: origemSchema,
+  /**
+   * Story 2.2 — o par de/para de uma mudanca de valor. OPCIONAIS porque nem
+   * toda acao muda valor: `abrir_chamado` e `comentar_chamado` nao tem par, e
+   * preencher com 'nenhum' seria inventar um evento que nao houve.
+   */
+  de: z.string().nullable().optional(),
+  para: z.string().nullable().optional(),
   registradoEm: z.iso.datetime(),
 })
 

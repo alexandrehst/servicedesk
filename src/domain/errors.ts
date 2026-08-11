@@ -33,6 +33,13 @@ export type DomainErrorCode =
   // Story 2.1: Comentario sem corpo. Mesma familia de `TituloObrigatorio` e
   // `DescricaoObrigatoria` — o dominio recusa o vazio antes de qualquer I/O.
   | 'CorpoObrigatorio'
+  // Story 2.2: a maquina de estados do AD-5 recusou o destino pedido.
+  | 'TransicaoInvalida'
+  // Story 2.2: concorrencia otimista (AD-10). Alguem mudou o Chamado entre a
+  // leitura e a escrita — DISTINTO de `TicketNaoEncontrado`, porque quem bateu
+  // num conflito pode reler e tentar de novo, e quem bateu num Chamado que
+  // sumiu nao pode.
+  | 'Conflict'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode

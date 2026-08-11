@@ -28,6 +28,9 @@ export const tickets = pgTable('tickets', {
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
   // Story 1.7 — soft-delete (FR-23): exclusao e marcacao, a linha fica.
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  // Story 2.2 — concorrencia otimista (AD-10). Incrementada a cada mutacao de
+  // CAMPO; escrita aditiva (Comentario) nao a move.
+  version: integer('version').notNull().default(1),
 })
 
 /**
@@ -44,6 +47,10 @@ export const auditEntries = pgTable('audit_entries', {
   acao: text('acao').notNull(),
   autor: text('autor').notNull(),
   origin: text('origin').notNull(),
+  // Story 2.2 — o par de/para. Nulos: `abrir_chamado` e `comentar_chamado` nao
+  // mudam valor nenhum, e inventar 'nenhum' seria registrar um evento falso.
+  de: text('de'),
+  para: text('para'),
   registradoEm: timestamp('registrado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 

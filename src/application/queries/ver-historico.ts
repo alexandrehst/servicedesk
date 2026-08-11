@@ -35,6 +35,8 @@ export const verHistorico =
         acao: e.acao,
         autor: e.autor,
         origin: e.origin,
+        de: e.de,
+        para: e.para,
         registradoEm: e.registradoEm.toISOString(),
       })),
     }
