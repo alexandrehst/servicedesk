@@ -4,7 +4,7 @@ baseline_commit: 5d44603
 
 # Story 2.1: Comentar Chamado (público/interno)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -390,3 +390,4 @@ omitir o rate limit copiando e colando.
 | 2026-08-11 | PR #46: nove checks verdes; `claude-review` mudo em 44s (silêncio verde, sem comentário) |
 | 2026-08-11 | PR #46: `claude-review` apontou o adapter deduzindo o rótulo de auditoria; vocabulário do Log virou lista fechada no domínio |
 | 2026-08-11 | Treze mutações (uma nova, contra o adapter voltar a deduzir) aplicadas e reprovadas; 400 testes |
+| 2026-08-11 | PR #46 mergeado com os nove checks verdes e a conversa resolvida. Story `done` |
