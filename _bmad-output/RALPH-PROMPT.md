@@ -20,6 +20,8 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 2 `done` | Encerre o épico (ver seção 7) |
 
+A **2.1 está `done`** (PR #46). A próxima é a **2.2**.
+
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de
 uma volta interrompida. **PR de story aberto com checks verdes é a prioridade
 máxima** — foi assim que a volta anterior começou duas vezes.
@@ -217,30 +219,41 @@ Duas coisas nessa ordem não são estilo:
   `if (ticket.deletedAt)` ou `if (ticket.requester === ...)` numa mutação nova,
   parou no lugar errado.
 
-#### ⚠️ A dívida que a 2.1 tem que decidir: AD-10 nunca foi implementado
+#### ⚠️ A 2.2 é quem constrói o AD-10, e a 2.1 já decidiu metade
 
 O AD-10 diz: *"todo command de mutação recebe a versão esperada do Chamado
 (coluna `version` ou `updated_at`); divergência faz o domínio rejeitar com erro
-`Conflict`"*. **Isso nunca foi construído.** Verificado em 2026-08-11: não
-existe `version`, não existe `updated_at`, não existe `Conflict` em
-`DomainErrorCode`. O Epic 1 não precisou — só criava e lia.
+`Conflict`"*. **Nada disso existe** — não há `version`, não há `updated_at`,
+não há `Conflict` em `DomainErrorCode`.
 
-A AC da **Story 2.2** pede `Conflict` explicitamente. Mas o AD-10 diz *"todo
-command de mutação"*, e a 2.1 vem antes. Então:
+A 2.1 refinou o AD-10 na spine, por delegação, e o refinamento vale para o
+épico inteiro:
 
-**Decida na 2.1 e estabeleça para o épico inteiro.** As opções reais:
+> **AD-10 aplica-se a mutação de CAMPO do Chamado** (status, dono, prioridade,
+> título). Escrita **aditiva** — Comentário, entrada de Log — não versiona,
+> porque não há update a perder.
+
+O raciocínio: concorrência otimista existe para impedir *lost update*. Dois
+Agentes comentando ao mesmo tempo produzem dois Comentários **corretos**;
+rejeitar o segundo inventaria um conflito e treinaria quem usa a IA a repetir a
+chamada até passar. Já dois Agentes mudando o Status **é** lost update — e é a
+2.2.
+
+**Então a 2.2 constrói o mecanismo**, e o que ela escolher vale para 2.3, 2.4,
+2.5 e 2.6:
 
 | Opção | Consequência |
 | --- | --- |
-| Coluna `version integer` incrementada em cada mutação | Explícito, testável, e o `UPDATE ... WHERE version = $esperada` dá a garantia no banco |
-| `updated_at` como versão | Uma coluna a menos, mas timestamps iguais são o caso comum aqui — a mutação e sua auditoria saem na mesma transação (lição da 1.8) |
-| Adiar para a 2.2 | **Custa caro:** a 2.1 teria que ser refeita, e os testes dela também |
+| Coluna `version integer`, incrementada em cada mutação de campo | Explícito, e o `UPDATE ... WHERE version = $esperada RETURNING` dá a garantia no **banco**, não na ordem em que o código roda — o mesmo padrão do `consumirLinkDeLogin` (1.3) e do soft-delete (1.7) |
+| `updated_at` como versão | Uma coluna a menos, mas timestamps iguais são o caso comum aqui: a mutação e sua auditoria saem na mesma transação (lição da 1.8) |
 
-Se você decidir que Comentário não versiona o Chamado (defensável — comentar
-não muda o Chamado, anexa a ele), **escreva isso**, porque é uma leitura do
-AD-10, não um esquecimento. Registre na spine.
+A **recomendação** é `version`, pelo motivo da segunda linha. Seja qual for,
+o `UPDATE` condicional é o ponto: ler-verificar-escrever em três passos deixa
+janela entre a leitura e a escrita, e é exatamente o que o AD-10 quer fechar.
 
-O erro `Conflict` nasce em `domain/errors.ts`, como todos os outros.
+`Conflict` nasce em `domain/errors.ts`, como todos os outros. E a versão
+esperada entra no **contrato** (AD-6), porque quem chama precisa informá-la —
+o que significa que a tool MCP passa a exigir um campo novo.
 
 #### O que cada story encontra faltando
 
@@ -248,19 +261,27 @@ Verificado no código em 2026-08-11 — **não descubra de novo**:
 
 | Story | O que **não existe** hoje |
 | --- | --- |
-| 2.1 | Escrita de Comentário. A tabela `comments` existe desde a 1.2 (para ler) e `filtrarComentarios` já esconde interno do Solicitante — falta o command. Capacidade `comentaInterno` não existe |
-| 2.2 | **As transições de status.** `STATUS` é só uma lista; `abrirTicket` só produz `'aberto'`. A máquina do AD-5 precisa ser definida — e ela é um mapa `Status -> Status[]`, no domínio, uma vez só |
+| ~~2.1~~ | ✅ `done` (PR #46) — o command, a capacidade `comentaInterno` e o vocabulário do Log |
+| 2.2 | **As transições de status.** `STATUS` é só uma lista; `abrirTicket` só produz `'aberto'`. A máquina do AD-5 precisa ser definida — e ela é um mapa `Status -> Status[]`, no domínio, uma vez só. Mais o mecanismo de versão (acima) |
 | 2.3 | Nada de `assignee` além da coluna (que existe e é sempre `null`). Reatribuição precisa registrar **Dono anterior e novo** no audit — e `audit_entries` hoje só tem `acao`, `autor`, `origin`: não há onde guardar "de X para Y" |
 | 2.4 | **A Prioridade inteira.** Não existe coluna `priority` em `tickets`, nem tipo `Prioridade` no domínio. Precisa de migration **e** de lista fechada (`Baixa..Crítica`), no padrão de `STATUS`/`CATEGORIAS`/`ORIGENS`/`PAPEIS` |
 | 2.5 | `enviarChamadoResolvido` no port `NotificadorDeChamado` — que hoje só tem `enviarChamadoAberto`. O e-mail traz **quem resolveu e o tempo total** (exige `criadoEm` e o instante da resolução) |
 | 2.6 | **AD-7 inteiro.** Não existe `ConfirmationRequired`, nem sinal de confirmação em nenhum contrato |
 
-**A 2.3 esbarra num limite real do Log.** "Registrar Dono anterior e novo"
-não cabe em `audit_entries` como ela está. Decida: coluna de detalhe
-(`detalhe jsonb`/`text`), duas colunas (`de`/`para`), ou a ação codificar isso.
-Lembre que o Log é **append-only** (FR-22) e que a 1.8 lê e filtra essa tabela
-— mudar o shape mexe no contrato de saída do histórico. **Decida cedo**: 2.2,
-2.4 e 2.5 também vão querer registrar "de X para Y".
+**A 2.3 esbarra num limite real do Log, e a 2.1 deixou a decisão para a 2.2.**
+"Registrar Dono anterior e novo" não cabe em `audit_entries` como ela está. A
+2.1 resolveu o caso dela codificando na própria ação
+(`comentar_chamado_interno`) e **não inventou coluna**, porque seria especular
+sobre o formato que a 2.2 precisa.
+
+**A 2.2 é o lugar de decidir**: ela é a primeira que muda o valor de um campo
+("de `aberto` para `em_andamento`"), e lá a necessidade é real. Opções: coluna
+de detalhe (`detalhe jsonb`/`text`), duas colunas (`de`/`para`), ou continuar
+codificando na ação. Lembre que o Log é **append-only** (FR-22) e que a 1.8 lê
+e filtra essa tabela — mudar o shape mexe no contrato de saída do histórico.
+
+**Acrescentar ação nova agora exige uma linha em `ACOES`** (`domain/auditoria.ts`,
+criado na 2.1): o vocabulário do Log é lista fechada, e o compilador cobra.
 
 #### Seis tools MCP novas, e um esquecimento fácil
 
@@ -300,6 +321,36 @@ vezes (PR #39 e #43).
 **Verifique por mutação:** remova a checagem de confirmação e confirme que um
 teste reprova. Se nenhum reprovar, o guardrail não existe.
 
+#### O que a 2.1 mediu — a primeira mutação do épico
+
+- **O adapter grava, não interpreta.** O `claude-review` (PR #46) pegou o
+  adapter Postgres decidindo o rótulo de auditoria, ramificando sobre
+  `novo.internal` dentro do INSERT. O argumento que convence é a comparação com
+  os métodos irmãos: `criarComAuditoria` grava `'abrir_chamado'` e
+  `excluirComAuditoria` grava `'excluir_chamado'` — **sempre string estática,
+  decidida por qual operação foi chamada**. Se o seu método novo ramificar
+  sobre um campo de negócio para escolher o que gravar, a decisão está no lugar
+  errado: resolva no domínio e passe pronto.
+- **Capacidade se nomeia pelo que é negado, não pelo que é feito.**
+  `comentaInterno` — e não `comentaChamado` — porque o Solicitante **pode**
+  comentar o próprio Chamado. A posse quem resolve é `visivelPara`; a matriz
+  decide só o recorte. Nomear pela ação inteira teria tirado dele a única
+  escrita que ele tem.
+- **Recusa explícita, nunca rebaixamento silencioso.** Pedido de Comentário
+  Interno por quem não pode devolve `SemPermissao`. Rebaixar para público
+  "para ser gentil" faria o texto aparecer para quem o autor quis esconder.
+- **Mutação sobrevivente não é sinônimo de teste fraco.** Duas sobreviveram na
+  2.1 e as duas eram **inócuas**: uma usava `?? autor.identity` num campo que
+  nenhum teste preenche (o código mutado era idêntico ao original), a outra
+  mexia numa guarda que nunca dispara. **Antes de reforçar o teste, verifique
+  se a mutação muda comportamento observável.** É a segunda vez que isso
+  aparece — a 1.9 já tinha registrado.
+- **Duração do `claude-review` é o sinal de que ele revisou.** No PR #46 ele
+  passou verde em **44s** sem comentar nada e, no commit seguinte, levou
+  **4m50s** e achou a violação acima. Revisão de verdade leva 4–5 min (#41:
+  4m06s, #43: 4m38s). **Verde curto não é evidência de revisão** — confira
+  sempre `/pulls/NN/comments`.
+
 #### O que o Epic 1 mediu e continua valendo
 
 - **Procure o gargalo antes de espalhar condição.** O filtro de excluídos
@@ -330,10 +381,11 @@ teste reprova. Se nenhum reprovar, o guardrail não existe.
 - Migration nova entra em `drizzle/migrations/` e o `pnpm db:migrate` já itera
   sobre todas — **não** referencie arquivo por nome.
 
-**Sobre o `claude-review`:** revisou de verdade quatro vezes em onze rodadas
-(#35, #39, #41, #43), e nas quatro levantou algo que virou registro ou código.
-No #43 foram dois achados reais no mesmo PR — um de fronteira (AD-1) e um de
-performance (N+1 de conexões). Nas outras, silêncio verde. Sempre confira:
+**Sobre o `claude-review`:** revisou de verdade cinco vezes em doze rodadas
+(#35, #39, #41, #43, #46), e nas cinco levantou algo que virou registro ou
+código. No #43 foram dois achados reais no mesmo PR; no #46, um de fronteira
+(AD-1/AD-2) que melhorou o desenho. Nas outras, silêncio verde — e o silêncio
+tem assinatura: menos de um minuto de execução. Sempre confira:
 
 ```bash
 gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
@@ -362,7 +414,7 @@ encerre para escapar de um bloqueio: bloqueio se resolve com a seção 5.
 
 | Você vai escrever | Copie |
 | --- | --- |
-| Command de mutação | `excluir-chamado.ts` (1.7) — o modelo do Epic 2 |
+| Command de mutação | `excluir-chamado.ts` (1.7) e `comentar-chamado.ts` (2.1) |
 | Regra de domínio com política | `papeis.ts` + `visibilidade.ts` (1.4) |
 | Contrato Zod | `contracts/abrir-chamado.ts` (1.1) |
 | Port com auditoria transacional | `ports/ticket-repository.ts` (1.1, 1.7) |
@@ -370,8 +422,8 @@ encerre para escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/soft-delete.test.ts` (1.7) |
 | Caso de uso que orquestra sem escrever | `abrir-chamado-por-email.ts` (1.9) |
 
-**Estado do código em 2026-08-11:** 350 testes, cobertura 98,5%, 7 migrations
-aplicadas, Epic 0 e Epic 1 completos.
+**Estado do código em 2026-08-11:** 400 testes, cobertura 98,4%, 7 migrations
+aplicadas, Epic 0 e Epic 1 completos, Epic 2 com a 2.1 `done`.
 
 **Gate ativo:** nove required checks na `main` — `lint`, `typecheck`, `test`,
 `arch`, `traceability`, `security-deps`, `security-secrets`, `sonar`,
