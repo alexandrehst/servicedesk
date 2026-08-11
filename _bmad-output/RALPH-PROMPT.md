@@ -20,7 +20,7 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 2 `done` | Encerre o épico (ver seção 7) |
 
-**2.1 e 2.2 estão `done`** (PRs #46 e #48). A próxima é a **2.3**.
+**2.1, 2.2 e 2.3 estão `done`** (PRs #46, #48 e #50). A próxima é a **2.4**.
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de
 uma volta interrompida. **PR de story aberto com checks verdes é a prioridade
@@ -229,7 +229,21 @@ UPDATE tickets SET <campo> = $novo, version = version + 1
 RETURNING version
 ```
 
-O que copiar de `mudarStatusComAuditoria` e `mudar-status.ts`:
+**Não copie: use.** A Story 2.3 extraiu os três blocos que 2.2 e 2.3
+duplicavam, e o Sonar reprovou o PR até que isso fosse feito:
+
+| Use | Onde | O que carrega |
+| --- | --- | --- |
+| `mutarCampoComAuditoria` | `adapters/persistence/ticket-repository.ts` | o `UPDATE` condicional + auditoria transacional, com as três garantias |
+| `conflitoOuSumico` | `application/commands/mutacao-versionada.ts` | a releitura que separa `Conflict` de `TicketNaoEncontrado` |
+| `criarHandler` | `adapters/mcp/server.ts` | autenticar → limitar → executar → traduzir erro |
+
+Uma mutação nova de campo custa **poucas linhas**: um `set` no adapter, uma
+ação em `ACOES`, uma capacidade na matriz, o contrato e o command. Se a sua
+story estiver reescrevendo `db.transaction` ou o `try/catch` do handler, pare —
+você está duplicando o que já existe, e o Sonar vai reprovar.
+
+O que essas funções garantem, e que uma cópia perderia:
 
 - **A checagem vive no `WHERE`**, não em JavaScript. Ler-comparar-escrever
   deixa a janela que o AD-10 fecha.
@@ -237,12 +251,11 @@ O que copiar de `mudarStatusComAuditoria` e `mudar-status.ts`:
   excluído entre a leitura do command e a escrita. Teste isso chamando o
   **repositório direto**: pelo command não prova nada, porque `visivelPara`
   barra antes (foi uma mutação sobrevivente na 2.2).
-- **Zero linhas afetadas tem duas causas.** O command **relê** para distinguir
-  `Conflict` (versão divergiu — releia e tente) de `TicketNaoEncontrado`
-  (sumiu — desista). Sem isso, a IA tenta para sempre num Chamado excluído.
+- **Zero linhas afetadas tem duas causas** — `conflitoOuSumico` relê para
+  distinguir. Sem isso, a IA tenta para sempre num Chamado excluído.
 - **A versão esperada vem da ENTRADA**, nunca do Chamado que o command acabou
   de ler. Usar a lida faria o command estar sempre "certo", e não haveria
-  conflito nenhum.
+  conflito nenhum. Essa parte **é sua**: está no command, não no helper.
 - **`versao` é obrigatória no contrato** (AD-6), e sai em `ver_chamado`.
 
 Escrita **aditiva** (Comentário) não versiona — refinamento da 2.1, já na spine.
@@ -255,6 +268,7 @@ Verificado no código em 2026-08-11 — **não descubra de novo**:
 | --- | --- |
 | ~~2.1~~ | ✅ `done` (PR #46) — command, capacidade `comentaInterno`, vocabulário do Log |
 | ~~2.2~~ | ✅ `done` (PR #48) — máquina de estados, `version`, `Conflict`, par `de`/`para` |
+| ~~2.3~~ | ✅ `done` (PR #50) — atribuição, e a dívida do `assignee` paga |
 | 2.3 | Nada de `assignee` além da coluna (que existe e é sempre `null`). Reatribuição precisa registrar **Dono anterior e novo** no audit — e `audit_entries` hoje só tem `acao`, `autor`, `origin`: não há onde guardar "de X para Y" |
 | 2.4 | **A Prioridade inteira.** Não existe coluna `priority` em `tickets`, nem tipo `Prioridade` no domínio. Precisa de migration **e** de lista fechada (`Baixa..Crítica`), no padrão de `STATUS`/`CATEGORIAS`/`ORIGENS`/`PAPEIS` |
 | 2.5 | `enviarChamadoResolvido` no port `NotificadorDeChamado` — que hoje só tem `enviarChamadoAberto`. O e-mail traz **quem resolveu e o tempo total** (exige `criadoEm` e o instante da resolução) |
@@ -305,6 +319,28 @@ vezes (PR #39 e #43).
 
 **Verifique por mutação:** remova a checagem de confirmação e confirme que um
 teste reprova. Se nenhum reprovar, o guardrail não existe.
+
+#### O que a 2.3 mediu
+
+- **O SonarCloud reprova duplicação em código novo (>3%), e vale ouvi-lo.** No
+  PR #50 ele apontou 9%: eu tinha copiado o padrão da 2.2 em vez de extraí-lo.
+  A duplicação não era estilo — era risco, porque cada cópia é uma chance de
+  perder uma garantia em silêncio. Depois de extrair os três blocos, a
+  duplicação foi a **0,0%** e as mutações ficaram mais fortes: "esquecer o
+  `limitarChamadas`" passou a reprovar 8 testes em vez de 1, porque agora há um
+  único lugar onde esse esquecimento é possível.
+- **`claude-review` e Sonar são gates complementares.** No mesmo PR, o review
+  por IA revisou de verdade (4m34s) e aprovou a semântica; quem pegou o
+  problema foi o Sonar, olhando forma. Nenhum dos dois substitui o outro.
+- **Coluna que ninguém lê é dívida silenciosa.** `assignee` existia desde a 1.1
+  e o adapter devolvia `null` **fixo** — e o tipo do domínio era literalmente
+  `readonly assignee: null`. Ninguém notou porque nada atribuía Dono. **Ao
+  mexer num campo que já existe no schema, verifique se ele é de fato lido**, e
+  prove com um teste que escreve direto no banco.
+- **Capacidade se nomeia pela pergunta, não pelo papel que hoje a responde.**
+  Usei `atribuiChamado` para validar o destinatário e estava errado: "pode
+  distribuir trabalho" e "pode receber trabalho" coincidem hoje por acidente de
+  só existir um papel de atendimento. Separar custou uma linha.
 
 #### O que a 2.2 mediu
 
@@ -386,11 +422,11 @@ teste reprova. Se nenhum reprovar, o guardrail não existe.
 - Migration nova entra em `drizzle/migrations/` e o `pnpm db:migrate` já itera
   sobre todas — **não** referencie arquivo por nome.
 
-**Sobre o `claude-review`:** revisou de verdade cinco vezes em quatorze rodadas
-(#35, #39, #41, #43, #46). No #48 ficou mudo nas **duas** rodadas (36s e 34s) —
-o silêncio tem assinatura clara: **menos de um minuto** de execução, contra 4–5
-minutos quando revisa. Não conte com ele; conte com as mutações. Sempre
-confira:
+**Sobre o `claude-review`:** revisou de verdade seis vezes em dezessete rodadas
+(#35, #39, #41, #43, #46, #50). O silêncio tem assinatura clara: **menos de um
+minuto** de execução, contra 4–5 minutos quando revisa. Não conte com ele;
+conte com as mutações — e note que no #50 quem pegou o problema real foi o
+**Sonar**, não ele. Sempre confira:
 
 ```bash
 gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
@@ -419,7 +455,7 @@ encerre para escapar de um bloqueio: bloqueio se resolve com a seção 5.
 
 | Você vai escrever | Copie |
 | --- | --- |
-| Command de mutação de campo | `mudar-status.ts` (2.2) — com versão e `Conflict` |
+| Command de mutação de campo | `atribuir-chamado.ts` (2.3) — usa os três helpers |
 | Command de mutação simples | `excluir-chamado.ts` (1.7), `comentar-chamado.ts` (2.1) |
 | Regra de domínio com política | `papeis.ts` + `visibilidade.ts` (1.4) |
 | Contrato Zod | `contracts/abrir-chamado.ts` (1.1) |
@@ -428,8 +464,8 @@ encerre para escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/soft-delete.test.ts` (1.7) |
 | Caso de uso que orquestra sem escrever | `abrir-chamado-por-email.ts` (1.9) |
 
-**Estado do código em 2026-08-11:** 472 testes, cobertura 98,6%, 8 migrations
-aplicadas, Epic 0 e Epic 1 completos, Epic 2 com 2.1 e 2.2 `done`.
+**Estado do código em 2026-08-11:** 518 testes, cobertura 98,6%, 8 migrations
+aplicadas, Epic 0 e Epic 1 completos, Epic 2 com 2.1, 2.2 e 2.3 `done`.
 
 **Gate ativo:** nove required checks na `main` — `lint`, `typecheck`, `test`,
 `arch`, `traceability`, `security-deps`, `security-secrets`, `sonar`,
