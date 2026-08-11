@@ -1,6 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/server'
 import { abrirChamado } from '../../application/commands/abrir-chamado.js'
 import { comentarChamado } from '../../application/commands/comentar-chamado.js'
+import { mudarStatus } from '../../application/commands/mudar-status.js'
 import type { AbrirChamadoInput } from '../../application/contracts/abrir-chamado.js'
 import {
   abrirChamadoInputSchema,
@@ -11,6 +12,11 @@ import {
   comentarChamadoInputSchema,
   comentarChamadoOutputSchema,
 } from '../../application/contracts/comentar-chamado.js'
+import type { MudarStatusInput } from '../../application/contracts/mudar-status.js'
+import {
+  mudarStatusInputSchema,
+  mudarStatusOutputSchema,
+} from '../../application/contracts/mudar-status.js'
 import type { Principal } from '../../application/contracts/principal.js'
 import type { VerChamadoInput } from '../../application/contracts/ver-chamado.js'
 import {
@@ -187,6 +193,40 @@ export const criarHandlerComentarChamado = ({
   }
 }
 
+/** Handler de mudanca de Status (Story 2.2). */
+export const criarHandlerMudarStatus = ({ repositorio, autenticar, limitarChamadas }: McpDeps) => {
+  const executar = mudarStatus({ repositorio })
+
+  return async (input: MudarStatusInput) => {
+    try {
+      const autor: Principal = { ...(await autenticar()), origin: 'mcp' }
+      await limitarChamadas(autor.identity)
+
+      const saida = await executar(input, autor)
+
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            // A versao nova vai no texto porque quem for mudar de novo precisa
+            // dela — sem isso a IA teria que reler o Chamado a cada mutacao.
+            text: `Chamado #${saida.numero}: ${saida.de} -> ${saida.para} (versao ${saida.versao}).`,
+          },
+        ],
+        structuredContent: saida,
+      }
+    } catch (erro) {
+      if (ehDomainError(erro)) {
+        return {
+          content: [{ type: 'text' as const, text: `[${erro.code}] ${erro.message}` }],
+          isError: true,
+        }
+      }
+      throw erro
+    }
+  }
+}
+
 export const criarServidorMcp = (deps: McpDeps): McpServer => {
   const servidor = new McpServer({ name: 'servicedesk', version: '0.1.0' })
 
@@ -211,6 +251,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: comentarChamadoOutputSchema,
     },
     criarHandlerComentarChamado(deps),
+  )
+
+  servidor.registerTool(
+    'mudar_status',
+    {
+      title: 'Mudar Status',
+      description:
+        'Muda o Status do Chamado. Exige a versao lida em ver_chamado. Fechar, cancelar e reabrir tem acoes dedicadas.',
+      inputSchema: mudarStatusInputSchema,
+      outputSchema: mudarStatusOutputSchema,
+    },
+    criarHandlerMudarStatus(deps),
   )
 
   servidor.registerTool(

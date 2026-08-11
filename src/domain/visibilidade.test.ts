@@ -24,6 +24,7 @@ const chamadoDaMarina: Ticket = {
   assignee: null,
   criadoEm: new Date('2026-08-10T12:00:00Z'),
   excluidoEm: null,
+  version: 1,
 }
 
 describe('podeVerTicket', () => {

@@ -29,6 +29,12 @@ export const verChamadoOutputSchema = z.object({
   requester: z.string(),
   assignee: z.string().nullable(),
   criadoEm: z.iso.datetime(),
+  /**
+   * Story 2.2 — a versao para concorrencia otimista (AD-10). Sai na leitura
+   * porque `mudar_status` a exige: sem expo-la aqui, nao haveria como obte-la
+   * e toda mutacao seria impossivel.
+   */
+  versao: z.number().int().positive(),
   comentarios: z.array(comentarioSchema),
 })
 

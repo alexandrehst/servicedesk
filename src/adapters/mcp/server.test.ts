@@ -8,6 +8,7 @@ import { type Comentario, embrulharBruto } from '../../domain/visibilidade.js'
 import {
   criarHandlerAbrirChamado,
   criarHandlerComentarChamado,
+  criarHandlerMudarStatus,
   criarHandlerVerChamado,
   criarServidorMcp,
 } from './server.js'
@@ -17,7 +18,13 @@ const registradas: Principal[] = []
 const repositorio: TicketRepository = {
   async criarComAuditoria(novo, autor): Promise<Ticket> {
     registradas.push(autor)
-    return { ...novo, number: 1042, criadoEm: new Date('2026-08-10T12:00:00Z'), excluidoEm: null }
+    return {
+      ...novo,
+      number: 1042,
+      criadoEm: new Date('2026-08-10T12:00:00Z'),
+      excluidoEm: null,
+      version: 1,
+    }
   },
   async buscarPorNumero() {
     return null
@@ -27,6 +34,9 @@ const repositorio: TicketRepository = {
   },
   async criarComentarioComAuditoria() {
     throw new Error('esta suite nao comenta')
+  },
+  async mudarStatusComAuditoria() {
+    throw new Error('esta suite nao muda Status')
   },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
@@ -100,6 +110,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     async criarComentarioComAuditoria() {
       throw new Error('esta suite nao comenta')
     },
+    async mudarStatusComAuditoria() {
+      throw new Error('esta suite nao muda Status')
+    },
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
     },
@@ -126,6 +139,7 @@ const chamado: Ticket = {
   assignee: null,
   criadoEm: new Date('2026-08-10T12:00:00Z'),
   excluidoEm: null,
+  version: 1,
 }
 
 const thread: readonly Comentario[] = [
@@ -152,6 +166,9 @@ const repoLeitura: TicketRepository = {
   },
   async criarComentarioComAuditoria() {
     throw new Error('esta suite nao comenta')
+  },
+  async mudarStatusComAuditoria() {
+    throw new Error('esta suite nao muda Status')
   },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
@@ -291,6 +308,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     async criarComentarioComAuditoria() {
       throw new Error('esta suite nao comenta')
     },
+    async mudarStatusComAuditoria() {
+      throw new Error('esta suite nao muda Status')
+    },
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
     },
@@ -400,6 +420,7 @@ const repoComentario: TicketRepository = {
         assignee: null,
         criadoEm: new Date('2026-08-11T12:00:00.000Z'),
         excluidoEm: null,
+        version: 1,
       },
       comentarios: [],
     })
@@ -511,6 +532,156 @@ it('erro nao-tipado do repositorio sobe em vez de virar erro de tool', async () 
     criarHandlerComentarChamado({ repositorio: quebrado, autenticar, limitarChamadas: semLimite })({
       numero: 1042,
       texto: 'x',
+    }),
+  ).rejects.toThrow('conexao com o banco caiu')
+})
+
+// --- Story 2.2: tool de mudanca de Status ---
+
+const mudancasDeStatus: { numero: number; de: string; para: string; esperada: number }[] = []
+
+const repoStatus: TicketRepository = {
+  ...repositorio,
+  async buscarPorNumero() {
+    return embrulharBruto({
+      ticket: {
+        number: 1042,
+        titulo: 'VPN fora do ar',
+        descricao: 'Nao conecta.',
+        categoria: 'rede',
+        status: 'aberto',
+        requester: 'marina@empresa.com',
+        assignee: null,
+        criadoEm: new Date('2026-08-11T12:00:00.000Z'),
+        excluidoEm: null,
+        version: 1,
+      },
+      comentarios: [],
+    })
+  },
+  async mudarStatusComAuditoria({ numero, de, para, esperada }) {
+    mudancasDeStatus.push({ numero, de, para, esperada })
+    return { version: esperada + 1 }
+  },
+}
+
+const depsStatus = { repositorio: repoStatus, autenticar, limitarChamadas: semLimite }
+
+it('registra a tool mudar_status com o schema do contrato (AD-6)', () => {
+  const schema = criarServidorMcp(depsStatus).toolInputSchemaJson('mudar_status')
+
+  expect(schema).toBeDefined()
+  // A versao e obrigatoria: sem ela nao ha concorrencia otimista (AD-10).
+  expect(JSON.stringify(schema)).toContain('versao')
+  expect(JSON.stringify(schema)).toContain('em_andamento')
+})
+
+it('muda o Status e devolve a versao nova', async () => {
+  mudancasDeStatus.length = 0
+
+  const resultado = await criarHandlerMudarStatus(depsStatus)({
+    numero: 1042,
+    novoStatus: 'em_andamento',
+    versao: 1,
+  })
+
+  expect(resultado.isError).toBeUndefined()
+  expect(resultado.structuredContent).toEqual({
+    numero: 1042,
+    de: 'aberto',
+    para: 'em_andamento',
+    versao: 2,
+  })
+})
+
+/**
+ * A versao nova vai no TEXTO tambem: quem for mudar de novo precisa dela, e
+ * sem isso a IA teria que reler o Chamado a cada mutacao.
+ */
+it('o texto da resposta traz a versao nova', async () => {
+  const resultado = await criarHandlerMudarStatus(depsStatus)({
+    numero: 1042,
+    novoStatus: 'em_andamento',
+    versao: 1,
+  })
+
+  expect(resultado.content[0]?.text).toContain('versao 2')
+})
+
+it('traduz transicao invalida em erro de tool', async () => {
+  const resultado = await criarHandlerMudarStatus(depsStatus)({
+    numero: 1042,
+    novoStatus: 'resolvido',
+    versao: 1,
+  })
+
+  expect(resultado.isError).toBe(true)
+  expect(resultado.content[0]?.text).toContain('TransicaoInvalida')
+})
+
+/**
+ * A porta dos fundos da Story 2.6: a tool generica nao encerra Chamado. Sem
+ * este teste, o guardrail do AD-7 nasceria furado no adapter.
+ */
+it('nao cancela Chamado pela tool generica', async () => {
+  mudancasDeStatus.length = 0
+
+  const resultado = await criarHandlerMudarStatus(depsStatus)({
+    numero: 1042,
+    novoStatus: 'cancelado',
+    versao: 1,
+  })
+
+  expect(resultado.isError).toBe(true)
+  expect(resultado.content[0]?.text).toContain('confirmacao')
+  expect(mudancasDeStatus).toHaveLength(0)
+})
+
+it('recusa a mudanca quando o limite estourou, sem tocar no repositorio', async () => {
+  mudancasDeStatus.length = 0
+
+  const resultado = await criarHandlerMudarStatus({
+    repositorio: repoStatus,
+    autenticar,
+    limitarChamadas: estourado,
+  })({ numero: 1042, novoStatus: 'em_andamento', versao: 1 })
+
+  expect(resultado.isError).toBe(true)
+  expect(resultado.content[0]?.text).toContain('LimiteExcedido')
+  expect(mudancasDeStatus).toHaveLength(0)
+})
+
+it('carimba origin mcp na mudanca de Status (AD-9)', async () => {
+  const autores: string[] = []
+
+  await criarHandlerMudarStatus({
+    repositorio: {
+      ...repoStatus,
+      async mudarStatusComAuditoria({ autor, esperada }) {
+        autores.push(autor.origin)
+        return { version: esperada + 1 }
+      },
+    },
+    autenticar,
+    limitarChamadas: semLimite,
+  })({ numero: 1042, novoStatus: 'em_andamento', versao: 1 })
+
+  expect(autores).toEqual(['mcp'])
+})
+
+it('erro nao-tipado sobe em vez de virar erro de tool', async () => {
+  const quebrado: TicketRepository = {
+    ...repoStatus,
+    async mudarStatusComAuditoria() {
+      throw new Error('conexao com o banco caiu')
+    },
+  }
+
+  await expect(
+    criarHandlerMudarStatus({ repositorio: quebrado, autenticar, limitarChamadas: semLimite })({
+      numero: 1042,
+      novoStatus: 'em_andamento',
+      versao: 1,
     }),
   ).rejects.toThrow('conexao com o banco caiu')
 })

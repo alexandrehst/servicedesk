@@ -56,6 +56,17 @@ export type Ticket = NovoTicket & {
    * fora do tipo torna isso impossivel de escrever por engano (AD-4, 1.1).
    */
   readonly excluidoEm: Date | null
+  /**
+   * Story 2.2 — concorrencia otimista (AD-10).
+   *
+   * Fica em `Ticket` e nao em `NovoTicket` pelo mesmo motivo do `number` e do
+   * `excluidoEm`: um Chamado que ainda nao existe nao tem versao, e deixar o
+   * campo fora do tipo torna isso impossivel de escrever por engano.
+   *
+   * Incrementada a cada mutacao de CAMPO. Escrita aditiva — Comentario, Log —
+   * nao a move: refinamento do AD-10 decidido na Story 2.1.
+   */
+  readonly version: number
 }
 
 export type AbrirTicketInput = {

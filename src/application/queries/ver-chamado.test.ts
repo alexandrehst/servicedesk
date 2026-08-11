@@ -20,6 +20,7 @@ const ticket: Ticket = {
   assignee: null,
   criadoEm: new Date('2026-08-10T12:00:00.000Z'),
   excluidoEm: null,
+  version: 1,
 }
 
 const thread: readonly Comentario[] = [
@@ -73,6 +74,9 @@ const repo = (
   },
   async criarComentarioComAuditoria() {
     throw new Error('esta suite nao comenta')
+  },
+  async mudarStatusComAuditoria() {
+    throw new Error('esta suite nao muda Status')
   },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')

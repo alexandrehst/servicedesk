@@ -27,6 +27,7 @@ export const ACOES = [
   'excluir_chamado',
   'comentar_chamado',
   'comentar_chamado_interno',
+  'mudar_status',
 ] as const
 
 export type AcaoDeAuditoria = (typeof ACOES)[number]
@@ -48,5 +49,11 @@ export type EntradaDeAuditoria = {
   /** A IDENTIDADE de quem agiu — nunca o nome da tool (AD-9). */
   readonly autor: string
   readonly origin: Origem
+  /**
+   * Story 2.2 — o par de uma mudanca de valor (Status agora; Dono e Prioridade
+   * nas 2.3 e 2.4). `null` quando a acao nao muda valor nenhum.
+   */
+  readonly de: string | null
+  readonly para: string | null
   readonly registradoEm: Date
 }

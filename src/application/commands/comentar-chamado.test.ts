@@ -28,6 +28,7 @@ const chamadoDaMarina: Ticket = {
   assignee: null,
   criadoEm: new Date('2026-08-11T12:00:00.000Z'),
   excluidoEm: null,
+  version: 1,
 }
 
 const CRIADO_EM = new Date('2026-08-11T13:00:00.000Z')
@@ -48,6 +49,9 @@ const repositorio: TicketRepository = {
   },
   async excluirComAuditoria() {
     throw new Error('esta suite nao exclui')
+  },
+  async mudarStatusComAuditoria() {
+    throw new Error('esta suite nao muda Status')
   },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')

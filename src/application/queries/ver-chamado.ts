@@ -45,6 +45,7 @@ export const verChamado =
       requester: ticket.requester,
       assignee: ticket.assignee,
       criadoEm: ticket.criadoEm.toISOString(),
+      versao: ticket.version,
       // Ja filtrados por `visivelPara`: filtrar de novo aqui seria a mesma
       // regra em dois lugares, e dois lugares divergem.
       comentarios: comentarios.map((c) => ({

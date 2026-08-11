@@ -20,6 +20,7 @@ const chamadoDaMarina: Ticket = {
   assignee: null,
   criadoEm: new Date('2026-08-10T12:00:00.000Z'),
   excluidoEm: null,
+  version: 1,
 }
 
 let excluidos: { numero: number; autor: Principal }[]
@@ -38,6 +39,9 @@ const repositorio: TicketRepository = {
   },
   async criarComentarioComAuditoria() {
     throw new Error('esta suite nao comenta')
+  },
+  async mudarStatusComAuditoria() {
+    throw new Error('esta suite nao muda Status')
   },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
@@ -139,6 +143,9 @@ describe('caminho positivo (AC #1, #5)', () => {
       },
       async criarComentarioComAuditoria() {
         throw new Error('esta suite nao comenta')
+      },
+      async mudarStatusComAuditoria() {
+        throw new Error('esta suite nao muda Status')
       },
       async buscarIntakePorMessageId() {
         throw new Error('esta suite nao faz intake por e-mail')

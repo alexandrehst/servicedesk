@@ -18,7 +18,13 @@ const repositorioFake = (): TicketRepository & { chamadas: [NovoTicket, Principa
     chamadas,
     async criarComAuditoria(novo, principal): Promise<Ticket> {
       chamadas.push([novo, principal])
-      return { ...novo, number: 1000, criadoEm: new Date('2026-08-10T12:00:00Z'), excluidoEm: null }
+      return {
+        ...novo,
+        number: 1000,
+        criadoEm: new Date('2026-08-10T12:00:00Z'),
+        excluidoEm: null,
+        version: 1,
+      }
     },
     async buscarPorNumero() {
       return null
@@ -28,6 +34,9 @@ const repositorioFake = (): TicketRepository & { chamadas: [NovoTicket, Principa
     },
     async criarComentarioComAuditoria() {
       throw new Error('esta suite nao comenta')
+    },
+    async mudarStatusComAuditoria() {
+      throw new Error('esta suite nao muda Status')
     },
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
@@ -76,6 +85,9 @@ it('propaga falha da persistencia sem mascarar', async () => {
     },
     async criarComentarioComAuditoria() {
       throw new Error('esta suite nao comenta')
+    },
+    async mudarStatusComAuditoria() {
+      throw new Error('esta suite nao muda Status')
     },
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')

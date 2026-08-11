@@ -1,7 +1,7 @@
 import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import type { Origem } from '../../domain/origem.js'
-import type { NovoTicket, Ticket } from '../../domain/ticket.js'
+import type { NovoTicket, Status, Ticket } from '../../domain/ticket.js'
 import type { ChamadoBruto, HistoricoBruto } from '../../domain/visibilidade.js'
 import type { Principal } from '../contracts/principal.js'
 
@@ -84,6 +84,29 @@ export type TicketRepository = {
      */
     acao: AcaoDeAuditoria,
   ): Promise<{ readonly criadoEm: Date }>
+
+  /**
+   * Muda o Status e grava a auditoria na MESMA transacao (Story 2.2, AD-3).
+   *
+   * `esperada` e a versao que o chamador leu (AD-10). A checagem acontece no
+   * proprio `UPDATE ... WHERE version = $esperada` — nao em JavaScript entre
+   * uma leitura e uma escrita, que deixaria a janela que o AD-10 existe para
+   * fechar. A garantia e do BANCO, como no `consumirLinkDeLogin` (1.3).
+   *
+   * O par `de`/`para` chega PRONTO do command: o adapter grava, nao deduz
+   * (achado do `claude-review` no PR #46).
+   *
+   * Devolve `null` quando nenhuma linha casou — ou a versao divergiu, ou o
+   * Chamado foi excluido no meio do caminho. Quem distingue os dois casos e o
+   * command, relendo; o adapter nao tem como saber qual dos dois foi.
+   */
+  mudarStatusComAuditoria(entrada: {
+    readonly numero: number
+    readonly de: Status
+    readonly para: Status
+    readonly esperada: number
+    readonly autor: Principal
+  }): Promise<{ readonly version: number } | null>
 
   /**
    * Soft-delete (Story 1.7, FR-23): MARCA o Chamado e grava a auditoria na
