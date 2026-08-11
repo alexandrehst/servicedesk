@@ -332,8 +332,12 @@ omitir o rate limit copiando e colando.
    que mexer no shape afeta o contrato de saída do histórico da 1.8.
 4. **Sem limite de tamanho do corpo.** Um Comentário de 10 MB é aceito. Na
    escala do MVP não é problema; vira um se houver import de migração (Epic 4).
-5. **O `claude-review` ainda não se manifestou** nesta story no momento em que
-   este registro foi escrito.
+5. **O `claude-review` não revisou esta story.** Passou verde em **44s** e não
+   deixou comentário nenhum (`/pulls/46/comments` → 0). É o modo mudo
+   catalogado desde o PR #31: quando ele revisa de verdade, leva 4–5 minutos
+   (#43 levou 4m38s, #41 levou 4m06s). Verde aqui **não é evidência de
+   revisão** — o que sustenta esta story são os 392 testes e as 12 mutações,
+   não o check.
 
 ### File List
 
@@ -360,3 +364,4 @@ omitir o rate limit copiando e colando.
 | 2026-08-11 | Task 6: 392 testes, cobertura 98,41% |
 | 2026-08-11 | Duas mutações sobreviveram por serem inócuas; corrigidas, 12 de 12 reprovaram |
 | 2026-08-11 | Task 7: AD-10 refinado na spine (escrita aditiva não versiona); FR-3 no PRD |
+| 2026-08-11 | PR #46: nove checks verdes; `claude-review` mudo em 44s (silêncio verde, sem comentário) |
