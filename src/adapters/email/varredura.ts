@@ -44,6 +44,7 @@ export const criarVarredura =
     let duplicadas = 0
     let recusadas = 0
     let falhas = 0
+    const processadas: string[] = []
 
     for (const bruta of mensagens) {
       try {
@@ -53,25 +54,30 @@ export const criarVarredura =
         if (resultado.tipo === 'duplicado') duplicadas += 1
         if (resultado.tipo === 'recusado') recusadas += 1
 
-        // Recusada TAMBEM e marcada: sem isso, todo e-mail de remetente
+        // Recusada TAMBEM entra na lista: sem isso, todo e-mail de remetente
         // desconhecido voltaria em cada varredura e o log de recusa viraria
         // uma enxurrada que esconderia a recusa nova.
-        await caixa.marcarProcessada(bruta.id)
+        processadas.push(bruta.id)
       } catch (erro) {
         falhas += 1
 
-        // A mensagem NAO e marcada — volta na proxima varredura. E seguro
+        // A mensagem NAO entra na lista — volta na proxima varredura. E seguro
         // porque a dedup por `Message-ID` reconhece o que ja virou Chamado;
         // sem ela, uma falha depois da abertura viraria Chamado repetido.
         //
-        // O `continue` e o ponto do modulo: uma mensagem malformada nao pode
-        // bloquear o intake ate alguem apagar o e-mail a mao.
+        // Nao interromper o laco e o ponto do modulo: uma mensagem malformada
+        // nao pode bloquear o intake ate alguem apagar o e-mail a mao.
         logger.erro('falha_ao_processar_mensagem', {
           mensagem: bruta.id,
           causa: erro instanceof Error ? erro.message : String(erro),
         })
       }
     }
+
+    // Uma marcacao para o lote inteiro. Por mensagem, uma varredura cheia
+    // custaria 51 conexoes IMAP em vez de 2 — e o provedor limita conexoes
+    // simultaneas. O atraso entre processar e marcar e coberto pela dedup.
+    await caixa.marcarProcessadas(processadas)
 
     return { lidas: mensagens.length, abertas, duplicadas, recusadas, falhas }
   }

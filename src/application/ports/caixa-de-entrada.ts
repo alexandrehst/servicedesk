@@ -30,13 +30,20 @@ export type CaixaDeEntrada = {
   buscarNaoProcessadas(): Promise<readonly MensagemNaCaixa[]>
 
   /**
-   * Marca a mensagem como processada na caixa, para que a proxima varredura
-   * nao a traga de novo.
+   * Marca mensagens como processadas, EM LOTE, para que a proxima varredura
+   * nao as traga de novo.
+   *
+   * Recebe a lista inteira de uma vez, e nao uma mensagem por chamada, porque
+   * a implementacao real abre uma sessao por chamada: uma varredura de 50
+   * mensagens custaria 51 handshakes IMAP em vez de 2, e provedor corporativo
+   * limita conexoes simultaneas. O `ImapFlow` marca varios UIDs numa operacao
+   * so.
    *
    * Chamada DEPOIS do processamento, e nao antes: marcar primeiro perderia a
-   * mensagem se o processo morresse no meio. Falhar aqui depois de abrir o
-   * Chamado faz a mensagem voltar na proxima varredura — e a dedup por
-   * `Message-ID` a reconhece. E por isso que a dedup nao e opcional.
+   * mensagem se o processo morresse no meio. Marcar depois, em lote, tem o
+   * risco oposto — morrer entre processar e marcar faz as mensagens voltarem
+   * na proxima varredura. E aceitavel exatamente porque a dedup por
+   * `Message-ID` as reconhece; sem ela, este desenho abriria Chamado repetido.
    */
-  marcarProcessada(id: string): Promise<void>
+  marcarProcessadas(ids: readonly string[]): Promise<void>
 }

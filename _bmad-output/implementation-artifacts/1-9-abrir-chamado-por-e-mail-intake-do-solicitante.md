@@ -334,7 +334,21 @@ causa disso: dividir a defesa entre adapter e domínio criou uma forma nova de
 quebrá-la — o adapter preservar a ordem errada — e ela precisava de teste
 próprio.
 
-**Quinze mutações aplicadas, quinze reprovações** (script em
+**E achou um segundo, de outra natureza.** `marcarProcessada` abria uma sessão
+IMAP inteira por chamada, e a varredura a chamava uma vez por mensagem: com o
+teto de 50, uma única varredura custava **51 handshakes** (TCP + TLS + LOGIN)
+em vez de 2 — no caminho quente de um polling periódico, e contra o mesmo
+limite de conexões simultâneas que o próprio módulo cita como motivo do
+`logout` no `finally`. O port passou a `marcarProcessadas(ids)`, a varredura
+acumula e marca o lote de uma vez, e lista vazia — o caso comum no polling —
+não abre conexão nenhuma.
+
+O custo dessa mudança é um atraso entre processar e marcar: morrer no meio faz
+as mensagens voltarem na próxima varredura. É aceitável **porque a dedup por
+`Message-ID` existe**; sem ela, esta otimização abriria Chamado repetido. As
+duas decisões se sustentam juntas.
+
+**Dezessete mutações aplicadas, dezessete reprovações** (script em
 `scratchpad/mutacoes-19.py`, versionado porque a referência da 1.8 morreu):
 
 | Mutação aplicada | Reprovou |
@@ -353,6 +367,8 @@ próprio.
 | Abortar o lote na primeira falha | 3 testes |
 | Tratar violação de unicidade como erro comum | 1 teste |
 | Remover o teto de mensagens por varredura | 1 teste |
+| **Marcar mensagem por mensagem, em vez de em lote** | 1 teste |
+| **Abrir conexão mesmo sem nada a marcar** | 1 teste |
 | Não fazer `logout` quando a operação falha | 2 testes |
 
 As que mais valem são a segunda (prova a ordem dos `if`), a oitava e a décima
@@ -373,7 +389,7 @@ extração) e a décima terceira (prova que o vínculo está na mesma transaçã
 - **Task 5** — `mensagem.ts` (parsing) e `imap.ts` (casca fina, conexão
   injetada), mais `varredura.ts`, que garante que uma mensagem ruim não derruba
   o lote.
-- **Task 6** — **347 testes** (eram 248 na 1.8); cobertura **98,5%**.
+- **Task 6** — **350 testes** (eram 248 na 1.8); cobertura **98,5%**.
 - **Task 7** — PRD (FR-1) e spine (AD-9, Conventions, Stack) atualizados.
 
 **Não provado — registrado em vez de deixado implícito:**
@@ -455,4 +471,5 @@ extração) e a décima terceira (prova que o vínculo está na mesma transaçã
 | 2026-08-10 | Catorze mutações aplicadas e reprovadas |
 | 2026-08-10 | Task 7: decisões registradas no PRD (FR-1) e na spine (AD-9, Conventions, Stack) |
 | 2026-08-10 | PR #43: `claude-review` apontou política de confiança no adapter; movida para `domain/autenticidade-de-email.ts` e contrato passou a levar cabeçalhos crus |
-| 2026-08-10 | Quinze mutações (uma nova, sobre a ordem dos cabeçalhos no adapter) aplicadas e reprovadas |
+| 2026-08-10 | PR #43, segunda rodada: `claude-review` apontou 51 conexões IMAP por varredura; marcação virou lote (`marcarProcessadas`) |
+| 2026-08-10 | Dezessete mutações aplicadas e reprovadas; 350 testes |

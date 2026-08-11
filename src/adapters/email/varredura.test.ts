@@ -17,17 +17,19 @@ const eml = (assunto: string, id: string) =>
 
 const criarCaixa = (mensagens: MensagemNaCaixa[]) => {
   const marcadas: string[] = []
+  const chamadas: number[] = []
 
   const caixa: CaixaDeEntrada = {
     async buscarNaoProcessadas() {
       return mensagens
     },
-    async marcarProcessada(id) {
-      marcadas.push(id)
+    async marcarProcessadas(ids) {
+      marcadas.push(...ids)
+      chamadas.push(ids.length)
     },
   }
 
-  return { caixa, marcadas }
+  return { caixa, marcadas, chamadas }
 }
 
 const semLog = (): { logger: Logger; registros: string[] } => {
@@ -196,6 +198,32 @@ describe('varredura da caixa', () => {
     })()
 
     expect(resumo).toMatchObject({ abertas: 0, duplicadas: 1 })
+  })
+
+  /**
+   * A marcacao acontece UMA vez por varredura, nao uma por mensagem.
+   *
+   * Na implementacao IMAP cada chamada abre uma sessao inteira (connect +
+   * lock + logout): por mensagem, uma varredura cheia custaria 51 handshakes
+   * em vez de 2, e provedor corporativo limita conexoes simultaneas. O
+   * `claude-review` levantou isso no PR #43.
+   */
+  it('marca o lote inteiro numa chamada so', async () => {
+    const { caixa, marcadas, chamadas } = criarCaixa([
+      { id: '1', bruto: eml('Uma', 'h') },
+      { id: '2', bruto: eml('Duas', 'i') },
+      { id: '3', bruto: eml('Tres', 'j') },
+    ])
+    const { logger } = semLog()
+
+    await criarVarredura({
+      caixa,
+      logger,
+      processar: async (): Promise<ResultadoDoIntake> => ({ tipo: 'aberto', numero: 1000 }),
+    })()
+
+    expect(marcadas).toEqual(['1', '2', '3'])
+    expect(chamadas).toEqual([3])
   })
 
   it('caixa vazia nao e erro', async () => {

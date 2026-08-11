@@ -116,6 +116,18 @@ MUTACOES = [
         "",
     ),
     (
+        "Marcar mensagem por mensagem, em vez de em lote",
+        VARREDURA,
+        "await caixa.marcarProcessadas(processadas)",
+        "for (const id of processadas) await caixa.marcarProcessadas([id])",
+    ),
+    (
+        "Abrir conexao mesmo sem nada a marcar",
+        IMAP,
+        "if (ids.length === 0) return",
+        "",
+    ),
+    (
         "Nao fazer logout quando a operacao falha",
         IMAP,
         "    } finally {\n      await cliente.logout()\n    }",

@@ -26,7 +26,8 @@ const criarCliente = (
 
   const cliente: ClienteImap = {
     async connect() {
-      registro.conexoes += 1
+      // Nao usado: a conexao e injetada, e quem conta abertura de sessao e o
+      // helper `comCliente`.
     },
     async logout() {
       registro.logouts += 1
@@ -54,7 +55,15 @@ const criarCliente = (
   return { cliente, registro }
 }
 
-const comCliente = (cliente: ClienteImap) => criarCaixaImap('INBOX', async () => cliente)
+/**
+ * Conta as ABERTURAS de sessao — que e o custo real: cada uma e um handshake
+ * TCP + TLS + LOGIN contra o provedor.
+ */
+const comCliente = (cliente: ClienteImap, registro?: Registro) =>
+  criarCaixaImap('INBOX', async () => {
+    if (registro !== undefined) registro.conexoes += 1
+    return cliente
+  })
 
 describe('buscar mensagens nao lidas', () => {
   it('traduz UID em identificador e devolve o texto bruto', async () => {
@@ -99,9 +108,35 @@ describe('marcar como processada', () => {
   it('marca a mensagem como lida pelo UID', async () => {
     const { cliente, registro } = criarCliente([])
 
-    await comCliente(cliente).marcarProcessada('42')
+    await comCliente(cliente).marcarProcessadas(['42'])
 
     expect(registro.flags).toEqual([{ uid: '42', flags: ['\\Seen'] }])
+  })
+
+  /**
+   * Um `messageFlagsAdd` para o lote inteiro, e nao um por mensagem: cada
+   * chamada abre uma sessao IMAP completa, entao marcar 50 mensagens uma a uma
+   * custaria 50 handshakes. Provedor corporativo limita conexoes simultaneas.
+   */
+  it('marca varios UIDs numa unica operacao e numa unica conexao', async () => {
+    const { cliente, registro } = criarCliente([])
+
+    await comCliente(cliente, registro).marcarProcessadas(['1', '2', '3'])
+
+    expect(registro.flags).toEqual([{ uid: '1,2,3', flags: ['\\Seen'] }])
+    expect(registro.conexoes).toBe(1)
+  })
+
+  /**
+   * Varredura sem mensagem nova e o caso COMUM no polling. Abrir sessao para
+   * nao fazer nada seria pagar o handshake mais vezes do que existe trabalho.
+   */
+  it('lista vazia nao abre conexao', async () => {
+    const { cliente, registro } = criarCliente([])
+
+    await comCliente(cliente, registro).marcarProcessadas([])
+
+    expect(registro).toMatchObject({ conexoes: 0, logouts: 0, flags: [] })
   })
 })
 

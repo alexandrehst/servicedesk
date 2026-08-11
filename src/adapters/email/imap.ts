@@ -115,9 +115,17 @@ export const criarCaixaImap = (
       })
     },
 
-    async marcarProcessada(id: string): Promise<void> {
+    async marcarProcessadas(ids: readonly string[]): Promise<void> {
+      // Lista vazia nao abre conexao. Uma varredura sem mensagem nova e o caso
+      // COMUM no polling — abrir sessao para nao fazer nada seria pagar o
+      // handshake mais vezes do que existe trabalho.
+      if (ids.length === 0) return
+
       await comCaixaAberta(async (cliente) => {
-        await cliente.messageFlagsAdd({ uid: id }, ['\\Seen'], { uid: true })
+        // Um `messageFlagsAdd` para todos os UIDs, e nao um por mensagem: o
+        // IMAP aceita conjunto de UIDs separados por virgula, e a alternativa
+        // custava um handshake por mensagem.
+        await cliente.messageFlagsAdd({ uid: ids.join(',') }, ['\\Seen'], { uid: true })
       })
     },
   }
