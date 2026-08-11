@@ -220,15 +220,27 @@ A duplicação aqui não era questão de estilo, era **risco**: cada cópia é u
 chance de alguém "simplificar" a releitura e transformar Chamado excluído em
 conflito eterno. Extraí para `commands/mutacao-versionada.ts`.
 
-O gate expôs uma segunda duplicação que eu não tinha visto: **os cinco handlers
-MCP eram o mesmo esqueleto** — autenticar, limitar, executar, traduzir erro.
+O gate expôs mais duas que eu não tinha visto. **Os cinco handlers MCP eram o
+mesmo esqueleto** — autenticar, limitar, executar, traduzir erro.
 Extraí `criarHandler`, e `server.ts` caiu de 342 para 250 linhas. O ganho não é
 de tamanho: a mutação "esquecer o `limitarChamadas`" passou a reprovar **8
 testes em vez de 1**, porque agora existe **um** lugar onde esse esquecimento é
 possível — e ele protege as cinco tools de uma vez. O esquecimento mais provável
 do Epic 2 ficou estruturalmente mais difícil.
 
-**Vinte mutações aplicadas, vinte reprovações** (script versionado em
+E **os dois `*ComAuditoria` do adapter eram o mesmo `UPDATE` condicional**
+seguido do mesmo `INSERT` de auditoria, mudando só a coluna e o rótulo.
+Extraídos como `mutarCampoComAuditoria`, que carrega as três garantias juntas
+— versão no `WHERE`, `deleted_at IS NULL`, e auditoria só quando a escrita
+aconteceu. As mutações que atacavam essas garantias passaram a valer para
+`mudar_status` **e** `atribuir_chamado` ao mesmo tempo, e vão cobrir 2.4, 2.5 e
+2.6 sem uma linha nova.
+
+O Sonar levou o número de 9% para 6,8% e depois abaixo do limite; mas o
+resultado que importa é outro: **três garantias do épico passaram a ter um
+único ponto de falha em vez de um por story**.
+
+**Vinte e uma mutações aplicadas, vinte e uma reprovações** (script versionado em
 `scratchpad/mutacoes-23.py`):
 
 | Mutação aplicada | Reprovou |
@@ -244,11 +256,12 @@ do Epic 2 ficou estruturalmente mais difícil.
 | Solicitante ganha permissão de atribuir | 2 testes |
 | Validar o destinatário antes de autorizar | 2 testes |
 | Pular o gargalo de visibilidade | 1 teste |
-| Ignorar a versão esperada no `UPDATE` | 2 testes |
-| Não filtrar excluído no `UPDATE` | 1 teste |
+| Ignorar a versão esperada no `UPDATE` (todas as mutações) | 4 testes |
+| Não filtrar excluído no `UPDATE` (todas as mutações) | 3 testes |
 | Usar a versão do Chamado lido | 3 testes |
 | Conflito vira sucesso silencioso | 3 testes |
-| Não registrar o Dono anterior no Log | 1 teste |
+| Não registrar o valor anterior no Log | 3 testes |
+| Gravar auditoria quando o `UPDATE` não afeta linha | 2 testes |
 | **Esquecer o `limitarChamadas` no esqueleto** | 8 testes |
 | Limitar depois de executar, em vez de antes | 4 testes |
 | Engolir erro não-tipado no esqueleto | 20 testes |
@@ -264,7 +277,7 @@ do Epic 2 ficou estruturalmente mais difícil.
 - **Task 4** — mesmo `UPDATE` condicional da 2.2, com `de`/`para` no Log.
 - **Task 5** — command com `Pick` do port (padrão da 1.9).
 - **Task 6** — tool `atribuir_chamado`; `McpDeps` ganhou `identidades`.
-- **Task 7** — **518 testes** (eram 472); cobertura **98,64%**.
+- **Task 7** — **518 testes** (eram 472); cobertura **98,63%**.
 - **Task 8** — FR-5 registrado no PRD.
 
 **Não provado — registrado em vez de deixado implícito:**

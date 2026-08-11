@@ -98,17 +98,25 @@ MUTACOES = [
         "    if (bruto === null) {\n      throw ticketNaoEncontrado(input.numero)\n    }",
     ),
     # --- AD-10 ---
+    # Agora atacam o helper UNICO — entao cobrem mudar_status E atribuir de uma
+    # vez, e cobrirao 2.4, 2.5 e 2.6 sem uma linha nova.
     (
-        "Ignorar a versao esperada no UPDATE",
+        "Ignorar a versao esperada no UPDATE (todas as mutacoes)",
         REPO,
-        "            eq(tickets.version, entrada.esperada),\n            isNull(tickets.deletedAt),\n          ),\n        )\n        .returning({ version: tickets.version })\n\n      if (linha === undefined) {\n        // Escrita que nao aconteceu nao vira auditoria (licao da 1.7).",
-        "            isNull(tickets.deletedAt),\n          ),\n        )\n        .returning({ version: tickets.version })\n\n      if (linha === undefined) {\n        // Escrita que nao aconteceu nao vira auditoria (licao da 1.7).",
+        "          eq(tickets.version, entrada.esperada),\n          isNull(tickets.deletedAt),",
+        "          isNull(tickets.deletedAt),",
     ),
     (
-        "Nao filtrar excluido no UPDATE da atribuicao",
+        "Nao filtrar excluido no UPDATE (todas as mutacoes)",
         REPO,
-        "            eq(tickets.version, entrada.esperada),\n            isNull(tickets.deletedAt),\n          ),\n        )\n        .returning({ version: tickets.version })\n\n      if (linha === undefined) {\n        // Escrita que nao aconteceu nao vira auditoria (licao da 1.7).",
-        "            eq(tickets.version, entrada.esperada),\n          ),\n        )\n        .returning({ version: tickets.version })\n\n      if (linha === undefined) {\n        // Escrita que nao aconteceu nao vira auditoria (licao da 1.7).",
+        "          eq(tickets.version, entrada.esperada),\n          isNull(tickets.deletedAt),",
+        "          eq(tickets.version, entrada.esperada),",
+    ),
+    (
+        "Gravar auditoria mesmo quando o UPDATE nao afeta linha",
+        REPO,
+        "    if (linha === undefined) {\n      return null\n    }",
+        "    if (linha === undefined) {\n      await tx.insert(auditEntries).values({\n        ticketNumber: entrada.numero,\n        acao: entrada.acao,\n        autor: entrada.autor.identity,\n        origin: entrada.autor.origin,\n        de: entrada.de,\n        para: entrada.para,\n      })\n      return null\n    }",
     ),
     (
         "Usar a versao do Chamado lido em vez da informada",
@@ -124,10 +132,10 @@ MUTACOES = [
     ),
     # --- AD-3 ---
     (
-        "Nao registrar o Dono anterior no Log",
+        "Nao registrar o valor anterior no Log",
         REPO,
-        "        // `de` nulo na primeira atribuicao — o Chamado saiu de \"sem Dono\".\n        de: entrada.de,",
-        "        de: null,",
+        "      de: entrada.de,\n      para: entrada.para,",
+        "      de: null,\n      para: entrada.para,",
     ),
     # --- FR-21 ---
     (
