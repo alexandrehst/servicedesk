@@ -221,6 +221,7 @@ servicedesk/
 ## Deferred
 
 - **Topologia de deploy / hospedagem** — provider e forma de deploy (container único vs. serverless) não decididos; escala pequena permite adiar. Confirmar no cold-start junto ao starter.
+  - **O que está represado atrás desta decisão** (2026-08-18, Story 2.5): não existe raiz de composição, então ninguém injeta o canal de notificação nos handlers MCP — `criarHandlerAbrirChamado` (1.6) e `criarHandlerMudarStatus` (2.5) montam os commands **sem** `notificacao`, e nenhum dos dois e-mails do FR-18 dispara em produção. O mesmo vale para o agendador do intake por e-mail (1.9), pronto e desligado. Os três são trabalho da story de bootstrap que esta decisão precede.
 - **Transporte MCP em produção** — começar `stdio` local para validar; promover a HTTP autenticado quando mais de um cliente precisar (best practice atual). Decisão de transporte final adiada.
 - ~~**Auth concreta**~~ — **decidido em 2026-08-10** (Story 1.3): magic link por e-mail; sessão em tabela no Postgres com o token guardado apenas como hash SHA-256; link de 15 min de uso único; sessão de 8 h. O papel vive em `users` e é lido a cada resolução — sessão não o congela.
 - **Estratégia de migração CSV** — formato de export do contratado desconhecido (PRD Q5); o adapter de import é um caso à parte, desenhado quando o formato for conhecido.

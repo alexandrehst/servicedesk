@@ -390,9 +390,22 @@ merecem nota:
    agora()`, e nao o instante que o Postgres gravou a resolucao. A diferenca e
    o tempo de uma transacao; obter o instante exato custaria uma releitura por
    um dado que ninguem confere.
-2. **Nenhum e-mail chega de verdade.** Nao ha credencial SMTP neste ambiente —
-   a divida e da 1.6 e continua aberta. O que os testes provam e que a mensagem
-   e montada e aceita pelo Nodemailer (`jsonTransport`).
+2. **Nenhum e-mail chega de verdade, e o canal nao esta LIGADO.** Duas coisas
+   distintas, as duas herdadas da 1.6 e apontadas pelo `claude-review` no PR
+   #58:
+   - nao ha credencial SMTP neste ambiente — o que os testes provam e que a
+     mensagem e montada e aceita pelo Nodemailer (`jsonTransport`);
+   - **`criarHandlerMudarStatus` monta `mudarStatus({ repositorio })` sem
+     `notificacao`**, exatamente como `criarHandlerAbrirChamado` faz desde a
+     1.6. Enquanto nao existir raiz de composicao, o e-mail desta story **nao
+     dispara em producao** — e ligar so a resolucao criaria a assimetria de o
+     MCP notificar a resolucao e nao a abertura.
+
+   Nao ha story de bootstrap no backlog: a **topologia de deploy segue
+   `Deferred`** na spine, e e ela que decide quem monta o servidor MCP, com
+   quais credenciais e com qual `baseUrl`. Quando essa story existir, o wiring
+   dos dois e-mails (e do agendador do intake da 1.9, pronto e desligado) e
+   trabalho dela.
 3. **O link do e-mail nao abre nada.** O portal e Fase 1.5;
    `resolverAcessoAoChamado` existe e e testado, mas nenhum adapter o serve.
 4. **A resolucao nao muda mais nada no Chamado.** Nao ha `resolved_at`, nao ha
