@@ -1,6 +1,6 @@
 # ServiceDesk — Ponto de Retomada
 
-**Última atualização:** 2026-08-18 (Story 2.5 mergeada, PR #58)
+**Última atualização:** 2026-08-18 (**Epic 2 completo** — PR #60 fechou a 2.6)
 **Repo:** https://github.com/alexandrehst/servicedesk (público)
 
 ## O que é o projeto
@@ -9,9 +9,11 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7). Epic 1 completo (9/9). Epic 2 em 5/6.** Próxima story: **2.6** — ações irreversíveis com confirmação, que fecha o épico.
+**Epic 0 completo (7/7). Epic 1 completo (9/9). Epic 2 completo (6/6).** Próximo: **Epic 3** — fila, triagem e busca (a primeira story é a 3.1, `filtrar a fila`).
 
-O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois papéis com autorização no domínio, token de máquina com rate limit, e-mail de abertura com link de acesso, soft-delete, revisão do Log de auditoria e intake por e-mail com remetente verificado. E o Chamado já **muda**: comentário público ou interno, status por máquina de estados, Dono e Prioridade — todos com concorrência otimista (AD-10) e auditoria na mesma transação. Resolver **avisa o Solicitante** por e-mail, com quem resolveu e o tempo total (2.5).
+O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois papéis com autorização no domínio, token de máquina com rate limit, e-mail de abertura com link de acesso, soft-delete, revisão do Log de auditoria e intake por e-mail com remetente verificado. E o Chamado já **muda**: comentário público ou interno, status por máquina de estados, Dono e Prioridade — todos com concorrência otimista (AD-10) e auditoria na mesma transação. Resolver **avisa o Solicitante** por e-mail, com quem resolveu e o tempo total (2.5). E as três ações que não voltam atrás — fechar, cancelar, reabrir — **exigem confirmação humana** (2.6): um token que o servidor emite, com uso único, 5 minutos e escopo de um Chamado, uma ação e uma identidade.
+
+**O ciclo de vida do Chamado está fechado.** O que falta para a paridade é ENXERGAR o trabalho: fila, filtros, busca e resumo — o Epic 3. Hoje só se acha um Chamado sabendo o Número dele.
 
 **Os dois e-mails do FR-18 estão prontos e DESLIGADOS.** Não há raiz de composição: `criarHandlerAbrirChamado` e `criarHandlerMudarStatus` montam os commands sem o canal de notificação, então nenhum e-mail dispara em produção — como o agendador do intake (1.9). Os três esperam a story de bootstrap, que depende da topologia de deploy (`Deferred` na spine).
 
@@ -19,8 +21,9 @@ O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois 
 | --- | --- |
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
 | Epic 1 — Fundação segura | ✅ 9/9 `done` |
-| Epic 2 — Ciclo de vida do Chamado | 🔄 5/6 (falta só a `2.6`) |
-| Epics 3–4 | `backlog` |
+| Epic 2 — Ciclo de vida do Chamado | ✅ 6/6 `done` (PRs #46, #48, #50, #52, #58, #60) |
+| Epic 3 — Fila, triagem e busca | `backlog` (6 stories) |
+| Epic 4 — Portabilidade & migração | `backlog` (4 stories) |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 
@@ -246,10 +249,13 @@ Os pilares **Observável** e **Performático** não têm gate determinístico e 
 
 ## Próximas ações
 
-1. **Ligar o loop** para a 2.6, fechando o Epic 2:
+1. **Rearmar o prompt do loop para o Epic 3.** `_bmad-output/RALPH-PROMPT.md` está escrito para o Epic 2, que acabou: a seção 6 inteira fala de mutação de campo, e a 7 encerra num épico já encerrado. Antes de ligar o loop de novo, reescreva-a para o que o Epic 3 traz — **leitura em conjunto**, e não mais mutação de um Chamado por vez: filtros combináveis, ordenação, recortes, resumo, busca e os Resources/Prompts do MCP (FR-8..FR-12, FR-16).
+
+   O risco muda junto: no Epic 2, errar corrompia estado; no Epic 3, errar **vaza Chamado alheio numa lista** — e `visivelPara` foi escrito para um Chamado por vez. Essa é a primeira pergunta da 3.1.
+
    ```
-   /ralph-loop:ralph-loop Leia e execute _bmad-output/RALPH-PROMPT.md --completion-promise 'EPIC 2 COMPLETO' --max-iterations 4
+   /ralph-loop:ralph-loop Leia e execute _bmad-output/RALPH-PROMPT.md --completion-promise 'EPIC 3 COMPLETO' --max-iterations 12
    ```
-   O prompt do loop está em `_bmad-output/RALPH-PROMPT.md` — editável durante a execução, é relido a cada volta.
+   O prompt é relido a cada volta, então dá para editá-lo com o loop rodando.
 
    **Exige sessão sem sandbox** (`--dangerously-skip-permissions`). Medido em 2026-08-10: sob sandbox, `docker`, `psql`/Postgres e `gh` estão todos bloqueados — ou seja, o loop não roda teste de integração, não abre PR e não mergeia. O `excludedCommands` do `.claude/settings.json` **não funciona**; `git` por https é o único que passa.

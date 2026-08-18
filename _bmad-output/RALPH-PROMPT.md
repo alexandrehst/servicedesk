@@ -1,4 +1,21 @@
-# Prompt do loop — Epic 2
+# Prompt do loop — Epic 2 (ENCERRADO em 2026-08-18)
+
+> **PARE ANTES DE COMEÇAR.** O Epic 2 fechou com as seis stories `done` (PRs
+> #46, #48, #50, #52, #58, #60) e `epic-2: done` no `sprint-status.yaml`. Este
+> arquivo continua aqui como registro do que o épico mediu — **não** como
+> tarefa. Se o loop foi ligado com ele, não há o que avançar: confirme o
+> estado, diga que o épico está fechado e encerre.
+>
+> **Para o Epic 3, este prompt precisa ser REESCRITO, não editado nas bordas.**
+> A seção 6 inteira é sobre mutação de campo com concorrência otimista; o Epic 3
+> é **leitura em conjunto** — filtros, ordenação, recortes, resumo e busca
+> (FR-8..FR-12, FR-16). O risco muda de lugar: aqui, errar corrompia estado;
+> lá, errar **vaza Chamado alheio numa lista** — e `visivelPara` foi escrito
+> para um Chamado por vez. Essa é a primeira pergunta da Story 3.1.
+>
+> O que sobrevive sem mudança: as seções 2 a 5 (o ciclo, as regras
+> não-negociáveis, o ambiente e quando bloquear) e as lições transversais da
+> seção 6.
 
 Este arquivo é realimentado **inteiro** a cada iteração do `ralph-loop`. Você
 não lembra das voltas anteriores: descubra o estado lendo os arquivos e o
@@ -20,8 +37,8 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 2 `done` | Encerre o épico (ver seção 7) |
 
-**2.1 a 2.5 estão `done`** (PRs #46, #48, #50, #52 e #58). A próxima é a
-**2.6** — e ela **fecha o épico** (ver seção 7).
+**As seis estão `done`** (PRs #46, #48, #50, #52, #58 e #60), e `epic-2: done`.
+Não há próxima story neste épico.
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de
 uma volta interrompida. **PR de story aberto com checks verdes é a prioridade
@@ -309,7 +326,7 @@ Verificado no código em 2026-08-11 — **não descubra de novo**:
 | ~~2.3~~ | ✅ `done` (PR #50) — atribuição, e a dívida do `assignee` paga |
 | ~~2.4~~ | ✅ `done` (PR #52) — `PRIORIDADES`, migration `0009`, e a coluna lida de verdade |
 | ~~2.5~~ | ✅ `done` (PR #58) — e-mail de resolução, `duracaoLegivel` e o canal de notificação extraído |
-| 2.6 | **AD-7 inteiro.** Não existe `ConfirmationRequired`, nem sinal de confirmação em nenhum contrato |
+| ~~2.6~~ | ✅ `done` (PR #60) — o AD-7 inteiro: tabela `confirmacoes`, `ACOES_IRREVERSIVEIS`, um command e três tools |
 
 **A dívida do Log foi paga na 2.2.** `audit_entries` tem `de` e `para` (texto,
 nulos quando a ação não muda valor), e o histórico da 1.8 já os expõe. A 2.3
@@ -358,6 +375,40 @@ vezes (PR #39 e #43).
 
 **Verifique por mutação:** remova a checagem de confirmação e confirme que um
 teste reprova. Se nenhum reprovar, o guardrail não existe.
+
+#### O que a 2.6 mediu — e o que o Epic 3 herda
+
+- **A pergunta que abre a story não é "como implementar", é "o mecanismo já
+  existe?".** Foi assim duas vezes seguidas: a 2.5 descobriu que resolver já era
+  transição da 2.2, e a 2.6 descobriu que as irreversíveis também — o que
+  faltava era o caminho de execução, não a regra.
+- **Guardrail que o próprio chamador preenche não é guardrail.** O AD-7 pedia
+  "um sinal de confirmação explícito no input" e não dizia qual. Um
+  `confirmar: true` custaria três linhas e a IA o preencheria sozinha na
+  tentativa seguinte. O token emitido pelo servidor custou tabela, port, adapter
+  e serviço — e é a diferença entre o guardrail e a decoração dele. **Quando uma
+  AD deixa a forma em aberto, a forma É a decisão da story.**
+- **Diga o que o guardrail NÃO garante.** Nenhum protocolo server-side prova que
+  um humano confirmou: a IA pode encadear as duas chamadas. O que existe é que
+  nada muda sem o sinal, o sinal é fato no banco, e as duas etapas ficam no Log.
+  Isso está no PRD, na spine e no Dev Agent Record — não escondido atrás de
+  "implementa o AD-7".
+- **Quarto modo de mutação sobrevivente: o teste não alcançava a linha.** Depois
+  de inócua (1.9, 2.1, 2.3), redundante (2.2) e erro do script (2.4), agora foi
+  **teste fraco**: "confirmação serve para qualquer ação" sobrevivia porque o
+  caso usava token de outro Chamado, e o filtro de `ticket_number` barrava
+  antes. Quando uma mutação sobreviver, pergunte nesta ordem: ela muda
+  comportamento observável? o código é redundante? o alvo está certo? **o teste
+  chega até lá?**
+- **Teste que passa de primeira merece uma segunda leitura.** O caso "versão
+  divergente vira Conflict" passava movendo o Status — o que invalidava a
+  transição e fazia a recusa vir da máquina de estados, antes de o conflito
+  existir. Só o nome denunciava. **Confira que ele passou pela razão que
+  anuncia.**
+- **O `claude-review` mudo em 35s virou revisão real de 4m20s no re-run**, no
+  maior diff do épico. É a segunda vez que o re-run muda o resultado (a
+  primeira foi o #46, onde virou achado real). **Verde curto não é revisão:
+  re-run antes de concluir qualquer coisa.**
 
 #### O que a 2.5 mediu
 
@@ -546,9 +597,10 @@ teste reprova. Se nenhum reprovar, o guardrail não existe.
 - Migration nova entra em `drizzle/migrations/` e o `pnpm db:migrate` já itera
   sobre todas — **não** referencie arquivo por nome.
 
-**Sobre o `claude-review`:** revisou de verdade **oito** vezes em vinte e uma
-rodadas (#35, #39, #41, #43, #46, #50 e as duas do #58) — e as mudas são #52 na
-abertura e no re-run. O silêncio tem assinatura clara: **menos de um minuto** de
+**Sobre o `claude-review`:** revisou de verdade **nove** vezes em vinte e três
+rodadas (#35, #39, #41, #43, #46, #50, as duas do #58 e o re-run do #60) — e as
+mudas são #52 (abertura e re-run) e a primeira rodada do #60, que virou revisão
+de 4m20s ao ser re-executada. O silêncio tem assinatura clara: **menos de um minuto** de
 execução, contra 4–6 minutos quando revisa. Não conte com ele; conte com as
 mutações — e note que no #50 quem pegou o problema real foi o **Sonar**, não
 ele. Sempre confira:
@@ -589,9 +641,10 @@ encerre para escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/soft-delete.test.ts` (1.7) |
 | Caso de uso que orquestra sem escrever | `abrir-chamado-por-email.ts` (1.9) |
 
-**Estado do código em 2026-08-18:** 588 testes, cobertura 98,75%, 9 migrations
-aplicadas, Epic 0 e Epic 1 completos, Epic 2 com 2.1 a 2.5 `done` — **falta só
-a 2.6**.
+**Estado do código em 2026-08-18:** 647 testes, cobertura 98,56%, **10
+migrations** aplicadas, Epics 0, 1 e 2 completos. O Chamado nasce, muda, é
+resolvido e encerrado — com auditoria, concorrência otimista e
+human-in-the-loop nas três ações que não voltam atrás.
 
 **Gate ativo:** nove required checks na `main` — `lint`, `typecheck`, `test`,
 `arch`, `traceability`, `security-deps`, `security-secrets`, `sonar`,
