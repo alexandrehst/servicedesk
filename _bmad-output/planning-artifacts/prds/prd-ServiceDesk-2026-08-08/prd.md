@@ -215,6 +215,15 @@ Um Agente ou Gestor pode obter contadores da Fila: abertos por Status, por Time/
 **Consequências (testáveis):**
 - Retorna números agregados sem exigir navegação por Chamados.
 
+**Decidido em 2026-08-18 (Story 3.3):**
+
+- **Um contador é um oráculo**, e por isso a autorização vale para o agregado: contar Chamado que a pessoa não pode ver **é** vazar. O Solicitante recebe o resumo **dos Chamados dele**.
+- **A segunda camada do AD-8 não existe aqui.** Nas leituras de lista (FR-8, FR-9) o domínio reaplica a regra sobre os itens que voltam; um resumo **não tem itens**. Se o `WHERE` errar, os números saem errados e nada os corrige — e `{ aberto: 47 }` parece igualmente certo para quem tem 47 e para quem deveria ver 3. **A substituição:** o repositório devolve, junto dos números, o **escopo que aplicou**, e o domínio **recusa** o resumo se ele não for o escopo de quem pergunta. O que se confere não são os dados, é a pergunta que os produziu.
+- **O resumo mede CARGA:** `fechado` e `cancelado` ficam fora, e excluídos também. Contá-los faria o eixo por Dono virar o histórico de quem mais fechou Chamado no ano — ruído no lugar de sinal. **`resolvido` entra:** ainda pode ser reaberto (FR-7) e é trabalho aguardando confirmação.
+- **"Sem Dono" é campo próprio** (`semDono`), não uma chave nula no eixo por Dono — em JSON `null` vira a string `"null"` e colidiria com uma identidade assim chamada, além de esconder justamente o gargalo que motiva o resumo (mesmo raciocínio do recorte de primeira classe, FR-9).
+- **Zero é resposta; ausência não é.** Os eixos fechados (Status, Categoria) vêm completos, com zero onde não há Chamado: omitir obriga quem lê a saber a lista de cor e apaga a informação "não há nada aqui". O eixo por Dono é aberto, então só traz quem tem Chamado.
+- **`resumo_fila()` não tem parâmetros.** Filtrar o resumo não foi pedido, e `buscar_chamados` já responde à pergunta recortada — duas superfícies para a mesma coisa é o que a FR-9 evitou.
+
 ### 4.3 Busca e Duplicados
 
 #### FR-11: Busca simples

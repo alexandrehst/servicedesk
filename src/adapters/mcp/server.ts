@@ -38,12 +38,17 @@ import {
 } from '../../application/contracts/mudar-status.js'
 import type { Principal } from '../../application/contracts/principal.js'
 import {
+  resumoFilaInputSchema,
+  resumoFilaOutputSchema,
+} from '../../application/contracts/resumo-fila.js'
+import {
   verChamadoInputSchema,
   verChamadoOutputSchema,
 } from '../../application/contracts/ver-chamado.js'
 import type { IdentityRepository } from '../../application/ports/identity-repository.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
 import { buscarChamados } from '../../application/queries/buscar-chamados.js'
+import { resumoFila } from '../../application/queries/resumo-fila.js'
 import { verChamado } from '../../application/queries/ver-chamado.js'
 import { ehDomainError } from '../../domain/errors.js'
 
@@ -190,6 +195,18 @@ export const criarHandlerBuscarChamados = (deps: McpDeps) => {
       `${saida.itens.length} Chamado(s)${saida.temMais ? ' — ha mais, use deslocamento' : ''}.`,
   )
 }
+
+/**
+ * Handler do resumo (Story 3.3).
+ *
+ * O texto traz os numeros que respondem a pergunta do Gestor sem obrigar a IA a
+ * abrir o objeto: quantos estao em aberto e quantos estao sem Dono.
+ */
+export const criarHandlerResumoFila = (deps: McpDeps) =>
+  criarHandler(deps, resumoFila({ repositorio: deps.repositorio }), (saida) => {
+    const total = Object.values(saida.porStatus).reduce((soma, n) => soma + n, 0)
+    return `${total} Chamado(s) em aberto, ${saida.semDono} sem Dono.`
+  })
 
 /** Handler da tool de leitura, extraido para ser testavel sem transporte. */
 export const criarHandlerVerChamado = (deps: McpDeps) =>
@@ -385,6 +402,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: buscarChamadosOutputSchema,
     },
     criarHandlerBuscarChamados(deps),
+  )
+
+  servidor.registerTool(
+    'resumo_fila',
+    {
+      title: 'Resumo da Fila',
+      description:
+        'Contadores da Fila em aberto: por Status, por Categoria e por Dono, mais quantos estao sem Dono. Encerrados e excluidos nao entram — o resumo mede carga.',
+      inputSchema: resumoFilaInputSchema,
+      outputSchema: resumoFilaOutputSchema,
+    },
+    criarHandlerResumoFila(deps),
   )
 
   servidor.registerTool(

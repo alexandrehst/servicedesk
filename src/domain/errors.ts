@@ -62,6 +62,12 @@ export type DomainErrorCode =
   // por Dono, e aceitar ambos exigiria escolher um em silencio — quem chamou
   // nao saberia qual filtro foi aplicado.
   | 'RecorteConflitante'
+  // Story 3.3: o resumo foi montado com um escopo diferente do que quem
+  // pergunta alcanca. Nao e erro do usuario — e defeito de programacao, e
+  // falha ALTO de proposito: um resumo montado com escopo largo devolveria
+  // numeros da base inteira, e nenhum contador denuncia de quem sao os
+  // Chamados que ele contou.
+  | 'EscopoDivergente'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode
