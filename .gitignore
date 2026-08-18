@@ -30,3 +30,8 @@ Thumbs.db
 *.swp
 .idea/
 .vscode/
+
+# Story 3.2 — o diff que o job `claude-review` captura para o revisor ler.
+# Existe so dentro do runner; se aparecer aqui, foi alguem rodando o passo a
+# mao.
+pr.diff

@@ -30,6 +30,35 @@ jobs:
         with:
           fetch-depth: 1
 
+      # O revisor precisa do DIFF, e ate aqui nao tinha como obte-lo.
+      #
+      # Medido no PR #65 (run 32167886053): `duration_ms` 7442, `num_turns` 5,
+      # `permission_denials_count` 4 — e `is_error: false`, check VERDE. Ele nao
+      # deixou de encontrar violacao: desistiu em sete segundos, porque o prompt
+      # manda "revise o diff do PR" e nenhuma ferramenta permitida entrega o
+      # diff. `fetch-depth: 1` nao traz a base para comparar, `Bash` nao esta em
+      # allowedTools, e nao ha MCP de leitura de PR.
+      #
+      # Nas vezes em que revisou de verdade (4-6 min, PRs #35 a #60), ele
+      # reconstruiu o contexto navegando o repo com `Read`/`Grep` — as vezes
+      # persistia, as vezes desistia. Um required check que depende disso e
+      # "verde sem alvo": exatamente o que o QUALITY-GATE proibe.
+      #
+      # A correcao entrega o material por uma ferramenta que JA e permitida
+      # (`Read`), em vez de ampliar `allowedTools` — dar `Bash` ao revisor para
+      # ele rodar `gh` seria muito mais poder do que o problema exige.
+      - name: Capturar o diff do PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" > pr.diff
+          # Verifica o ARTEFATO, nao o exit code: um diff vazio faria o revisor
+          # aprovar o nada, e o check ficaria verde do mesmo jeito.
+          linhas=$(wc -l < pr.diff)
+          echo "diff capturado: $linhas linhas"
+          test "$linhas" -gt 0 || { echo "::error::diff vazio"; exit 1; }
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
@@ -64,6 +93,12 @@ jobs:
           prompt: |
             Voce e o revisor dos PILARES DE JULGAMENTO do ServiceDesk, um service
             desk interno MCP-first com arquitetura hexagonal.
+
+            O diff completo esta em `pr.diff`, na raiz do workspace. **Leia esse
+            arquivo com `Read` antes de qualquer outra coisa** — ele e o material
+            desta revisao, e sem ele voce nao tem o que revisar. Use `Read` e
+            `Grep` no restante do repositorio para entender o CONTEXTO do que
+            mudou (o arquivo inteiro, o modulo vizinho, o teste correspondente).
 
             Revise o diff do PR ${{ github.repository }}#${{ github.event.pull_request.number }}.
 
