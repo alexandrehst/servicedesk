@@ -1,6 +1,6 @@
 # ServiceDesk — Ponto de Retomada
 
-**Última atualização:** 2026-08-18
+**Última atualização:** 2026-08-18 (Story 2.5 mergeada, PR #58)
 **Repo:** https://github.com/alexandrehst/servicedesk (público)
 
 ## O que é o projeto
@@ -9,15 +9,17 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7). Epic 1 completo (9/9). Epic 2 em 4/6.** Próxima story: **2.5** — resolver Chamado, com e-mail de resolução.
+**Epic 0 completo (7/7). Epic 1 completo (9/9). Epic 2 em 5/6.** Próxima story: **2.6** — ações irreversíveis com confirmação, que fecha o épico.
 
-O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois papéis com autorização no domínio, token de máquina com rate limit, e-mail de abertura com link de acesso, soft-delete, revisão do Log de auditoria e intake por e-mail com remetente verificado. E o Chamado já **muda**: comentário público ou interno, status por máquina de estados, Dono e Prioridade — todos com concorrência otimista (AD-10) e auditoria na mesma transação.
+O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois papéis com autorização no domínio, token de máquina com rate limit, e-mail de abertura com link de acesso, soft-delete, revisão do Log de auditoria e intake por e-mail com remetente verificado. E o Chamado já **muda**: comentário público ou interno, status por máquina de estados, Dono e Prioridade — todos com concorrência otimista (AD-10) e auditoria na mesma transação. Resolver **avisa o Solicitante** por e-mail, com quem resolveu e o tempo total (2.5).
+
+**Os dois e-mails do FR-18 estão prontos e DESLIGADOS.** Não há raiz de composição: `criarHandlerAbrirChamado` e `criarHandlerMudarStatus` montam os commands sem o canal de notificação, então nenhum e-mail dispara em produção — como o agendador do intake (1.9). Os três esperam a story de bootstrap, que depende da topologia de deploy (`Deferred` na spine).
 
 | Épico | Estado |
 | --- | --- |
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
 | Epic 1 — Fundação segura | ✅ 9/9 `done` |
-| Epic 2 — Ciclo de vida do Chamado | 🔄 4/6 (`2.5` e `2.6` faltam) |
+| Epic 2 — Ciclo de vida do Chamado | 🔄 5/6 (falta só a `2.6`) |
 | Epics 3–4 | `backlog` |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
@@ -244,9 +246,9 @@ Os pilares **Observável** e **Performático** não têm gate determinístico e 
 
 ## Próximas ações
 
-1. **Ligar o loop** para 2.5 e 2.6, fechando o Epic 2:
+1. **Ligar o loop** para a 2.6, fechando o Epic 2:
    ```
-   /ralph-loop:ralph-loop Leia e execute _bmad-output/RALPH-PROMPT.md --completion-promise 'EPIC 2 COMPLETO' --max-iterations 8
+   /ralph-loop:ralph-loop Leia e execute _bmad-output/RALPH-PROMPT.md --completion-promise 'EPIC 2 COMPLETO' --max-iterations 4
    ```
    O prompt do loop está em `_bmad-output/RALPH-PROMPT.md` — editável durante a execução, é relido a cada volta.
 
