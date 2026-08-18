@@ -20,9 +20,8 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 3 `done` | Encerre o épico (ver seção 7) |
 
-**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). No Epic 3, a **3.1 está
-`done`** (PR #63) — ela definiu a forma de toda leitura em conjunto. A próxima é
-a **3.2**.
+**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). No Epic 3, **3.1 e 3.2
+estão `done`** (PRs #63 e #65). A próxima é a **3.3**.
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de uma
 volta interrompida. **PR de story aberto com checks verdes é a prioridade
@@ -339,8 +338,8 @@ novo**:
 | Story | O que **não existe** hoje |
 | --- | --- |
 | ~~3.1~~ | ✅ `done` (PR #63) — `escopoDeLeitura` + `filaVisivelPara`, `buscarFilaBruta`, contrato com teto, tool `buscar_chamados`, migration `0011` com três índices parciais |
-| 3.2 | A forma já existe (3.1): o que falta é **"sem Dono" como recorte de primeira classe**, e não `dono: null` escondido num filtro. `assignee IS NULL` não é expressável pelo contrato de hoje — `dono` é `z.string().min(1).optional()`, e ausente significa "não filtre". Decida como o recorte se expressa **sem** transformar `undefined` em dois significados |
-| 3.3 | Nenhuma agregação. `resumo_fila` precisa de `COUNT ... GROUP BY` por Status, Categoria e Dono — e a autorização vale para o agregado: contar Chamado que a pessoa não pode ver **é** vazar (um contador é um oráculo) |
+| ~~3.2~~ | ✅ `done` (PR #65) — `RECORTES` e `filtroDeDono` no domínio, `dono: FiltroDeDono` no port, `recorte` no contrato |
+| 3.3 | Nenhuma agregação. `resumo_fila` precisa de `COUNT ... GROUP BY` por Status, Categoria e Dono — e a autorização vale para o agregado: contar Chamado que a pessoa não pode ver **é** vazar (um contador é um oráculo). Repare que a forma da 3.1 **não** se aplica direto: um resumo não tem itens para `filaVisivelPara` filtrar, então **a segunda camada não existe aqui** — o `WHERE` do escopo é a única linha de defesa, e precisa ser testado como tal |
 | 3.4 | Nenhuma busca textual: sem `pg_trgm`, sem `tsvector`, sem índice de texto. E **`numero_legado` não existe** — a AC o cita, mas ele nasce no Epic 4. Decida se cria a coluna agora (nula) ou tira a AC de escopo, e **registre** |
 | 3.5 | Nada. Depende da busca da 3.4 e da decisão de escopo acima |
 | 3.6 | Nenhum Resource, nenhum Prompt. O SDK tem `registerResource(name, uriOrTemplate, config, cb)` e `registerPrompt(name, config, cb)` (`@modelcontextprotocol/server@2.0.0`) — e o Resource "chamado" precisa passar pela **mesma** query e pelo **mesmo** `visivelPara` de `ver_chamado`, senão nasce uma segunda porta de leitura sem autorização |
@@ -378,6 +377,64 @@ uma diferença que merece registro: o limite conta **chamadas**, não custo. Uma
 tool de fila é ordens de magnitude mais cara que um `ver_chamado`. Se você achar
 que isso importa, registre como dívida; **não** invente um segundo mecanismo de
 limite nesta story.
+
+#### O que a 3.2 mediu
+
+- **O gargalo protege o que ele conhece — e só isso.** `filaVisivelPara`
+  reaplica `podeVerTicket`, que sabe sobre **posse e exclusão**. Não sabe nada
+  sobre Dono, status ou categoria. Consequência prática: para o recorte, os
+  testes de saída bastam; para a interação **recorte × escopo**, o gargalo
+  volta a mascarar — e a mutação que faz o recorte **substituir** o escopo
+  passou pela suíte inteira até existir um teste que chama o repositório
+  direto. **Antes de escrever o teste, pergunte o que o gargalo sabe.**
+- **O alvo de mutação evaporou pelo formatador, de novo** (a 2.4 já tinha
+  medido). Rodar `biome check --write` antes não basta: é preciso **reler o
+  arquivo formatado** e copiar o texto de lá.
+- **Dado de teste é configuração de teste.** O `EXPLAIN` do `sem_dono`
+  reprovava porque o teste atribuía Dono com `UPDATE` depois do `INSERT`, e o
+  bloat dobrou as páginas — o planejador passou a preferir varredura com razão.
+  Gerando os dados já com a distribuição certa, o plano usa o índice. E a
+  distribuição importa: "sem Dono" precisa ser **minoria** para o índice fazer
+  sentido.
+- **Erro de entrada também mora no domínio.** `recorte` + `dono` juntos são
+  recusados por `filtroDeDono`, não por um `.refine()` no Zod — mesmo raciocínio
+  do motivo da reabertura (2.6). Um `.refine()` teria funcionado igual **hoje**,
+  e deixado o adapter HTTP futuro sem a regra.
+- **Mutação inócua pode ser prova de que outra guarda funciona.** "'meus' usa o
+  parâmetro `dono`" sobrevive **porque** a recusa do conflito garante que `dono`
+  é `undefined` ali. Registrar isso é mais útil que forçar um teste artificial —
+  e a mutação que remove a recusa reprova 6 testes.
+
+#### O gate `claude-review` estava verde SEM revisar — corrigido no PR #66
+
+Descoberto ao investigar o quarto silêncio seguido. O log do job dizia:
+
+```json
+{ "is_error": false, "duration_ms": 7442, "num_turns": 5,
+  "permission_denials_count": 4 }
+```
+
+Sete segundos, quatro negações de permissão, **check verde**. A causa: o prompt
+manda "revise o diff do PR" e **nenhuma ferramenta permitida entregava o diff**
+(`fetch-depth: 1`, sem `Bash`, sem MCP de PR). Nas vezes em que revisou de
+verdade, ele reconstruía o contexto com `Read`/`Grep` — às vezes persistia, às
+vezes desistia.
+
+**Duas correções foram para a `main`:**
+
+1. um step captura `gh pr diff` num arquivo, e o prompt manda lê-lo com `Read`
+   (ferramenta que já era permitida — dar `Bash` ao revisor seria mais poder do
+   que o problema exige);
+2. um step publica **turnos, negações e duração** no resumo do job, porque há um
+   **segundo** caminho para verde sem alvo: a ação se **pula sozinha** quando o
+   PR altera o próprio workflow (`Workflow validation failed`), e o step termina
+   `success`.
+
+**O que isso significa para você:** o `claude-review` das stories 3.1 e 3.2 não
+revisou nada. **Não conte com ele como cobertura retroativa** — e, a partir de
+agora, **leia o resumo do job** antes de tratar o verde como revisão. Se voltar
+a levar 4–6 minutos e comentar, a correção funcionou; se continuar em segundos,
+o resumo dirá por quê.
 
 #### O que a 3.1 mediu
 
@@ -449,9 +506,10 @@ limite nesta story.
 - **Coluna nova entra `NOT NULL DEFAULT`**, não nulável, quando o domínio tem um
   valor natural (2.4).
 
-**Sobre o `claude-review`:** revisou de verdade **nove** vezes em vinte e três
-rodadas. Não conte com ele; conte com as mutações — e note que no #50 quem pegou
-o problema real foi o **Sonar**, olhando forma, e não ele.
+**Sobre o `claude-review`:** revisou de verdade nove vezes em vinte e três
+rodadas até o PR #60, e **nenhuma** depois disso — o defeito corrigido no #66
+explica a sequência. Conte com as mutações; e note que no #50 quem pegou o
+problema real foi o **Sonar**, olhando forma, e não ele.
 
 ### 7. Fim do épico
 
@@ -488,10 +546,10 @@ escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/acao-irreversivel.test.ts` (2.6) |
 | Migration com índice | `0006_soft_delete.sql` (índice parcial, com o porquê escrito) |
 
-**Estado do código em 2026-08-18:** 688 testes, cobertura 98,32%, **11
-migrations** aplicadas, Epics 0, 1 e 2 completos e a Story 3.1 `done`. O Chamado
-nasce, muda, é resolvido e encerrado — e agora **a Fila se enxerga**, filtrada
-por Status, Dono e Categoria, paginada e ordenada.
+**Estado do código em 2026-08-18:** 713 testes, cobertura 98,34%, 11 migrations
+aplicadas, Epics 0, 1 e 2 completos e as Stories 3.1 e 3.2 `done`. O Chamado
+nasce, muda, é resolvido e encerrado — e a Fila se enxerga: filtrada por Status,
+Dono e Categoria, com os recortes "meus" e "sem Dono", paginada e ordenada.
 
 **Gate ativo:** nove required checks na `main` — `lint`, `typecheck`, `test`,
 `arch`, `traceability`, `security-deps`, `security-secrets`, `sonar`,
