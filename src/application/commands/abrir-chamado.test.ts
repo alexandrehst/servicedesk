@@ -47,6 +47,9 @@ const repositorioFake = (): TicketRepository & { chamadas: [NovoTicket, Principa
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
     },
+    async executarAcaoIrreversivelComAuditoria() {
+      throw new Error('esta suite nao executa Acao irreversivel')
+    },
     async buscarHistoricoBruto() {
       throw new Error('esta suite nao le historico')
     },
@@ -103,6 +106,9 @@ it('propaga falha da persistencia sem mascarar', async () => {
     },
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
+    },
+    async executarAcaoIrreversivelComAuditoria() {
+      throw new Error('esta suite nao executa Acao irreversivel')
     },
     async buscarHistoricoBruto() {
       throw new Error('esta suite nao le historico')

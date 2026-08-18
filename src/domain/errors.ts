@@ -49,6 +49,15 @@ export type DomainErrorCode =
   // permissao nem valor invalido — e uma mudanca que nao muda nada, e aceita-la
   // encheria o Log de evento que nao aconteceu.
   | 'PrioridadeInalterada'
+  // Story 2.6: a Acao irreversivel foi pedida sem confirmacao valida (AD-7,
+  // FR-15, FR-17). UM codigo para os quatro casos — nao mandou nada, token de
+  // outra acao, expirado, ja usado — pela mesma razao da resposta cega da 1.3:
+  // distinguir "expirou" de "nao existe" so ensina a sondar.
+  | 'ConfirmationRequired'
+  // Story 2.6: reabrir sem dizer por que. FR-7 exige o motivo, e a exigencia
+  // vive no dominio (AD-7), nao no schema Zod — senao o adapter HTTP e a UI da
+  // Fase 1.5 dependeriam de lembrar dela.
+  | 'MotivoObrigatorio'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode

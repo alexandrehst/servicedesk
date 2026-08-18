@@ -30,6 +30,17 @@ export const ACOES = [
   'mudar_status',
   'atribuir_chamado',
   'mudar_prioridade',
+  // Story 2.6 — as tres Acoes irreversiveis (AD-7) e o PEDIDO de confirmacao
+  // que precede cada uma delas.
+  'fechar_chamado',
+  'cancelar_chamado',
+  'reabrir_chamado',
+  // Registrar o pedido nao contradiz "escrita que nao aconteceu nao vira
+  // auditoria" (1.7): a exclusao que nao afetou linha NAO aconteceu, mas o
+  // pedido de confirmacao aconteceu — um token foi emitido e existe no banco.
+  // Sem ele, o Log mostraria so o encerramento, e nao haveria como distinguir
+  // "o humano confirmou" de "a IA se auto-confirmou em 200ms".
+  'solicitar_confirmacao',
 ] as const
 
 export type AcaoDeAuditoria = (typeof ACOES)[number]

@@ -1,3 +1,4 @@
+import type { AcaoIrreversivel } from '../../domain/acoes-irreversiveis.js'
 import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import type { Origem } from '../../domain/origem.js'
@@ -135,6 +136,29 @@ export type TicketRepository = {
     readonly para: Prioridade
     readonly esperada: number
     readonly autor: Principal
+  }): Promise<{ readonly version: number } | null>
+
+  /**
+   * Executa uma Acao irreversivel (Story 2.6, AD-7, FR-7): fechar, cancelar ou
+   * reabrir. Mesmo contrato das outras mutacoes de campo — versao conferida
+   * pelo proprio `UPDATE` (AD-10), `null` quando nada casou.
+   *
+   * A `acao` chega PRONTA do dominio (`ACOES_IRREVERSIVEIS`), como o rotulo do
+   * Comentario na 2.1: o adapter grava, nao deduz. Se ele ramificasse sobre o
+   * Status de destino para escolher o rotulo, seria o unico lugar do sistema a
+   * saber que `fechado` significa "fechar_chamado".
+   *
+   * `motivo` so vem em `reabrir_chamado` — e a exigencia esta no dominio
+   * (`motivoValido`), nao aqui: o adapter nao recusa, ele registra.
+   */
+  executarAcaoIrreversivelComAuditoria(entrada: {
+    readonly numero: number
+    readonly acao: AcaoIrreversivel
+    readonly de: Status
+    readonly para: Status
+    readonly esperada: number
+    readonly autor: Principal
+    readonly motivo?: string
   }): Promise<{ readonly version: number } | null>
 
   /**

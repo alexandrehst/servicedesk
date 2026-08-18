@@ -53,6 +53,10 @@ export const auditEntries = pgTable('audit_entries', {
   // mudam valor nenhum, e inventar 'nenhum' seria registrar um evento falso.
   de: text('de'),
   para: text('para'),
+  // Story 2.6 — o motivo da REABERTURA (FR-7). Nulo nas demais acoes: so
+  // `reabrir_chamado` o informa. Vai para o Log, e nao para um Comentario,
+  // porque o Log e append-only e o Comentario tem soft-delete.
+  motivo: text('motivo'),
   registradoEm: timestamp('registrado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 
@@ -140,8 +144,28 @@ export const rateLimit = pgTable(
   (tabela) => [primaryKey({ columns: [tabela.identity, tabela.janela] })],
 )
 
+/**
+ * Story 2.6 — a confirmacao de uma Acao irreversivel (AD-7, FR-15, FR-17).
+ *
+ * Mesmo desenho de `loginLinks` (1.3): o banco ve HASH, o token cru existe uma
+ * vez na resposta, o consumo e atomico e o uso e unico. A diferenca esta no
+ * ESCOPO — `ticketNumber`, `acao` e `identity` — que e o que impede uma
+ * confirmacao de "cancelar #1042" fechar #1042, ou servir a outra pessoa.
+ */
+export const confirmacoes = pgTable('confirmacoes', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  ticketNumber: integer('ticket_number').notNull(),
+  acao: text('acao').notNull(),
+  identity: text('identity').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
+  usadoEm: timestamp('usado_em', { withTimezone: true }),
+  criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+})
+
 export type McpTokenRow = typeof mcpTokens.$inferSelect
 export type RateLimitRow = typeof rateLimit.$inferSelect
+export type ConfirmacaoRow = typeof confirmacoes.$inferSelect
 
 /**
  * Story 1.6 — link de acesso ao Chamado (FR-18). Sem `usadoEm`: reutilizavel

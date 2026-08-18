@@ -73,6 +73,13 @@ const mutarCampoComAuditoria = async (
     para: string
     esperada: number
     autor: Principal
+    /**
+     * Story 2.6 — o porque da REABERTURA (FR-7). Opcional, e nao uma segunda
+     * versao desta funcao: as garantias que ela carrega sao as mesmas, e
+     * duplica-las para acrescentar uma coluna seria o erro que a extracao da
+     * 2.3 desfez.
+     */
+    motivo?: string
   },
 ): Promise<{ version: number } | null> =>
   db.transaction(async (tx) => {
@@ -101,6 +108,7 @@ const mutarCampoComAuditoria = async (
       origin: entrada.autor.origin,
       de: entrada.de,
       para: entrada.para,
+      motivo: entrada.motivo ?? null,
     })
 
     return { version: linha.version }
@@ -353,6 +361,10 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         acao: 'mudar_prioridade',
       },
     )
+  },
+
+  async executarAcaoIrreversivelComAuditoria(entrada) {
+    return mutarCampoComAuditoria(db, { status: entrada.para }, entrada)
   },
 
   async atribuirComAuditoria(entrada) {

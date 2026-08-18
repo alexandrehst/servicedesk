@@ -66,6 +66,7 @@ Mapa paradigma → diretórios:
 - **Binds:** FR-7, FR-15, FR-17
 - **Prevents:** o caminho MCP pular o human-in-the-loop que a UI aplica.
 - **Rule:** os commands `fechar`/`cancelar`/`reabrir` só executam com um sinal de confirmação explícito no input; a exigência vive no domínio, não no adapter — todo ponto de entrada a herda.
+- **Implementado em 2026-08-18 (Story 2.6).** O sinal é um **token emitido pelo servidor** (tabela `confirmacoes`: hash, uso único, 5 minutos, escopo `Chamado + ação + identidade`), e não um booleano no input — um booleano é um campo que *quem chama preenche*, e a IA o preencheria sozinha na tentativa seguinte. **Um** command (`acao-irreversivel.ts`) atende as três ações, parametrizado por `ACOES_IRREVERSIVEIS` (`domain/acoes-irreversiveis.ts`), que também mora no domínio pelo mesmo motivo do AD-5: se o mapa fosse do adapter, o HTTP poderia divergir. A ordem é visibilidade → autorização → transição → motivo → confirmação → mutação, e cada troca dela é um vazamento: emitir confirmação antes de autorizar entrega que o Chamado existe naquele estado e que a ação seria válida. O **pedido** vai ao Log (`solicitar_confirmacao`), porque o intervalo entre pedir e executar é a única evidência de human-in-the-loop que o servidor consegue produzir. **Limite registrado:** nenhum protocolo do lado do servidor prova que um humano confirmou — a IA pode encadear as duas chamadas.
 
 ### AD-8 — Autorização (papel + posse) é aplicada no domínio
 - **Binds:** FR-2, FR-19, FR-20, FR-21
