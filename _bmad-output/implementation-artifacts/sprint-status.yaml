@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-08
-last_updated: 2026-08-18 (Epic 2: 2.1-2.4 done; 2.5 em review)
+last_updated: 2026-08-18 (Epic 2: 2.1-2.5 done; falta a 2.6)
 project: ServiceDesk
 project_key: NOKEY
 tracking_system: file-system
@@ -84,7 +84,7 @@ development_status:
   2-2-mudar-status-maquina-de-estados: done
   2-3-atribuir-dono-self-assign: done
   2-4-mudar-prioridade: done
-  2-5-resolver-chamado-e-mail-de-resolucao: review
+  2-5-resolver-chamado-e-mail-de-resolucao: done
   2-6-acoes-irreversiveis-com-confirmacao: backlog
   epic-2-retrospective: optional
 

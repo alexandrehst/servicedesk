@@ -20,8 +20,8 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 2 `done` | Encerre o épico (ver seção 7) |
 
-**2.1, 2.2, 2.3 e 2.4 estão `done`** (PRs #46, #48, #50 e #52). A próxima é a
-**2.5**.
+**2.1 a 2.5 estão `done`** (PRs #46, #48, #50, #52 e #58). A próxima é a
+**2.6** — e ela **fecha o épico** (ver seção 7).
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de
 uma volta interrompida. **PR de story aberto com checks verdes é a prioridade
@@ -308,7 +308,7 @@ Verificado no código em 2026-08-11 — **não descubra de novo**:
 | ~~2.2~~ | ✅ `done` (PR #48) — máquina de estados, `version`, `Conflict`, par `de`/`para` |
 | ~~2.3~~ | ✅ `done` (PR #50) — atribuição, e a dívida do `assignee` paga |
 | ~~2.4~~ | ✅ `done` (PR #52) — `PRIORIDADES`, migration `0009`, e a coluna lida de verdade |
-| 2.5 | `enviarChamadoResolvido` no port `NotificadorDeChamado` — que hoje só tem `enviarChamadoAberto`. O e-mail traz **quem resolveu e o tempo total** (exige `criadoEm` e o instante da resolução) |
+| ~~2.5~~ | ✅ `done` (PR #58) — e-mail de resolução, `duracaoLegivel` e o canal de notificação extraído |
 | 2.6 | **AD-7 inteiro.** Não existe `ConfirmationRequired`, nem sinal de confirmação em nenhum contrato |
 
 **A dívida do Log foi paga na 2.2.** `audit_entries` tem `de` e `para` (texto,
@@ -358,6 +358,50 @@ vezes (PR #39 e #43).
 
 **Verifique por mutação:** remova a checagem de confirmação e confirme que um
 teste reprova. Se nenhum reprovar, o guardrail não existe.
+
+#### O que a 2.5 mediu
+
+- **Nem toda story do épico precisa de tool nova — e a 2.5 não precisou.**
+  Resolver já era transição de `TRANSICOES` (2.2), executável por
+  `mudar_status`. A pergunta real não era "como resolver", era **onde o e-mail
+  entra**: uma tool dedicada criaria **duas portas para o mesmo estado**, e uma
+  delas não notificaria. **Antes de escrever a story, pergunte se o mecanismo
+  já existe** — o PRD (UJ-1) já descrevia a resolução por `mudar_status`, e
+  contrariá-lo teria custado tabela nova de transições, capacidade, ação de
+  Log, contrato, command e handler para não ganhar garantia nenhuma.
+- **A linha entre as duas tabelas de transição é a IRREVERSIBILIDADE, não "tem
+  efeito colateral".** Resolver notifica e mesmo assim ficou na tabela comum,
+  porque `resolvido → em_andamento` existe. A 2.6 é o outro lado: fechar,
+  cancelar e reabrir não voltam sozinhos, e por isso pedem human-in-the-loop.
+- **Extrair antes do Sonar reprovar já é barato.** O bloco
+  `criarLink → montarUrl → enviar → catch/log` existia em `abrir-chamado.ts`;
+  copiá-lo seriam ~20 linhas duplicadas — o mesmo erro que reprovou o #50 com
+  9%. `notificarComLink` (`application/commands/notificacao-de-chamado.ts`)
+  deixou os dois commands só com a mensagem, e as mutações ficaram mais fortes:
+  "falha de e-mail propaga" reprova **7** testes e "catch vazio" reprova **5**.
+- **"Escrita que não aconteceu não vira auditoria" (1.7) vale para o e-mail.**
+  Notificar antes de checar se o `UPDATE` casou avisaria o Solicitante de uma
+  resolução que perdeu o conflito. A mutação reprova 10 testes — é a mais
+  importante da story, e a 2.6 herda a pergunta: **ação irreversível recusada
+  não pode ter efeito colateral nenhum.**
+- **Teste de duração precisa fixar a data no BANCO.** O primeiro teste de
+  integração mediu "13 minutos" porque o `criadoEm` vem do `defaultNow()` do
+  Postgres e o `agora()` era fixo. Fixar `criado_em` direto no banco e ler pelo
+  command deu determinismo **e** provou que a duração sai do banco, não de um
+  literal (a lição do `assignee`, de novo).
+- **Otimização plausível que destrói uma AC merece mutação própria.** "Guardar
+  'já avisei' e não re-notificar" parece razoável e mataria a re-resolução;
+  virou mutação e reprova 9 testes.
+- **O `claude-review` voltou a revisar de verdade** — 5m30s na abertura e
+  3m53s no re-run, com comentário substantivo nas duas. Ele não achou violação,
+  mas apontou um **gap real**: `criarHandlerMudarStatus` monta o command **sem
+  `notificacao`**, como `criarHandlerAbrirChamado` faz desde a 1.6 — então
+  nenhum dos dois e-mails do FR-18 dispara em produção. Não é violação do
+  diff; é a **topologia de deploy `Deferred`**, que não tem story. Ficou
+  registrado no Dev Agent Record e na seção Deferred da spine, com os três
+  itens represados atrás dela (os dois e-mails e o agendador do intake da 1.9).
+  **Achado que não vira código vira registro** — nunca thread resolvida em
+  silêncio.
 
 #### O que a 2.4 mediu
 
@@ -502,12 +546,12 @@ teste reprova. Se nenhum reprovar, o guardrail não existe.
 - Migration nova entra em `drizzle/migrations/` e o `pnpm db:migrate` já itera
   sobre todas — **não** referencie arquivo por nome.
 
-**Sobre o `claude-review`:** revisou de verdade seis vezes em **dezenove**
-rodadas (#35, #39, #41, #43, #46, #50) — as duas rodadas novas são o PR #52,
-mudo na abertura **e** no re-run. O silêncio tem assinatura clara: **menos de um
-minuto** de execução, contra 4–5 minutos quando revisa. Não conte com ele;
-conte com as mutações — e note que no #50 quem pegou o problema real foi o
-**Sonar**, não ele. Sempre confira:
+**Sobre o `claude-review`:** revisou de verdade **oito** vezes em vinte e uma
+rodadas (#35, #39, #41, #43, #46, #50 e as duas do #58) — e as mudas são #52 na
+abertura e no re-run. O silêncio tem assinatura clara: **menos de um minuto** de
+execução, contra 4–6 minutos quando revisa. Não conte com ele; conte com as
+mutações — e note que no #50 quem pegou o problema real foi o **Sonar**, não
+ele. Sempre confira:
 
 ```bash
 gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
@@ -545,8 +589,9 @@ encerre para escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/soft-delete.test.ts` (1.7) |
 | Caso de uso que orquestra sem escrever | `abrir-chamado-por-email.ts` (1.9) |
 
-**Estado do código em 2026-08-18:** 551 testes, cobertura 98,8%, 9 migrations
-aplicadas, Epic 0 e Epic 1 completos, Epic 2 com 2.1, 2.2, 2.3 e 2.4 `done`.
+**Estado do código em 2026-08-18:** 588 testes, cobertura 98,75%, 9 migrations
+aplicadas, Epic 0 e Epic 1 completos, Epic 2 com 2.1 a 2.5 `done` — **falta só
+a 2.6**.
 
 **Gate ativo:** nove required checks na `main` — `lint`, `typecheck`, `test`,
 `arch`, `traceability`, `security-deps`, `security-secrets`, `sonar`,
