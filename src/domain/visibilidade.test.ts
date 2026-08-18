@@ -20,6 +20,7 @@ const chamadoDaMarina: Ticket = {
   descricao: 'Sem resposta ao botao.',
   categoria: 'hardware',
   status: 'aberto',
+  prioridade: 'media',
   requester: 'marina@empresa.com',
   assignee: null,
   criadoEm: new Date('2026-08-10T12:00:00Z'),

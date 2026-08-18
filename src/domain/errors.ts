@@ -45,6 +45,10 @@ export type DomainErrorCode =
   // "nao cadastrado" de "nao e Agente" transformaria a tool num verificador de
   // quem trabalha na empresa (raciocinio da resposta cega da 1.3).
   | 'AtribuicaoInvalida'
+  // Story 2.4: pedir a prioridade que o Chamado ja tem. Nao e falha de
+  // permissao nem valor invalido — e uma mudanca que nao muda nada, e aceita-la
+  // encheria o Log de evento que nao aconteceu.
+  | 'PrioridadeInalterada'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode

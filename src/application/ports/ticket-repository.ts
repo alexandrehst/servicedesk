@@ -1,7 +1,7 @@
 import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import type { Origem } from '../../domain/origem.js'
-import type { NovoTicket, Status, Ticket } from '../../domain/ticket.js'
+import type { NovoTicket, Prioridade, Status, Ticket } from '../../domain/ticket.js'
 import type { ChamadoBruto, HistoricoBruto } from '../../domain/visibilidade.js'
 import type { Principal } from '../contracts/principal.js'
 
@@ -121,6 +121,18 @@ export type TicketRepository = {
     readonly numero: number
     readonly de: string | null
     readonly para: string
+    readonly esperada: number
+    readonly autor: Principal
+  }): Promise<{ readonly version: number } | null>
+
+  /**
+   * Muda a Prioridade (Story 2.4, FR-6). Mesmo contrato das outras mutacoes de
+   * campo: versao conferida pelo `UPDATE`, `null` quando nada casou.
+   */
+  mudarPrioridadeComAuditoria(entrada: {
+    readonly numero: number
+    readonly de: Prioridade
+    readonly para: Prioridade
     readonly esperada: number
     readonly autor: Principal
   }): Promise<{ readonly version: number } | null>

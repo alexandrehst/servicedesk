@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/server'
 import { abrirChamado } from '../../application/commands/abrir-chamado.js'
 import { atribuirChamado } from '../../application/commands/atribuir-chamado.js'
 import { comentarChamado } from '../../application/commands/comentar-chamado.js'
+import { mudarPrioridade } from '../../application/commands/mudar-prioridade.js'
 import { mudarStatus } from '../../application/commands/mudar-status.js'
 import {
   abrirChamadoInputSchema,
@@ -16,6 +17,10 @@ import {
   comentarChamadoInputSchema,
   comentarChamadoOutputSchema,
 } from '../../application/contracts/comentar-chamado.js'
+import {
+  mudarPrioridadeInputSchema,
+  mudarPrioridadeOutputSchema,
+} from '../../application/contracts/mudar-prioridade.js'
 import {
   mudarStatusInputSchema,
   mudarStatusOutputSchema,
@@ -175,6 +180,15 @@ export const criarHandlerMudarStatus = (deps: McpDeps) =>
     (saida) => `Chamado #${saida.numero}: ${saida.de} -> ${saida.para} (versao ${saida.versao}).`,
   )
 
+/** Handler de Prioridade (Story 2.4). */
+export const criarHandlerMudarPrioridade = (deps: McpDeps) =>
+  criarHandler(
+    deps,
+    mudarPrioridade({ repositorio: deps.repositorio }),
+    (saida) =>
+      `Chamado #${saida.numero}: prioridade ${saida.de} -> ${saida.para} (versao ${saida.versao}).`,
+  )
+
 /** Handler de atribuicao (Story 2.3). */
 export const criarHandlerAtribuirChamado = (deps: McpDeps) =>
   criarHandler(
@@ -231,6 +245,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: atribuirChamadoOutputSchema,
     },
     criarHandlerAtribuirChamado(deps),
+  )
+
+  servidor.registerTool(
+    'mudar_prioridade',
+    {
+      title: 'Mudar Prioridade',
+      description:
+        'Ajusta a urgencia do Chamado (baixa, media, alta, critica). Exige a versao lida em ver_chamado.',
+      inputSchema: mudarPrioridadeInputSchema,
+      outputSchema: mudarPrioridadeOutputSchema,
+    },
+    criarHandlerMudarPrioridade(deps),
   )
 
   servidor.registerTool(

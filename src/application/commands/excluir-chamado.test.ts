@@ -16,6 +16,7 @@ const chamadoDaMarina: Ticket = {
   descricao: 'Sem resposta ao botao.',
   categoria: 'hardware',
   status: 'aberto',
+  prioridade: 'media',
   requester: 'marina@empresa.com',
   assignee: null,
   criadoEm: new Date('2026-08-10T12:00:00.000Z'),
@@ -45,6 +46,9 @@ const repositorio: TicketRepository = {
   },
   async atribuirComAuditoria() {
     throw new Error('esta suite nao atribui')
+  },
+  async mudarPrioridadeComAuditoria() {
+    throw new Error('esta suite nao muda Prioridade')
   },
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
@@ -152,6 +156,9 @@ describe('caminho positivo (AC #1, #5)', () => {
       },
       async atribuirComAuditoria() {
         throw new Error('esta suite nao atribui')
+      },
+      async mudarPrioridadeComAuditoria() {
+        throw new Error('esta suite nao muda Prioridade')
       },
       async buscarIntakePorMessageId() {
         throw new Error('esta suite nao faz intake por e-mail')

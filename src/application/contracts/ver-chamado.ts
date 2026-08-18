@@ -26,6 +26,8 @@ export const verChamadoOutputSchema = z.object({
   descricao: z.string(),
   categoria: z.string(),
   status: z.string(),
+  /** Story 2.4 — FR-6. */
+  prioridade: z.string(),
   requester: z.string(),
   assignee: z.string().nullable(),
   criadoEm: z.iso.datetime(),

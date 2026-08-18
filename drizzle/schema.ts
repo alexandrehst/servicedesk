@@ -23,6 +23,8 @@ export const tickets = pgTable('tickets', {
   descricao: text('descricao').notNull(),
   categoria: text('categoria').notNull(),
   status: text('status').notNull(),
+  // Story 2.4 — FR-6. Ver a migration para o porque do NOT NULL.
+  priority: text('priority').notNull().default('media'),
   requester: text('requester').notNull(),
   assignee: text('assignee'),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
