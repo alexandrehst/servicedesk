@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-08
-last_updated: 2026-08-18 (Epic 2: 2.1-2.5 done; 2.6 em review)
+last_updated: 2026-08-18 (Epic 2 COMPLETO — 6/6; proximo e o Epic 3)
 project: ServiceDesk
 project_key: NOKEY
 tracking_system: file-system
@@ -79,13 +79,13 @@ development_status:
   # ---------------------------------------------------------------
   # Epic 2: Ciclo de vida do Chamado
   # ---------------------------------------------------------------
-  epic-2: in-progress
+  epic-2: done
   2-1-comentar-chamado-publico-interno: done
   2-2-mudar-status-maquina-de-estados: done
   2-3-atribuir-dono-self-assign: done
   2-4-mudar-prioridade: done
   2-5-resolver-chamado-e-mail-de-resolucao: done
-  2-6-acoes-irreversiveis-com-confirmacao: review
+  2-6-acoes-irreversiveis-com-confirmacao: done
   epic-2-retrospective: optional
 
   # ---------------------------------------------------------------
