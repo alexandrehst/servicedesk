@@ -58,6 +58,10 @@ export type DomainErrorCode =
   // vive no dominio (AD-7), nao no schema Zod — senao o adapter HTTP e a UI da
   // Fase 1.5 dependeriam de lembrar dela.
   | 'MotivoObrigatorio'
+  // Story 3.2: `recorte` e `dono` juntos na consulta da Fila. Os dois filtram
+  // por Dono, e aceitar ambos exigiria escolher um em silencio — quem chamou
+  // nao saberia qual filtro foi aplicado.
+  | 'RecorteConflitante'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode

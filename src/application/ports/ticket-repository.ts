@@ -2,6 +2,7 @@ import type { AcaoIrreversivel } from '../../domain/acoes-irreversiveis.js'
 import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import type { Origem } from '../../domain/origem.js'
+import type { FiltroDeDono } from '../../domain/recorte-da-fila.js'
 import type { Categoria, NovoTicket, Prioridade, Status, Ticket } from '../../domain/ticket.js'
 import type {
   ChamadoBruto,
@@ -195,7 +196,12 @@ export type TicketRepository = {
     escopo: EscopoDeLeitura,
     filtros: {
       readonly status?: Status
-      readonly dono?: string
+      /**
+       * Story 3.2 — chega como DADO do dominio (`filtroDeDono`), nao como
+       * `string | undefined`: "sem Dono" nao era expressavel sem dar dois
+       * significados ao mesmo campo.
+       */
+      readonly dono: FiltroDeDono
       readonly categoria?: Categoria
     },
     pagina: {
