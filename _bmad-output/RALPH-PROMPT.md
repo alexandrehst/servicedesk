@@ -144,6 +144,36 @@ pnpm db:migrate               # aplica TODAS as migrations, em ordem
 **Docker parado deixou de ser bloqueio** (medido na Story 1.9): `open -a Docker`
 sobe o daemon sem intervenção humana. Só bloqueie se ele não subir.
 
+#### Quando o `security-deps` reprovar sem você ter tocado em dependência
+
+**O Trivy baixa a base de CVE a cada execução: o mesmo lockfile passa hoje e
+reprova amanhã.** Aconteceu em 2026-08-18 num PR **só de documentação** —
+CVE-2026-40345 (HIGH) em `deepmerge-ts@7.1.5`, transitiva de produção via
+`mailparser → html-to-text`. Não é regressão do seu diff, mas **bloqueia todo
+PR do repositório** até ser corrigida, porque o check é required.
+
+O caminho, quando não existe upgrade que resolva (era o caso: `html-to-text`
+já estava na última versão e sua faixa é `^7`):
+
+```jsonc
+// package.json
+"pnpm": { "overrides": { "deepmerge-ts": "^8.0.1" } }
+```
+
+**Override de major exige prova de que o consumidor sobrevive** — `pnpm install`
+sem erro não prova nada, porque a incompatibilidade aparece em execução:
+
+1. Veja **qual API** o consumidor usa (`grep deepmerge node_modules/.pnpm/<pkg>@<v>/…`).
+   Se for a superfície rica, é justamente o que uma major quebra.
+2. Rode um **smoke pelo caminho real** — no caso, `simpleParser` sobre e-mail
+   HTML, conferindo que parágrafo e lista continuam sendo convertidos.
+3. Rode a suíte inteira.
+
+Faça isso num PR `fix(deps):` **separado**, referenciando a Story que introduziu
+a dependência (o `traceability` exige `Story N.N` ou `FR-NN` no corpo), e
+mergeie-o **antes** do PR que estava travado — depois rebaseie o travado, porque
+a proteção tem `strict: true`.
+
 #### Quando o `claude-review` falhar
 
 **Re-run antes de investigar, sempre.** O check é instável e já falhou de duas
