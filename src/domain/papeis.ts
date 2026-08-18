@@ -27,6 +27,8 @@ export type Capacidade =
   | 'atribuiChamado'
   | 'recebeAtribuicao'
   | 'mudaPrioridade'
+  | 'fechaOuCancela'
+  | 'reabre'
 
 /**
  * Quem pode o quê. `Record<Capacidade, ...>` é deliberado: o TypeScript exige
@@ -78,6 +80,20 @@ const QUEM_PODE: Record<Capacidade, readonly Papel[]> = {
   // escreve "critica"; o Solicitante tem a Descricao e o Comentario para
   // explicar a urgencia dele.
   mudaPrioridade: ['agente'],
+  // Story 2.6: encerrar um Chamado — fechar ou cancelar — e a ultima palavra
+  // sobre ele. O Solicitante que quer desistir tem o Comentario (2.1) para
+  // dizer isso; quem decide que o trabalho acabou e quem atende (FR-7).
+  //
+  // As duas acoes compartilham a capacidade porque a pergunta e a MESMA
+  // ("pode encerrar este Chamado?"); o que difere e so o estado final.
+  fechaOuCancela: ['agente'],
+  // SEPARADA de `fechaOuCancela` pelo mesmo motivo que separou
+  // `atribuiChamado` de `recebeAtribuicao` na 2.3: "encerrar" e "trazer de
+  // volta" sao decisoes diferentes, e hoje coincidem so porque ha um unico
+  // papel de atendimento. Um Gestor que reabre sem poder cancelar quebraria a
+  // coincidencia, e a capacidade errada so apareceria como Chamado encerrado
+  // por quem nao devia.
+  reabre: ['agente'],
 }
 
 export const pode = (papel: Papel, capacidade: Capacidade): boolean => {

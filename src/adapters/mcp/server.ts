@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/server'
 import { abrirChamado } from '../../application/commands/abrir-chamado.js'
+import { acaoIrreversivel, type Confirmacao } from '../../application/commands/acao-irreversivel.js'
 import { atribuirChamado } from '../../application/commands/atribuir-chamado.js'
 import { comentarChamado } from '../../application/commands/comentar-chamado.js'
 import { mudarPrioridade } from '../../application/commands/mudar-prioridade.js'
@@ -8,6 +9,10 @@ import {
   abrirChamadoInputSchema,
   abrirChamadoOutputSchema,
 } from '../../application/contracts/abrir-chamado.js'
+import {
+  acaoIrreversivelInputSchema,
+  acaoIrreversivelOutputSchema,
+} from '../../application/contracts/acao-irreversivel.js'
 import {
   atribuirChamadoInputSchema,
   atribuirChamadoOutputSchema,
@@ -79,6 +84,14 @@ export type McpDeps = {
    * `buscarUsuarioPorEmail` — o adapter MCP nao cria sessao nem emite token.
    */
   readonly identidades: Pick<IdentityRepository, 'buscarUsuarioPorEmail'>
+  /**
+   * Story 2.6: emitir e consumir a confirmacao das Acoes irreversiveis (AD-7).
+   *
+   * Entra como dependencia, e nao como algo que o adapter monta, pelo mesmo
+   * motivo do `autenticar`: quem decide validade e escopo esta em `platform`, e
+   * o adapter so o repassa ao command.
+   */
+  readonly confirmacao: Confirmacao
 }
 
 /**
@@ -189,6 +202,34 @@ export const criarHandlerMudarPrioridade = (deps: McpDeps) =>
       `Chamado #${saida.numero}: prioridade ${saida.de} -> ${saida.para} (versao ${saida.versao}).`,
   )
 
+/**
+ * Handlers das tres Acoes irreversiveis (Story 2.6).
+ *
+ * Um command para as tres, tres tools finas: o que difere e o NOME que a IA
+ * chama, e e ele que torna a intencao explicita no protocolo. Uma tool generica
+ * `acao_irreversivel(acao)` faria a IA escolher a acao por parametro, e o nome
+ * da tool — que e o que aparece para quem aprova — deixaria de dizer o que vai
+ * acontecer.
+ */
+const criarHandlerAcaoIrreversivel = (
+  deps: McpDeps,
+  acao: 'fechar_chamado' | 'cancelar_chamado' | 'reabrir_chamado',
+) =>
+  criarHandler(
+    deps,
+    acaoIrreversivel({ repositorio: deps.repositorio, confirmacao: deps.confirmacao })(acao),
+    (saida) => `Chamado #${saida.numero}: ${saida.de} -> ${saida.para} (versao ${saida.versao}).`,
+  )
+
+export const criarHandlerFecharChamado = (deps: McpDeps) =>
+  criarHandlerAcaoIrreversivel(deps, 'fechar_chamado')
+
+export const criarHandlerCancelarChamado = (deps: McpDeps) =>
+  criarHandlerAcaoIrreversivel(deps, 'cancelar_chamado')
+
+export const criarHandlerReabrirChamado = (deps: McpDeps) =>
+  criarHandlerAcaoIrreversivel(deps, 'reabrir_chamado')
+
 /** Handler de atribuicao (Story 2.3). */
 export const criarHandlerAtribuirChamado = (deps: McpDeps) =>
   criarHandler(
@@ -257,6 +298,45 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: mudarPrioridadeOutputSchema,
     },
     criarHandlerMudarPrioridade(deps),
+  )
+
+  // As tres Acoes irreversiveis (Story 2.6, AD-7). A descricao diz que exigem
+  // confirmacao porque e ela que a IA le antes de escolher a tool — e o
+  // human-in-the-loop de verdade acontece no cliente.
+  servidor.registerTool(
+    'fechar_chamado',
+    {
+      title: 'Fechar Chamado',
+      description:
+        'ACAO IRREVERSIVEL. Encerra um Chamado resolvido. Exige confirmacao humana explicita: a primeira chamada devolve o token de confirmacao, a segunda o repassa.',
+      inputSchema: acaoIrreversivelInputSchema,
+      outputSchema: acaoIrreversivelOutputSchema,
+    },
+    criarHandlerFecharChamado(deps),
+  )
+
+  servidor.registerTool(
+    'cancelar_chamado',
+    {
+      title: 'Cancelar Chamado',
+      description:
+        'ACAO IRREVERSIVEL. Cancela um Chamado que nao deveria existir. Exige confirmacao humana explicita, como fechar_chamado.',
+      inputSchema: acaoIrreversivelInputSchema,
+      outputSchema: acaoIrreversivelOutputSchema,
+    },
+    criarHandlerCancelarChamado(deps),
+  )
+
+  servidor.registerTool(
+    'reabrir_chamado',
+    {
+      title: 'Reabrir Chamado',
+      description:
+        'ACAO IRREVERSIVEL. Devolve ao atendimento um Chamado encerrado, registrando o motivo (obrigatorio). Exige confirmacao humana explicita.',
+      inputSchema: acaoIrreversivelInputSchema,
+      outputSchema: acaoIrreversivelOutputSchema,
+    },
+    criarHandlerReabrirChamado(deps),
   )
 
   servidor.registerTool(

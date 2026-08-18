@@ -64,6 +64,9 @@ const repositorio: TicketRepository = {
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake')
   },
+  async executarAcaoIrreversivelComAuditoria() {
+    throw new Error('esta suite nao executa Acao irreversivel')
+  },
   async buscarHistoricoBruto() {
     throw new Error('esta suite nao le historico')
   },

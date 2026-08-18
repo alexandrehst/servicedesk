@@ -168,6 +168,14 @@ Um Agente pode Resolver, Fechar, Cancelar ou Reabrir um Chamado. Fechar, Cancela
 - **Sem rótulo novo no Log.** A resolução grava `mudar_status` com o par `em_andamento`/`resolvido` — a informação já está lá, e um rótulo próprio criaria duas formas de registrar o mesmo fato.
 - **Sem coluna `resolved_at`.** O instante da resolução vive no Log (`audit_entries.registrado_em`, append-only, FR-22). Uma coluna seria segunda fonte da verdade sobre o mesmo fato.
 
+**Decidido em 2026-08-18 (Story 2.6):**
+
+- **As três irreversíveis ganharam ações dedicadas**, com um **único** command parametrizado por `ACOES_IRREVERSIVEIS` (domínio) e três tools finas. O que varia entre fechar, cancelar e reabrir — destino, capacidade, exigir motivo — é dado, não código.
+- **Duas capacidades, não uma:** `fechaOuCancela` e `reabre`. "Encerrar" e "trazer de volta" são decisões diferentes que hoje coincidem só porque existe um único papel de atendimento — mesma separação de `atribuiChamado`/`recebeAtribuicao` (FR-5).
+- **O motivo da reabertura vai para `audit_entries.motivo`**, não para um Comentário: o Log é append-only (FR-22) e o Comentário tem soft-delete, então o motivo viraria prova que alguém pode apagar. Consequência aceita: o Solicitante não vê o motivo, porque não vê o Log.
+- **Motivo em branco é recusado** (`MotivoObrigatorio`), e a exigência vive no **domínio**, não no schema Zod — senão o adapter HTTP e a UI da Fase 1.5 dependeriam de lembrar dela (AD-7).
+- **A confirmação é consumida ANTES do `UPDATE`:** se a versão divergiu, o token já queimou. O humano confirmou "fechar o Chamado **na versão N**", e a versão mudou.
+
 **NFRs específicos:** edição concorrente de um mesmo Chamado por dois Agentes deve ser detectada (aviso ou trava otimista) para evitar sobrescrita silenciosa.
 
 ### 4.2 Fila e Triagem
@@ -221,6 +229,14 @@ O servidor MCP expõe tools de Escrita: `abrir_chamado`, `comentar_chamado`, `mu
 As tools `fechar_chamado`, `cancelar_chamado`, `reabrir_chamado` são marcadas como Ação irreversível e exigem confirmação humana explícita antes de efetivar.
 **Consequências (testáveis):**
 - Uma chamada sem o passo de confirmação não altera estado e retorna instrução de confirmação.
+
+**Decidido em 2026-08-18 (Story 2.6):**
+
+- **A confirmação é um TOKEN emitido pelo servidor, não um booleano.** Um `confirmar: true` seria um campo que *quem chama preenche*: uma IA que lê "preciso de `confirmar: true`" preenche na tentativa seguinte, sozinha, e o guardrail nunca dispara — enquanto o AD-7 existe justamente para impedir que o caminho MCP pule o human-in-the-loop. A execução exige um valor que o **servidor emitiu**, para **aquele Chamado**, **aquela ação** e **aquela identidade**.
+- **Uso único, 5 minutos.** Não os 15 do login nem os 7 dias do link de acesso: a janela é "quanto tempo é razoável entre a IA perguntar e o humano responder na mesma conversa". Consumo atômico no `UPDATE`, como o link de login (FR-19).
+- **Resposta cega.** Não mandou confirmação, mandou de outra ação/Chamado/identidade, expirada ou já usada — todos recebem `ConfirmationRequired`. Distinguir "expirou" de "não existe" só ensina a sondar.
+- **O pedido é auditado.** `solicitar_confirmacao` entra no Log com o par `de`/`para`. Sem isso não haveria como distinguir "o humano confirmou" de "a IA se auto-confirmou em 200 ms" — e como o servidor não pode impedir a segunda, registrar é o que resta.
+- **Limite conhecido:** nenhum protocolo do lado do servidor prova que um humano confirmou. O que existe é que nada muda sem o sinal, o sinal é um fato no banco, e as duas etapas ficam no Log com seus instantes.
 
 #### FR-16: MCP Resources e Prompts
 O servidor MCP expõe Resources de leitura ("chamado", "fila") para contexto barato e um Prompt "triagem de chamado".

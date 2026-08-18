@@ -49,6 +49,9 @@ const repositorio: TicketRepository = {
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
   },
+  async executarAcaoIrreversivelComAuditoria() {
+    throw new Error('esta suite nao executa Acao irreversivel')
+  },
   async buscarHistoricoBruto() {
     throw new Error('esta suite nao le historico')
   },
@@ -86,7 +89,21 @@ const limitadosPor = (registro: string[]) => async (identity: string) => {
   registro.push(identity)
 }
 
-const deps = { repositorio, identidades, autenticar, limitarChamadas: semLimite }
+/**
+ * Duble da confirmacao (Story 2.6). Esta suite prova o TRANSPORTE — que a tool
+ * existe, valida a entrada e traduz o erro. Se ela for chamada onde o teste nao
+ * espera, e sinal de que o caso foi montado errado.
+ */
+const confirmacao = {
+  async emitir() {
+    return 'token-de-confirmacao'
+  },
+  async consumir() {
+    return true
+  },
+}
+
+const deps = { repositorio, identidades, confirmacao, autenticar, limitarChamadas: semLimite }
 
 const input = { titulo: 'VPN fora do ar', descricao: 'Nao conecta.', categoria: 'rede' } as const
 
@@ -97,8 +114,13 @@ it('registra a tool abrir_chamado com o schema do contrato (AD-6)', () => {
   expect(JSON.stringify(schema)).toContain('hardware')
 })
 
+/**
+ * O alvo mudou na Story 2.6: `fechar_chamado` passou a existir. A garantia
+ * continua sendo a mesma — o servidor nao expoe tool que nenhuma story
+ * especificou — e o alvo agora e a fila do Epic 3.
+ */
 it('nao registra tool que a story nao especifica', () => {
-  expect(criarServidorMcp(deps).toolInputSchemaJson('fechar_chamado')).toBeUndefined()
+  expect(criarServidorMcp(deps).toolInputSchemaJson('buscar_chamados')).toBeUndefined()
 })
 
 it('retorna o Numero do Chamado aberto', async () => {
@@ -146,6 +168,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
     },
+    async executarAcaoIrreversivelComAuditoria() {
+      throw new Error('esta suite nao executa Acao irreversivel')
+    },
     async buscarHistoricoBruto() {
       throw new Error('esta suite nao le historico')
     },
@@ -154,6 +179,7 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     criarHandlerAbrirChamado({
       repositorio: quebrado,
       identidades,
+      confirmacao,
       autenticar,
       limitarChamadas: semLimite,
     })(input),
@@ -213,6 +239,9 @@ const repoLeitura: TicketRepository = {
   async buscarIntakePorMessageId() {
     throw new Error('esta suite nao faz intake por e-mail')
   },
+  async executarAcaoIrreversivelComAuditoria() {
+    throw new Error('esta suite nao executa Acao irreversivel')
+  },
   async buscarHistoricoBruto() {
     throw new Error('esta suite nao le historico')
   },
@@ -221,6 +250,7 @@ const repoLeitura: TicketRepository = {
 const depsLeitura = {
   repositorio: repoLeitura,
   identidades,
+  confirmacao,
   autenticar,
   limitarChamadas: semLimite,
 }
@@ -266,6 +296,7 @@ it('entrega ao dominio a identidade de quem pergunta, nao uma fixa', async () =>
   const comoDona = await criarHandlerVerChamado({
     repositorio: repoLeitura,
     identidades,
+    confirmacao,
     autenticar: async () => ({ identity: 'marina@empresa.com', role: 'solicitante' }) as const,
     limitarChamadas: semLimite,
   })({ numero: 1042 })
@@ -273,6 +304,7 @@ it('entrega ao dominio a identidade de quem pergunta, nao uma fixa', async () =>
   const comoTerceiro = await criarHandlerVerChamado({
     repositorio: repoLeitura,
     identidades,
+    confirmacao,
     autenticar: async () => ({ identity: 'carlos@empresa.com', role: 'solicitante' }) as const,
     limitarChamadas: semLimite,
   })({ numero: 1042 })
@@ -294,6 +326,7 @@ it('recusa a escrita quando a credencial nao resolve, sem tocar no repositorio',
   const resultado = await criarHandlerAbrirChamado({
     repositorio,
     identidades,
+    confirmacao,
     autenticar: credencialRuim,
     limitarChamadas: semLimite,
   })(input)
@@ -309,6 +342,7 @@ it('recusa a leitura quando a credencial nao resolve', async () => {
   const resultado = await criarHandlerVerChamado({
     repositorio: repoLeitura,
     identidades,
+    confirmacao,
     autenticar: credencialRuim,
     limitarChamadas: semLimite,
   })({ numero: 1042 })
@@ -331,6 +365,7 @@ it('resolve a credencial a CADA chamada, nao uma vez na montagem', async () => {
   const handler = criarHandlerVerChamado({
     repositorio: repoLeitura,
     identidades,
+    confirmacao,
     autenticar: expiraNaSegunda,
     limitarChamadas: semLimite,
   })
@@ -370,6 +405,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     async buscarIntakePorMessageId() {
       throw new Error('esta suite nao faz intake por e-mail')
     },
+    async executarAcaoIrreversivelComAuditoria() {
+      throw new Error('esta suite nao executa Acao irreversivel')
+    },
     async buscarHistoricoBruto() {
       throw new Error('esta suite nao le historico')
     },
@@ -378,6 +416,7 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     criarHandlerVerChamado({
       repositorio: quebrado,
       identidades,
+      confirmacao,
       autenticar,
       limitarChamadas: semLimite,
     })({
@@ -401,6 +440,7 @@ it('recusa a escrita quando o limite estourou, sem tocar no repositorio', async 
   const resultado = await criarHandlerAbrirChamado({
     repositorio,
     identidades,
+    confirmacao,
     autenticar,
     limitarChamadas: estourado,
   })(input)
@@ -416,6 +456,7 @@ it('recusa a leitura quando o limite estourou', async () => {
   const resultado = await criarHandlerVerChamado({
     repositorio: repoLeitura,
     identidades,
+    confirmacao,
     autenticar,
     limitarChamadas: estourado,
   })({ numero: 1042 })
@@ -429,6 +470,7 @@ it('o erro de limite diz quando tentar de novo, e nao se confunde com credencial
   const resultado = await criarHandlerVerChamado({
     repositorio: repoLeitura,
     identidades,
+    confirmacao,
     autenticar,
     limitarChamadas: estourado,
   })({ numero: 1042 })
@@ -444,6 +486,7 @@ it('conta pela IDENTIDADE autenticada, nao pelo nome da tool (FR-21, AD-9)', asy
   await criarHandlerVerChamado({
     repositorio: repoLeitura,
     identidades,
+    confirmacao,
     autenticar,
     limitarChamadas: limitadosPor(contados),
   })({ numero: 1042 })
@@ -458,6 +501,7 @@ it('credencial invalida nao consome quota', async () => {
   await criarHandlerVerChamado({
     repositorio: repoLeitura,
     identidades,
+    confirmacao,
     autenticar: credencialRuim,
     limitarChamadas: limitadosPor(contados),
   })({ numero: 1042 })
@@ -501,6 +545,7 @@ const repoComentario: TicketRepository = {
 const depsComentario = {
   repositorio: repoComentario,
   identidades,
+  confirmacao,
   autenticar,
   limitarChamadas: semLimite,
 }
@@ -567,6 +612,7 @@ it('recusa a escrita quando o limite estourou, sem tocar no repositorio', async 
   const resultado = await criarHandlerComentarChamado({
     repositorio: repoComentario,
     identidades,
+    confirmacao,
     autenticar,
     limitarChamadas: estourado,
   })({ numero: 1042, texto: 'x' })
@@ -582,6 +628,7 @@ it('conta o Comentario pela identidade autenticada (FR-21)', async () => {
   await criarHandlerComentarChamado({
     repositorio: repoComentario,
     identidades,
+    confirmacao,
     autenticar,
     limitarChamadas: limitadosPor(contados),
   })({ numero: 1042, texto: 'x' })
@@ -606,6 +653,7 @@ it('erro nao-tipado do repositorio sobe em vez de virar erro de tool', async () 
     criarHandlerComentarChamado({
       repositorio: quebrado,
       identidades,
+      confirmacao,
       autenticar,
       limitarChamadas: semLimite,
     })({
@@ -645,7 +693,13 @@ const repoStatus: TicketRepository = {
   },
 }
 
-const depsStatus = { repositorio: repoStatus, identidades, autenticar, limitarChamadas: semLimite }
+const depsStatus = {
+  repositorio: repoStatus,
+  identidades,
+  confirmacao,
+  autenticar,
+  limitarChamadas: semLimite,
+}
 
 it('registra a tool mudar_status com o schema do contrato (AD-6)', () => {
   const schema = criarServidorMcp(depsStatus).toolInputSchemaJson('mudar_status')
@@ -723,6 +777,7 @@ it('recusa a mudanca quando o limite estourou, sem tocar no repositorio', async 
   const resultado = await criarHandlerMudarStatus({
     repositorio: repoStatus,
     identidades,
+    confirmacao,
     autenticar,
     limitarChamadas: estourado,
   })({ numero: 1042, novoStatus: 'em_andamento', versao: 1 })
@@ -744,6 +799,7 @@ it('carimba origin mcp na mudanca de Status (AD-9)', async () => {
       },
     },
     identidades,
+    confirmacao,
     autenticar,
     limitarChamadas: semLimite,
   })({ numero: 1042, novoStatus: 'em_andamento', versao: 1 })
@@ -763,6 +819,7 @@ it('erro nao-tipado sobe em vez de virar erro de tool', async () => {
     criarHandlerMudarStatus({
       repositorio: quebrado,
       identidades,
+      confirmacao,
       autenticar,
       limitarChamadas: semLimite,
     })({
@@ -806,6 +863,7 @@ const repoAtribuicao: TicketRepository = {
 const depsAtribuicao = {
   repositorio: repoAtribuicao,
   identidades,
+  confirmacao,
   autenticar,
   limitarChamadas: semLimite,
 }
@@ -862,6 +920,7 @@ it('recusa a atribuicao quando o limite estourou, sem tocar no repositorio', asy
   const resultado = await criarHandlerAtribuirChamado({
     repositorio: repoAtribuicao,
     identidades,
+    confirmacao,
     autenticar,
     limitarChamadas: estourado,
   })({ numero: 1042, versao: 1, agente: 'ana@empresa.com' })
@@ -883,6 +942,7 @@ it('erro nao-tipado sobe em vez de virar erro de tool', async () => {
     criarHandlerAtribuirChamado({
       repositorio: quebrado,
       identidades,
+      confirmacao,
       autenticar,
       limitarChamadas: semLimite,
     })({ numero: 1042, versao: 1, agente: 'ana@empresa.com' }),
@@ -922,6 +982,7 @@ const repoPrioridade: TicketRepository = {
 const depsPrioridade = {
   repositorio: repoPrioridade,
   identidades,
+  confirmacao,
   autenticar,
   limitarChamadas: semLimite,
 }
@@ -969,6 +1030,7 @@ it('recusa a mudanca de prioridade quando o limite estourou', async () => {
   const resultado = await criarHandlerMudarPrioridade({
     repositorio: repoPrioridade,
     identidades,
+    confirmacao,
     autenticar,
     limitarChamadas: estourado,
   })({ numero: 1042, prioridade: 'alta', versao: 1 })
