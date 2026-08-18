@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { RECORTES } from '../../domain/recorte-da-fila.js'
 import { CATEGORIAS, PRIORIDADES, STATUS } from '../../domain/ticket.js'
 
 /**
@@ -14,8 +15,20 @@ export const LIMITE_MAXIMO = 100
 
 export const buscarChamadosInputSchema = z.object({
   status: z.enum(STATUS).optional(),
-  /** O Dono, por identidade. "Sem Dono" e recorte de primeira classe na 3.2. */
+  /** O Dono, por identidade — a fila de alguem especifico. */
   dono: z.string().min(1).optional(),
+  /**
+   * Story 3.2 — os recortes de primeira classe (FR-9).
+   *
+   * Campo PROPRIO, e nao um valor especial de `dono`: e isso que faz "sem Dono"
+   * ter nome no protocolo em vez de ser um filtro escondido. `meus` e sobre
+   * quem esta autenticado, entao nao carrega identidade nenhuma aqui.
+   *
+   * Combinar `recorte` com `dono` e recusado — pelo DOMINIO, nao por um
+   * `.refine()` aqui: assim um adapter HTTP que montasse o proprio schema
+   * herdaria a regra (mesmo raciocinio do motivo da reabertura, na 2.6).
+   */
+  recorte: z.enum(RECORTES).optional(),
   categoria: z.enum(CATEGORIAS).optional(),
   /**
    * Teto no SCHEMA, e nao truncamento no adapter: pedir 500 e receber 100 em

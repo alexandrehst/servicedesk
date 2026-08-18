@@ -1,3 +1,4 @@
+import { filtroDeDono } from '../../domain/recorte-da-fila.js'
 import { escopoDeLeitura, filaVisivelPara } from '../../domain/visibilidade.js'
 import type { BuscarChamadosFiltros, BuscarChamadosOutput } from '../contracts/buscar-chamados.js'
 import type { Principal } from '../contracts/principal.js'
@@ -28,8 +29,13 @@ export const buscarChamados =
         // Espalhados condicionalmente por causa de `exactOptionalPropertyTypes`:
         // passar `undefined` explicito e diferente de nao passar o campo.
         ...(input.status === undefined ? {} : { status: input.status }),
-        ...(input.dono === undefined ? {} : { dono: input.dono }),
         ...(input.categoria === undefined ? {} : { categoria: input.categoria }),
+        // Story 3.2 — o dominio decide QUAL filtro de Dono aplicar, inclusive
+        // recusando `recorte` + `dono`. Aqui so se repassa o resultado.
+        dono: filtroDeDono(quem, {
+          ...(input.recorte === undefined ? {} : { recorte: input.recorte }),
+          ...(input.dono === undefined ? {} : { dono: input.dono }),
+        }),
       },
       { limite: input.limite, deslocamento: input.deslocamento, ordem: input.ordem },
     )

@@ -129,7 +129,7 @@ describe('o WHERE do escopo, sem a rede do dominio (AC #2, #3)', () => {
 
     const bruta = await repositorio.buscarFilaBruta(
       { tipo: 'apenasDe', requester: 'marina@empresa.com' },
-      {},
+      { dono: { tipo: 'qualquer' } },
       { limite: 20, deslocamento: 0, ordem: 'asc' },
     )
 
@@ -155,7 +155,7 @@ describe('o WHERE do escopo, sem a rede do dominio (AC #2, #3)', () => {
 
     const bruta = await repositorio.buscarFilaBruta(
       { tipo: 'todos' },
-      {},
+      { dono: { tipo: 'qualquer' } },
       { limite: 1, deslocamento: 0, ordem: 'asc' },
     )
 
@@ -274,6 +274,117 @@ describe('a linha da Fila vem do banco, e e resumo (AC #1)', () => {
   })
 })
 
+/**
+ * Story 3.2 — os recortes (FR-9).
+ *
+ * Repare que aqui o gargalo do dominio NAO e rede de seguranca: `podeVerTicket`
+ * nao sabe nada sobre Dono, entao um erro no `WHERE` do recorte chega inteiro a
+ * saida. O que continua exigindo duas identidades e a interacao recorte x
+ * escopo, onde o gargalo volta a mascarar.
+ */
+describe('recortes: meus e sem dono (Story 3.2)', () => {
+  beforeEach(async () => {
+    await inserir([
+      { numero: 1000, requester: 'marina@empresa.com', assignee: null },
+      { numero: 1001, requester: 'marina@empresa.com', assignee: 'bruno@empresa.com' },
+      { numero: 1002, requester: 'carlos@empresa.com', assignee: null },
+      { numero: 1003, requester: 'carlos@empresa.com', assignee: 'ana@empresa.com' },
+    ])
+  })
+
+  it('sem_dono traz apenas os que nao tem Dono (AC #1)', async () => {
+    const saida = await buscar({ ...padrao, recorte: 'sem_dono' }, bruno)
+
+    expect(saida.itens.map((i) => i.numero)).toEqual([1000, 1002])
+  })
+
+  it('meus traz apenas os Chamados de quem esta autenticado (AC #2)', async () => {
+    const doBruno = await buscar({ ...padrao, recorte: 'meus' }, bruno)
+
+    expect(doBruno.itens.map((i) => i.numero)).toEqual([1001])
+  })
+
+  /**
+   * A identidade sai do PRINCIPAL: a mesma chamada, feita por outra pessoa,
+   * devolve outro conjunto. Se `meus` fosse acucar para preencher `dono`, esta
+   * diferenca dependeria de quem chama escrever a identidade certa.
+   */
+  it('o mesmo recorte devolve conjuntos diferentes para pessoas diferentes', async () => {
+    const daAna: Principal = { identity: 'ana@empresa.com', role: 'agente', origin: 'mcp' }
+
+    const doBruno = await buscar({ ...padrao, recorte: 'meus' }, bruno)
+    const daAnaSaida = await buscar({ ...padrao, recorte: 'meus' }, daAna)
+
+    expect(doBruno.itens.map((i) => i.numero)).toEqual([1001])
+    expect(daAnaSaida.itens.map((i) => i.numero)).toEqual([1003])
+  })
+
+  /**
+   * O Solicitante nunca recebe atribuicao (2.3), entao `meus` e vazio para ele
+   * — e NAO "os que eu abri", que ja sao o escopo padrao dele.
+   */
+  it('o Solicitante com meus recebe vazio, nao os que abriu (AC #4)', async () => {
+    const comRecorte = await buscar({ ...padrao, recorte: 'meus' }, marina)
+    const semRecorte = await buscar(padrao, marina)
+
+    expect(comRecorte.itens).toEqual([])
+    expect(semRecorte.itens.map((i) => i.numero)).toEqual([1000, 1001])
+  })
+
+  /**
+   * O TESTE QUE IMPORTA para o vazamento: recorte e escopo se SOMAM. Um
+   * Solicitante pedindo "sem dono" recebe os DELE sem Dono — se o recorte
+   * substituisse o escopo, viria o 1002, que e do Carlos.
+   */
+  it('o recorte nao amplia o escopo (AC #5)', async () => {
+    const saida = await buscar({ ...padrao, recorte: 'sem_dono' }, marina)
+
+    expect(saida.itens.map((i) => i.numero)).toEqual([1000])
+  })
+
+  it('o recorte se combina com os filtros da 3.1', async () => {
+    await inserir([
+      { numero: 1004, requester: 'carlos@empresa.com', assignee: null, status: 'em_andamento' },
+    ])
+
+    const saida = await buscar({ ...padrao, recorte: 'sem_dono', status: 'em_andamento' }, bruno)
+
+    expect(saida.itens.map((i) => i.numero)).toEqual([1004])
+  })
+
+  it('o filtro por dono explicito continua funcionando', async () => {
+    const saida = await buscar({ ...padrao, dono: 'ana@empresa.com' }, bruno)
+
+    expect(saida.itens.map((i) => i.numero)).toEqual([1003])
+  })
+
+  /**
+   * O TESTE que a mutacao pediu. Pela saida, fazer o recorte SUBSTITUIR o
+   * escopo nao muda nada: `filaVisivelPara` descarta o Chamado alheio que
+   * entraria — o gargalo mascara, exatamente como na 3.1 com o `WHERE` do
+   * escopo.
+   *
+   * A saida e a mesma: chamar o repositorio DIRETO e abrir com um Agente, que
+   * ve tudo. O que sobrar veio do SQL.
+   */
+  it('escopo e recorte se somam no proprio WHERE (AC #5)', async () => {
+    const bruta = await repositorio.buscarFilaBruta(
+      { tipo: 'apenasDe', requester: 'marina@empresa.com' },
+      { dono: { tipo: 'ninguem' } },
+      { limite: 20, deslocamento: 0, ordem: 'asc' },
+    )
+
+    // 1000 e da marina e sem Dono; 1002 e sem Dono mas do carlos.
+    expect(filaVisivelPara(bruno, bruta).itens.map((i) => i.number)).toEqual([1000])
+  })
+
+  it('recorte com dono e recusado (AC #3)', async () => {
+    await expect(
+      buscar({ ...padrao, recorte: 'sem_dono', dono: 'ana@empresa.com' }, bruno),
+    ).rejects.toThrow(/recorte/)
+  })
+})
+
 describe('ordem estavel (AC #5)', () => {
   /**
    * Insere FORA de ordem, com timestamps IGUAIS: sem o desempate por Numero, o
@@ -381,12 +492,16 @@ describe('a Fila usa INDICE, nao varredura (AC #6)', () => {
    */
   beforeEach(async () => {
     await db.execute(sql`
-      INSERT INTO tickets (number, titulo, descricao, categoria, status, priority, requester, criado_em)
+      INSERT INTO tickets (number, titulo, descricao, categoria, status, priority, requester, assignee, criado_em)
       SELECT
         i, 'Chamado ' || i, 'descricao', 'hardware',
         CASE WHEN i % 50 = 0 THEN 'resolvido' ELSE 'aberto' END,
         'media',
         'pessoa' || (i % 200) || '@empresa.com',
+        -- "Sem Dono" e MINORIA (1 em 10), como numa fila real: se quase nada
+        -- tivesse Dono, o planejador escolheria varredura com razao, e o teste
+        -- estaria medindo o dado, nao o indice.
+        CASE WHEN i % 10 = 0 THEN NULL ELSE 'agente' || (i % 8) || '@empresa.com' END,
         now() - (i || ' minutes')::interval
       FROM generate_series(1, 5000) AS i
     `)
@@ -406,6 +521,28 @@ describe('a Fila usa INDICE, nao varredura (AC #6)', () => {
     `)
 
     expect(texto).toContain('tickets_fila_status_idx')
+    expect(texto).not.toContain('Seq Scan')
+  })
+
+  /**
+   * Story 3.2 — `assignee IS NULL` tambem precisa do indice. B-tree do Postgres
+   * indexa NULL, entao ele PODE usar `tickets_fila_assignee_idx` — mas "pode"
+   * nao e "usa", e a diferenca so aparece com volume.
+   *
+   * Os dados fazem "sem Dono" ser MINORIA (1 em 10), e sao gerados assim no
+   * INSERT: uma primeira versao deste teste usava `UPDATE` para atribuir Dono
+   * depois, e o bloat resultante dobrou as paginas da tabela — o planejador
+   * passou a preferir varredura, e o teste reprovava medindo o bloat, nao o
+   * indice.
+   */
+  it('o recorte sem_dono usa Index Scan', async () => {
+    const texto = await plano(sql`
+      EXPLAIN SELECT number FROM tickets
+       WHERE deleted_at IS NULL AND assignee IS NULL
+       ORDER BY criado_em, number LIMIT 21
+    `)
+
+    expect(texto).toContain('tickets_fila_assignee_idx')
     expect(texto).not.toContain('Seq Scan')
   })
 

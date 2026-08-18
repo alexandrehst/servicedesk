@@ -269,7 +269,12 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       // O escopo chega decidido pelo dominio; aqui vira SQL, so isso.
       ...(escopo.tipo === 'apenasDe' ? [eq(tickets.requester, escopo.requester)] : []),
       ...(filtros.status === undefined ? [] : [eq(tickets.status, filtros.status)]),
-      ...(filtros.dono === undefined ? [] : [eq(tickets.assignee, filtros.dono)]),
+      // Story 3.2 — o filtro de Dono chega decidido: 'qualquer' nao restringe,
+      // 'ninguem' e a ausencia, 'identidade' e a igualdade. Repare que ele
+      // SOMA com o escopo acima, nunca o substitui: um Solicitante pedindo
+      // "sem dono" recebe os DELE sem Dono.
+      ...(filtros.dono.tipo === 'ninguem' ? [isNull(tickets.assignee)] : []),
+      ...(filtros.dono.tipo === 'identidade' ? [eq(tickets.assignee, filtros.dono.identity)] : []),
       ...(filtros.categoria === undefined ? [] : [eq(tickets.categoria, filtros.categoria)]),
     ]
 

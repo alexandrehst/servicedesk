@@ -202,6 +202,14 @@ Um Agente pode ver rapidamente os Chamados que são seus e os que estão sem Don
 **Consequências (testáveis):**
 - "Sem Dono" é um recorte de primeira classe, não um filtro escondido.
 
+**Decidido em 2026-08-18 (Story 3.2):**
+
+- **O recorte é um campo próprio** (`recorte: 'meus' | 'sem_dono'`), e não um valor especial de `dono`. É isso que o torna de primeira classe: tem nome no protocolo e a IA o descobre lendo o schema da tool. `dono: null`, `dono: ''` ou uma string mágica seriam exatamente o filtro escondido que a FR proíbe — e a Story 3.1 tinha deixado `dono` com um único significado para a ausência ("não filtre").
+- **`meus` = "sou o DONO", com a identidade vindo do principal autenticado**, nunca de um parâmetro. Se fosse açúcar para "preencha `dono` com a sua identidade", quem chama teria que saber e escrever a identidade — e escreveria errado em algum momento.
+- **A definição de `meus` é única para todo papel.** Um recorte que significasse coisas diferentes conforme quem pergunta ("que eu atendo" para o Agente, "que eu abri" para o Solicitante) seria impossível de auditar: duas pessoas leriam o mesmo nome e receberiam regras distintas, e o resumo da fila (FR-10) teria que replicar a bifurcação. **Consequência aceita:** para o Solicitante, `meus` devolve vazio — ele nunca recebe atribuição (FR-5) —, e os Chamados que ele abriu já são o escopo padrão dele.
+- **`recorte` + `dono` juntos são recusados** (`RecorteConflitante`), inclusive quando concordam: os dois filtram por Dono, e aceitar ambos exigiria escolher um vencedor em silêncio. A recusa vive **no domínio**, não num `.refine()` do schema, para que todo ponto de entrada a herde.
+- **Recorte não amplia escopo.** Autorização (`escopoDeLeitura`) e consulta (`filtroDeDono`) entram no mesmo `WHERE` e se somam: um Solicitante pedindo "sem Dono" recebe *os dele* sem Dono.
+
 #### FR-10: Resumo da fila
 Um Agente ou Gestor pode obter contadores da Fila: abertos por Status, por Time/Categoria e por Agente. Realiza UJ-3.
 **Consequências (testáveis):**

@@ -135,7 +135,8 @@ describe('filtros e paginacao repassados (AC #1, #4)', () => {
 
     expect(recebido?.filtros).toEqual({
       status: 'aberto',
-      dono: 'bruno@empresa.com',
+      // Story 3.2 — o Dono chega DECIDIDO pelo dominio, nao como string solta.
+      dono: { tipo: 'identidade', identity: 'bruno@empresa.com' },
       categoria: 'rede',
     })
   })
@@ -144,11 +145,36 @@ describe('filtros e paginacao repassados (AC #1, #4)', () => {
    * Filtro ausente NAO vira `undefined` explicito: com
    * `exactOptionalPropertyTypes`, passar a chave com `undefined` e diferente de
    * nao passa-la — e o adapter monta o `WHERE` a partir da presenca.
+   *
+   * `dono` e a excecao a partir da 3.2: ele sempre viaja, porque "nao filtrar"
+   * tambem e uma decisao do dominio (`{ tipo: 'qualquer' }`).
    */
   it('filtro ausente nao vira chave com undefined', async () => {
     await buscar(pagina, bruno)
 
-    expect(recebido?.filtros).toEqual({})
+    expect(recebido?.filtros).toEqual({ dono: { tipo: 'qualquer' } })
+  })
+
+  /** Story 3.2 — o recorte vira filtro de Dono, decidido no dominio. */
+  it.each([
+    ['meus', { tipo: 'identidade', identity: 'bruno@empresa.com' }],
+    ['sem_dono', { tipo: 'ninguem' }],
+  ] as const)('o recorte %s vira o filtro certo', async (recorte, esperado) => {
+    await buscar({ ...pagina, recorte }, bruno)
+
+    expect(recebido?.filtros).toEqual({ dono: esperado })
+  })
+
+  /**
+   * A recusa vem do DOMINIO, e a query so a propaga — nao ha `.refine()` no
+   * schema fazendo o mesmo trabalho em outro lugar.
+   */
+  it('recorte com dono e recusado antes de tocar o repositorio', async () => {
+    await expect(
+      buscar({ ...pagina, recorte: 'meus', dono: 'ana@empresa.com' }, bruno),
+    ).rejects.toThrow(/recorte/)
+
+    expect(recebido).toBeNull()
   })
 
   it('repassa limite, deslocamento e ordem', async () => {

@@ -380,7 +380,7 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
     {
       title: 'Buscar Chamados',
       description:
-        'Lista a Fila com filtros combinaveis (status, dono, categoria), ordenada por data de abertura. Devolve resumo — use ver_chamado para o conteudo.',
+        'Lista a Fila com filtros combinaveis (status, dono, categoria) e recortes rapidos: recorte="meus" traz os Chamados em que VOCE e o Dono, recorte="sem_dono" traz os que ainda nao tem Dono. Ordenada por data de abertura; devolve resumo — use ver_chamado para o conteudo.',
       inputSchema: buscarChamadosInputSchema,
       outputSchema: buscarChamadosOutputSchema,
     },
