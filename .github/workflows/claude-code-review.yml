@@ -183,6 +183,11 @@ jobs:
       # com 4 negacoes de permissao, ou nenhum output, sao silencio.
       - name: Resumo do que o revisor de fato fez
         if: always()
+        # NUNCA derruba o job: este step e OBSERVABILIDADE, nao gate. A primeira
+        # versao dele quebrou no parse e reprovou o `claude-review` do PR #67 —
+        # um required check vermelho por causa do relatorio sobre o check. O
+        # `|| true` e o `try/except` existem por isso.
+        continue-on-error: true
         run: |
           saida=/home/runner/work/_temp/claude-execution-output.json
           {
@@ -195,27 +200,44 @@ jobs:
               echo
               echo "O check esta verde, mas **nada foi revisado**."
             else
-              python3 - "$saida" <<'PY_FIM'
+              python3 - "$saida" <<'PY_FIM' || echo "(nao foi possivel ler o output do run)"
           import json, sys
-          linhas = [json.loads(l) for l in open(sys.argv[1]) if l.strip().startswith('{')]
-          r = next((x for x in reversed(linhas) if x.get('type') == 'result'), None)
-          if r is None:
+
+          # O arquivo e um JSON pretty-printed (array de eventos), NAO JSONL:
+          # ler linha a linha estoura em `JSONDecodeError`, que foi como este
+          # step reprovou o PR #67.
+          try:
+              dados = json.load(open(sys.argv[1]))
+          except Exception as erro:
+              print(f'Output ilegivel: {erro}')
+              raise SystemExit(0)
+
+          eventos = dados if isinstance(dados, list) else [dados]
+          resultado = next(
+              (e for e in reversed(eventos)
+               if isinstance(e, dict) and e.get('type') == 'result'),
+              None,
+          )
+
+          if resultado is None:
               print('Output presente, mas sem bloco `result`.')
+              raise SystemExit(0)
+
+          turnos = resultado.get('num_turns', 0)
+          negacoes = resultado.get('permission_denials_count', 0)
+          segundos = resultado.get('duration_ms', 0) / 1000
+
+          print(f'- turnos: **{turnos}**')
+          print(f'- negacoes de permissao: **{negacoes}**')
+          print(f'- duracao: **{segundos:.1f}s**')
+          print(f"- is_error: `{resultado.get('is_error')}`  subtype: `{resultado.get('subtype')}`")
+          print()
+
+          if segundos < 60 or negacoes > 0:
+              print('**Sinal de SILENCIO.** Revisao de verdade leva 4-6 min.')
+              print('Confira os comentarios antes de confiar neste verde.')
           else:
-              turnos = r.get('num_turns', 0)
-              negacoes = r.get('permission_denials_count', 0)
-              segundos = r.get('duration_ms', 0) / 1000
-              print(f'- turnos: **{turnos}**')
-              print(f'- negacoes de permissao: **{negacoes}**')
-              print(f'- duracao: **{segundos:.1f}s**')
-              print(f"- is_error: `{r.get('is_error')}`  subtype: `{r.get('subtype')}`")
-              print()
-              if segundos < 60 or negacoes > 0:
-                  print('**Sinal de SILENCIO.** Revisao de verdade leva 4-6 min.')
-                  print('Verifique os comentarios antes de confiar neste verde:')
-                  print('`gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --jq length`')
-              else:
-                  print('Duracao compativel com revisao real.')
+              print('Duracao compativel com revisao real.')
           PY_FIM
             fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          } >> "$GITHUB_STEP_SUMMARY" || true
