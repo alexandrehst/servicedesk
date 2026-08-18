@@ -303,6 +303,27 @@ no `INSERT`, o plano usa `Bitmap Index Scan on tickets_fila_assignee_idx`.
 4. **Nada impede pedir a fila de outro Agente** (`dono: 'ana@empresa.com'`): e
    filtro legitimo dentro do escopo de quem ja ve Chamado de terceiro. Se um dia
    isso precisar de restricao, e capacidade nova, nao ajuste no filtro.
+5. **O `claude-review` ficou mudo nas duas rodadas (36s e 35s) — e desta vez a
+   CAUSA foi medida.** O log do job traz:
+
+   ```json
+   { "subtype": "success", "is_error": false, "duration_ms": 7442,
+     "num_turns": 5, "permission_denials_count": 4 }
+   ```
+
+   Sete segundos e meio de execucao, cinco turnos, **quatro negacoes de
+   permissao** — e check **verde**. O revisor nao "nao encontrou violacao": ele
+   nao conseguiu trabalhar e desistiu. A `allowedTools` do workflow e
+   `Read,Grep,Glob,mcp__github_inline_comment__create_inline_comment`, e o
+   prompt manda "revise o diff do PR" **sem incluir o diff** — entao obter o
+   diff depende de uma ferramenta que nao esta permitida. Nas vezes em que
+   revisou (4–6 min), ele navegou o repo com `Read`/`Grep` ate reconstruir o
+   contexto; quando desiste, sai verde em segundos.
+
+   Isso e **"verde sem alvo"**, que este projeto trata como inaceitavel — mas
+   nao e defeito desta story, e sim do gateway (Epic 0). Vai num PR `fix(ci):`
+   separado, como o override do Trivy foi. **Enquanto isso, o `claude-review`
+   nao pode ser contado como cobertura de nenhuma story recente.**
 
 ### File List
 
