@@ -371,6 +371,14 @@ modo, registrado na 2.6):
    `buscar_chamados` vai **ganhar** o parametro la, e nao virar outra tool.
 6. **Nada mede o custo de uma chamada de Fila contra o rate limit** (FR-21), que
    conta chamadas e nao peso. Divida ja registrada no prompt do loop.
+7. **O `claude-review` ficou MUDO nas duas rodadas** — 41s ao abrir o PR #63 e
+   36s no re-run, zero comentarios. Pelo sinal medido desde o PR #46, menos de
+   um minuto e silencio; e a segunda story a levar silencio duplo, depois da
+   2.4 (PR #52). Nao e bloqueio — a regra de bloqueio e sobre check **vermelho**
+   —, mas significa que **nenhuma revisao semantica cobriu esta story**: a
+   decisao de arquitetura (autorizacao em duas camadas) passou sem segunda
+   opiniao. O que a sustenta sao os 688 testes, as 18 mutacoes e o `EXPLAIN`
+   verificado a mao.
 
 ### File List
 
