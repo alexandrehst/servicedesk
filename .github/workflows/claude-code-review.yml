@@ -30,6 +30,35 @@ jobs:
         with:
           fetch-depth: 1
 
+      # O revisor precisa do DIFF, e ate aqui nao tinha como obte-lo.
+      #
+      # Medido no PR #65 (run 32167886053): `duration_ms` 7442, `num_turns` 5,
+      # `permission_denials_count` 4 — e `is_error: false`, check VERDE. Ele nao
+      # deixou de encontrar violacao: desistiu em sete segundos, porque o prompt
+      # manda "revise o diff do PR" e nenhuma ferramenta permitida entrega o
+      # diff. `fetch-depth: 1` nao traz a base para comparar, `Bash` nao esta em
+      # allowedTools, e nao ha MCP de leitura de PR.
+      #
+      # Nas vezes em que revisou de verdade (4-6 min, PRs #35 a #60), ele
+      # reconstruiu o contexto navegando o repo com `Read`/`Grep` — as vezes
+      # persistia, as vezes desistia. Um required check que depende disso e
+      # "verde sem alvo": exatamente o que o QUALITY-GATE proibe.
+      #
+      # A correcao entrega o material por uma ferramenta que JA e permitida
+      # (`Read`), em vez de ampliar `allowedTools` — dar `Bash` ao revisor para
+      # ele rodar `gh` seria muito mais poder do que o problema exige.
+      - name: Capturar o diff do PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr diff "${{ github.event.pull_request.number }}" \
+            --repo "${{ github.repository }}" > pr.diff
+          # Verifica o ARTEFATO, nao o exit code: um diff vazio faria o revisor
+          # aprovar o nada, e o check ficaria verde do mesmo jeito.
+          linhas=$(wc -l < pr.diff)
+          echo "diff capturado: $linhas linhas"
+          test "$linhas" -gt 0 || { echo "::error::diff vazio"; exit 1; }
+
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1
@@ -64,6 +93,12 @@ jobs:
           prompt: |
             Voce e o revisor dos PILARES DE JULGAMENTO do ServiceDesk, um service
             desk interno MCP-first com arquitetura hexagonal.
+
+            O diff completo esta em `pr.diff`, na raiz do workspace. **Leia esse
+            arquivo com `Read` antes de qualquer outra coisa** — ele e o material
+            desta revisao, e sem ele voce nao tem o que revisar. Use `Read` e
+            `Grep` no restante do repositorio para entender o CONTEXTO do que
+            mudou (o arquivo inteiro, o modulo vizinho, o teste correspondente).
 
             Revise o diff do PR ${{ github.repository }}#${{ github.event.pull_request.number }}.
 
@@ -134,3 +169,53 @@ jobs:
 
             Contexto completo em `_bmad-output/planning-artifacts/QUALITY-GATE.md`
             e na `ARCHITECTURE-SPINE.md` do repositorio.
+
+      # SEGUNDO caminho para "verde sem alvo", descoberto ao abrir o PR #66: o
+      # `claude-code-action` PULA a execucao quando o arquivo do workflow difere
+      # do que esta na branch default ("Workflow validation failed") — e o step
+      # termina com `outcome: success`. Todo PR que toca este arquivo, portanto,
+      # tem `claude-review` verde sem revisao nenhuma.
+      #
+      # Nao da para falhar o job nesse caso sem travar toda mudanca de CI. O que
+      # da, e o que este step faz, e tornar o fato VISIVEL: as metricas do run
+      # vao para o resumo do job, onde quem revisa (ou o loop) as le sem baixar
+      # log. Um review real gasta dezenas de turnos e alguns minutos; 5 turnos
+      # com 4 negacoes de permissao, ou nenhum output, sao silencio.
+      - name: Resumo do que o revisor de fato fez
+        if: always()
+        run: |
+          saida=/home/runner/work/_temp/claude-execution-output.json
+          {
+            echo "### claude-review — o que aconteceu de verdade"
+            echo
+            if [ ! -f "$saida" ]; then
+              echo "**A acao NAO executou.** Nenhum output foi gerado —"
+              echo "tipicamente 'Workflow validation failed' (o PR altera este"
+              echo "workflow) ou falha antes do Claude iniciar."
+              echo
+              echo "O check esta verde, mas **nada foi revisado**."
+            else
+              python3 - "$saida" <<'PY_FIM'
+          import json, sys
+          linhas = [json.loads(l) for l in open(sys.argv[1]) if l.strip().startswith('{')]
+          r = next((x for x in reversed(linhas) if x.get('type') == 'result'), None)
+          if r is None:
+              print('Output presente, mas sem bloco `result`.')
+          else:
+              turnos = r.get('num_turns', 0)
+              negacoes = r.get('permission_denials_count', 0)
+              segundos = r.get('duration_ms', 0) / 1000
+              print(f'- turnos: **{turnos}**')
+              print(f'- negacoes de permissao: **{negacoes}**')
+              print(f'- duracao: **{segundos:.1f}s**')
+              print(f"- is_error: `{r.get('is_error')}`  subtype: `{r.get('subtype')}`")
+              print()
+              if segundos < 60 or negacoes > 0:
+                  print('**Sinal de SILENCIO.** Revisao de verdade leva 4-6 min.')
+                  print('Verifique os comentarios antes de confiar neste verde:')
+                  print('`gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments --jq length`')
+              else:
+                  print('Duracao compativel com revisao real.')
+          PY_FIM
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
