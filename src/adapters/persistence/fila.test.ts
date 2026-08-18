@@ -44,19 +44,39 @@ const inserir = async (
     prioridade?: string
     criadoEm?: string
     excluido?: boolean
+    titulo?: string
+    descricao?: string
+    numeroLegado?: string
   }[],
 ) => {
   for (const l of linhas) {
     await db.execute(sql`
-      INSERT INTO tickets (number, titulo, descricao, categoria, status, priority, requester, assignee, criado_em, deleted_at)
+      INSERT INTO tickets (number, titulo, descricao, categoria, status, priority, requester, assignee, criado_em, deleted_at, numero_legado)
       VALUES (
-        ${l.numero}, ${`Chamado ${l.numero}`}, 'descricao longa que a Fila NAO devolve',
+        ${l.numero}, ${l.titulo ?? `Chamado ${l.numero}`},
+        ${l.descricao ?? 'descricao longa que a Fila NAO devolve'},
         ${l.categoria ?? 'hardware'}, ${l.status ?? 'aberto'}, ${l.prioridade ?? 'media'},
         ${l.requester}, ${l.assignee ?? null},
-        ${l.criadoEm ?? '2026-08-18T09:00:00Z'}, ${l.excluido === true ? sql`now()` : null}
+        ${l.criadoEm ?? '2026-08-18T09:00:00Z'}, ${l.excluido === true ? sql`now()` : null},
+        ${l.numeroLegado ?? null}
       )
     `)
   }
+}
+
+/** Story 3.4 — Comentario direto no banco: a suite precisa controlar `internal`. */
+const comentar = async (
+  numero: number,
+  corpo: string,
+  opcoes: { interno?: boolean; excluido?: boolean } = {},
+) => {
+  await db.execute(sql`
+    INSERT INTO comments (ticket_number, autor, corpo, internal, deleted_at)
+    VALUES (
+      ${numero}, 'bruno@empresa.com', ${corpo}, ${opcoes.interno === true},
+      ${opcoes.excluido === true ? sql`now()` : null}
+    )
+  `)
 }
 
 beforeEach(async () => {
@@ -481,6 +501,148 @@ describe('o teto do limite e do CONTRATO (AC #4)', () => {
   })
 })
 
+/**
+ * Story 3.4 — busca textual (FR-11).
+ *
+ * O caso do Comentario Interno vem PRIMEIRO porque e a razao de a story existir
+ * do jeito que existe: o gargalo do dominio nao pega esse vazamento.
+ */
+describe('busca textual (Story 3.4)', () => {
+  beforeEach(async () => {
+    await inserir([
+      {
+        numero: 1000,
+        requester: 'marina@empresa.com',
+        titulo: 'VPN nao conecta',
+        descricao: 'Erro ao entrar na rede.',
+      },
+      {
+        numero: 1001,
+        requester: 'marina@empresa.com',
+        titulo: 'Notebook lento',
+        descricao: 'Demora para abrir a VPN tambem.',
+      },
+      {
+        numero: 1002,
+        requester: 'carlos@empresa.com',
+        titulo: 'Impressora',
+        descricao: 'Sem toner.',
+        status: 'fechado',
+      },
+    ])
+  })
+
+  it('casa no Titulo e na Descricao (AC #1)', async () => {
+    const saida = await buscar({ ...padrao, texto: 'VPN' }, bruno)
+
+    expect(saida.itens.map((i) => i.numero)).toEqual([1000, 1001])
+  })
+
+  it('casa em Comentario publico', async () => {
+    await comentar(1002, 'Troquei o toner e a impressora voltou.')
+
+    const saida = await buscar({ ...padrao, texto: 'toner' }, bruno)
+
+    expect(saida.itens.map((i) => i.numero)).toEqual([1002])
+  })
+
+  /**
+   * O TESTE CENTRAL da story. O Comentario Interno e do Chamado DELA, entao
+   * `filaVisivelPara` deixa passar sem hesitar: ele sabe de posse e exclusao,
+   * nao de conteudo. Se o recorte nao estiver no `WHERE`, ela descobre que a
+   * conversa do time fala de "juridico".
+   */
+  it('Comentario INTERNO nao faz o Chamado casar para o Solicitante (AC #2)', async () => {
+    await comentar(1000, 'Cliente insistente, escalar para o juridico.', { interno: true })
+
+    const dela = await buscar({ ...padrao, texto: 'juridico' }, marina)
+    const dele = await buscar({ ...padrao, texto: 'juridico' }, bruno)
+
+    expect(dela.itens).toEqual([])
+    // Para o Agente, que ja pode ler a conversa, o resultado nao conta nada novo.
+    expect(dele.itens.map((i) => i.numero)).toEqual([1000])
+  })
+
+  it('Comentario EXCLUIDO nao faz o Chamado casar, nem para o Agente (AC #3)', async () => {
+    await comentar(1002, 'Palavra rarissima: xilofone.', { excluido: true })
+
+    const saida = await buscar({ ...padrao, texto: 'xilofone' }, bruno)
+
+    expect(saida.itens).toEqual([])
+  })
+
+  /**
+   * FR-11 existe para "nao reabrir um problema ja resolvido": a busca PRECISA
+   * alcancar o que ja foi encerrado. Este teste existe para impedir que alguem
+   * "conserte" isso copiando o filtro de carga do resumo (3.3).
+   */
+  it('encerrados aparecem na busca (AC #1)', async () => {
+    const saida = await buscar({ ...padrao, texto: 'Impressora' }, bruno)
+
+    expect(saida.itens.map((i) => i.numero)).toEqual([1002])
+  })
+
+  it('acha pelo numero do sistema anterior (AC #4)', async () => {
+    await inserir([
+      { numero: 1003, requester: 'marina@empresa.com', numeroLegado: 'INC-4711' },
+      { numero: 1004, requester: 'marina@empresa.com', numeroLegado: 'INC-47110' },
+    ])
+
+    const saida = await buscar({ ...padrao, texto: 'INC-4711' }, bruno)
+
+    // IGUALDADE, nao trigrama: o 1004 tem um numero legado que CONTEM o termo.
+    expect(saida.itens.map((i) => i.numero)).toEqual([1003])
+  })
+
+  /** O texto se soma ao escopo — nunca o amplia. */
+  it('o Solicitante busca apenas dentro do que alcanca (AC #5)', async () => {
+    await inserir([{ numero: 1005, requester: 'carlos@empresa.com', titulo: 'VPN do carlos' }])
+
+    const saida = await buscar({ ...padrao, texto: 'VPN' }, marina)
+
+    expect(saida.itens.map((i) => i.numero)).toEqual([1000, 1001])
+  })
+
+  it('o texto se combina com filtro e recorte (AC #5)', async () => {
+    const saida = await buscar({ ...padrao, texto: 'VPN', status: 'aberto' }, bruno)
+
+    expect(saida.itens.map((i) => i.numero)).toEqual([1000, 1001])
+
+    const comRecorte = await buscar({ ...padrao, texto: 'VPN', recorte: 'sem_dono' }, bruno)
+    expect(comRecorte.itens.map((i) => i.numero)).toEqual([1000, 1001])
+  })
+
+  /**
+   * Pela saida, fazer o texto SUBSTITUIR o escopo nao muda nada: o Chamado
+   * alheio que entraria e descartado por `filaVisivelPara`. O gargalo mascara —
+   * como na 3.1 com o `WHERE` do escopo e na 3.2 com o recorte.
+   *
+   * Chamar o repositorio DIRETO e abrir com um Agente e o que isola: o que
+   * sobrar veio do SQL.
+   */
+  it('escopo e busca se somam no proprio WHERE (AC #5)', async () => {
+    await inserir([{ numero: 1006, requester: 'carlos@empresa.com', titulo: 'VPN do carlos' }])
+
+    const bruta = await repositorio.buscarFilaBruta(
+      { tipo: 'apenasDe', requester: 'marina@empresa.com' },
+      { dono: { tipo: 'qualquer' }, busca: { termo: 'VPN', comentarios: 'todos' } },
+      { limite: 20, deslocamento: 0, ordem: 'asc' },
+    )
+
+    expect(filaVisivelPara(bruno, bruta).itens.map((i) => i.number)).toEqual([1000, 1001])
+  })
+
+  it('termo vazio e recusado pelo dominio', async () => {
+    await expect(buscar({ ...padrao, texto: '   ' }, bruno)).rejects.toThrow(/termo/i)
+  })
+
+  it('a busca ignora maiusculas', async () => {
+    const saida = await buscar({ ...padrao, texto: 'vpn' }, bruno)
+
+    expect(saida.itens.map((i) => i.numero)).toEqual([1000, 1001])
+  })
+})
+
 describe('a Fila usa INDICE, nao varredura (AC #6)', () => {
   /**
    * O pilar Performatico nunca foi exercitado neste projeto (QUALITY-GATE
@@ -554,6 +716,46 @@ describe('a Fila usa INDICE, nao varredura (AC #6)', () => {
     `)
 
     expect(texto).toContain('tickets_fila_requester_idx')
+    expect(texto).not.toContain('Seq Scan')
+  })
+})
+
+/**
+ * Story 3.4 — o indice de trigramas (AC #6).
+ *
+ * Bloco proprio porque o dado e outro: `ILIKE '%termo%'` so vale a pena indexar
+ * quando a tabela e grande o bastante para a varredura ficar cara, e quando o
+ * TEXTO e realista. Com 5.000 linhas de titulo curto ("Chamado 42"), o
+ * planejador varre — e acerta.
+ *
+ * Medido em 2026-08-18: com 20.000 linhas de titulo longo, o plano passa a usar
+ * `Bitmap Index Scan` no indice GIN. O termo precisa ter tres caracteres ou
+ * mais (trigrama e isso) e ser seletivo.
+ */
+describe('a busca textual usa o indice GIN (AC #6)', () => {
+  beforeEach(async () => {
+    await db.execute(sql`
+      INSERT INTO tickets (number, titulo, descricao, categoria, status, priority, requester)
+      SELECT
+        i,
+        'Chamado sobre problema recorrente numero ' || i || ' na estacao de trabalho',
+        'descricao do problema relatado pelo solicitante',
+        'hardware', 'aberto', 'media',
+        'pessoa' || (i % 200) || '@empresa.com'
+      FROM generate_series(1, 20000) AS i
+    `)
+    await db.execute(sql`ANALYZE tickets`)
+  })
+
+  it('o ILIKE no titulo usa tickets_busca_titulo_idx', async () => {
+    const linhas = await db.execute(sql`
+      EXPLAIN SELECT number FROM tickets
+       WHERE deleted_at IS NULL AND titulo ILIKE '%14711%'
+       ORDER BY criado_em, number LIMIT 21
+    `)
+    const texto = linhas.map((l) => String(Object.values(l)[0])).join('\n')
+
+    expect(texto).toContain('tickets_busca_titulo_idx')
     expect(texto).not.toContain('Seq Scan')
   })
 })

@@ -29,6 +29,17 @@ export const buscarChamadosInputSchema = z.object({
    * herdaria a regra (mesmo raciocinio do motivo da reabertura, na 2.6).
    */
   recorte: z.enum(RECORTES).optional(),
+  /**
+   * Story 3.4 — busca textual (FR-11). Cobre Titulo, Descricao, Comentarios e o
+   * `numero_legado` do sistema anterior.
+   *
+   * Continua sendo a MESMA tool: uma `buscar_chamados` que filtra e uma
+   * `buscar_por_texto` que busca seriam duas superficies para a mesma pergunta.
+   *
+   * O `.min(1)` aqui e conveniencia; quem recusa termo vazio de verdade e o
+   * dominio (`alcanceDaBusca`), para que todo ponto de entrada herde a regra.
+   */
+  texto: z.string().min(1).optional(),
   categoria: z.enum(CATEGORIAS).optional(),
   /**
    * Teto no SCHEMA, e nao truncamento no adapter: pedir 500 e receber 100 em

@@ -33,6 +33,10 @@ export const tickets = pgTable('tickets', {
   // Story 2.2 — concorrencia otimista (AD-10). Incrementada a cada mutacao de
   // CAMPO; escrita aditiva (Comentario) nao a move.
   version: integer('version').notNull().default(1),
+  // Story 3.4 — o Numero do sistema ANTERIOR (FR-11). Nasce vazia; quem
+  // preenche e o import do Epic 4. TEXT porque numero legado costuma vir com
+  // prefixo, zero a esquerda ou letra.
+  numeroLegado: text('numero_legado'),
 })
 
 /**
