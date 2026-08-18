@@ -1,6 +1,7 @@
 import { createTransport, type Transporter } from 'nodemailer'
 import type {
   ChamadoAberto,
+  ChamadoResolvido,
   NotificadorDeChamado,
 } from '../../application/ports/notificador-de-chamado.js'
 import type { NotificadorDeLogin } from '../../application/ports/notificador-de-login.js'
@@ -86,6 +87,34 @@ export const criarNotificadorPorEmail = ({
         '',
         'Acompanhe pelo link (valido por 7 dias):',
         mensagem.link,
+      ].join('\n'),
+    })
+  },
+
+  async enviarChamadoResolvido(mensagem: ChamadoResolvido) {
+    // Mesmo formato de assunto do e-mail de abertura: os dois e-mails do mesmo
+    // Chamado ficam um do lado do outro na caixa de quem busca por "#1042".
+    await transporter.sendMail({
+      from: remetente,
+      to: mensagem.destinatario,
+      subject: `Chamado #${mensagem.numero} resolvido — ${mensagem.titulo}`,
+      text: [
+        `Seu Chamado #${mensagem.numero} foi resolvido.`,
+        '',
+        `Titulo: ${mensagem.titulo}`,
+        `Resolvido por: ${mensagem.resolvidoPor}`,
+        // A frase chega PRONTA do dominio (`duracaoLegivel`): se o adapter a
+        // montasse, a UI da Fase 1.5 escreveria a sua e o mesmo Chamado teria
+        // dois "tempo total" diferentes.
+        `Tempo total: ${mensagem.duracao}`,
+        '',
+        'Veja o que foi feito pelo link (valido por 7 dias):',
+        mensagem.link,
+        '',
+        // O Solicitante nao ve o Log (1.8) e nao muda Status (2.2). Sem esta
+        // linha, "continua com problema" nao tem para onde ir — e o intake por
+        // e-mail (1.9) e justamente o caminho que existe.
+        'Se o problema continuar, responda a este e-mail.',
       ].join('\n'),
     })
   },

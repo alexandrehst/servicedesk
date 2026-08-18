@@ -15,6 +15,34 @@ export type ChamadoAberto = {
   readonly link: string
 }
 
+/**
+ * Story 2.5 — o segundo (e ultimo) evento que gera e-mail no MVP.
+ *
+ * FR-18 e explicito: so abertura e resolucao. Comentario, atribuicao e
+ * prioridade NAO notificam — a caixa de entrada de quem abriu um Chamado nao
+ * pode virar o log de tudo o que o time faz.
+ */
+export type ChamadoResolvido = {
+  readonly destinatario: string
+  readonly numero: number
+  readonly titulo: string
+  /**
+   * Quem resolveu: a IDENTIDADE de quem executou a acao (AD-9), nunca o Dono —
+   * os dois podem ser pessoas diferentes.
+   */
+  readonly resolvidoPor: string
+  /**
+   * O tempo total entre a abertura e a resolucao, ja em TEXTO
+   * (`duracaoLegivel`, no dominio). O adapter recebe a frase pronta pelo mesmo
+   * motivo que recebe o rotulo de auditoria pronto: se ele a montasse, cada
+   * ponto de entrada teria a sua.
+   */
+  readonly duracao: string
+  /** URL completa, com o token de acesso ja embutido. */
+  readonly link: string
+}
+
 export type NotificadorDeChamado = {
   enviarChamadoAberto(mensagem: ChamadoAberto): Promise<void>
+  enviarChamadoResolvido(mensagem: ChamadoResolvido): Promise<void>
 }

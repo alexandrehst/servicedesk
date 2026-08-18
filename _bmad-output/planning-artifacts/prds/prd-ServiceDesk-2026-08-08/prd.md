@@ -161,6 +161,13 @@ Um Agente pode Resolver, Fechar, Cancelar ou Reabrir um Chamado. Fechar, Cancela
 - Reabrir um Chamado Resolvido/Fechado volta o Status para "Em andamento" e registra o motivo.
 - Via MCP, estas ações exigem confirmação humana (FR-17).
 
+**Decidido em 2026-08-18 (Story 2.5):**
+
+- **Resolver NÃO ganhou ação dedicada.** `em_andamento → resolvido` já está em `TRANSICOES` desde a Story 2.2, e o e-mail de resolução é consequência da transição, dentro do command `mudarStatus`. Uma tool própria criaria uma **segunda porta** para o mesmo estado, e uma delas não avisaria ninguém; fechá-la exigiria uma terceira tabela de transições para não ganhar garantia nenhuma. Como o command é o único caminho de escrita (AD-2), MCP, HTTP e a UI da Fase 1.5 herdam a notificação sem poder pulá-la. Isso separa Resolver das três **irreversíveis** (FR-15, FR-17, AD-7), que continuam com ações dedicadas na Story 2.6.
+- **Sem capacidade nova.** `mudaStatus` já responde à pergunta: declarar que o problema acabou é atendimento.
+- **Sem rótulo novo no Log.** A resolução grava `mudar_status` com o par `em_andamento`/`resolvido` — a informação já está lá, e um rótulo próprio criaria duas formas de registrar o mesmo fato.
+- **Sem coluna `resolved_at`.** O instante da resolução vive no Log (`audit_entries.registrado_em`, append-only, FR-22). Uma coluna seria segunda fonte da verdade sobre o mesmo fato.
+
 **NFRs específicos:** edição concorrente de um mesmo Chamado por dois Agentes deve ser detectada (aviso ou trava otimista) para evitar sobrescrita silenciosa.
 
 ### 4.2 Fila e Triagem
@@ -235,6 +242,14 @@ O sistema envia e-mail ao Solicitante na abertura e na resolução do Chamado. R
 - Apenas abertura e resolução no MVP (sem ruído).
 - E-mail contém Número, Status e link; o link também dá acesso no portal (mitiga spam).
 **Decidido em 2026-08-10 (Story 1.6):** o link é um **magic link de acesso ao Chamado** — escopo de um Chamado só, válido por **7 dias** e **reutilizável** (uso único seria hostil: a pessoa clica, fecha a aba e volta depois). Transporte por **Nodemailer sobre SMTP** configurável por ambiente. O envio acontece **fora** da transação do AD-3: e-mail dentro dela prenderia a linha do Chamado pelo tempo do SMTP e desfaria a abertura se falhasse.
+
+**Decidido em 2026-08-18 (Story 2.5):** o segundo e último e-mail do MVP.
+
+- **O e-mail de resolução traz quem resolveu e o tempo total**, além de Número, Título e link. "Quem resolveu" é a identidade de **quem executou a ação** (AD-9), não o Dono — os dois podem ser pessoas diferentes. É uma exceção consciente à Story 1.8, que esconde o Log do Solicitante: o Log expõe **todas** as identidades e **todos** os tempos; o e-mail expõe **um** Agente, no **próprio** Chamado dele, e é o que ele precisa para saber a quem responder.
+- **O "tempo total" é frase do domínio** (`duracaoLegivel`), com granularidade única arredondada para baixo — `"3 horas"`, `"2 dias"`. Se o adapter a montasse, a UI da Fase 1.5 escreveria a sua e o mesmo Chamado teria dois tempos diferentes. Duração nula ou negativa (relógio para trás) vira `"menos de um minuto"`, nunca um número negativo.
+- **A re-resolução re-notifica.** Nada guarda "já avisei": um Chamado devolvido ao atendimento e resolvido de novo é evento novo para quem abriu.
+- **Escrita que não aconteceu não notifica.** Conflito de versão (AD-10) ou Chamado excluído no meio do caminho não disparam e-mail — a mesma regra da auditoria na Story 1.7.
+- **Nenhum outro evento notifica.** Comentário, atribuição e prioridade não geram e-mail: a caixa de entrada de quem abriu um Chamado não pode virar o log de tudo o que o time faz.
 
 ### 4.6 Identidade e Papéis
 

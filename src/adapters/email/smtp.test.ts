@@ -38,6 +38,16 @@ const chamado = {
   link: 'https://desk.empresa.com/chamados/1042?acesso=token-cru',
 }
 
+/** Story 2.5 — o segundo e ultimo e-mail do MVP (FR-18). */
+const resolvido = {
+  destinatario: 'marina@empresa.com',
+  numero: 1042,
+  titulo: 'Notebook nao liga',
+  resolvidoPor: 'bruno@empresa.com',
+  duracao: '2 dias',
+  link: 'https://desk.empresa.com/chamados/1042?acesso=token-de-resolucao',
+}
+
 beforeEach(() => {
   enviadas = []
 })
@@ -120,6 +130,46 @@ describe('e-mail de login (Story 1.3, transporte que faltava)', () => {
   })
 })
 
+describe('e-mail de Chamado resolvido (Story 2.5, AC #1)', () => {
+  it('diz quem resolveu e o tempo total', async () => {
+    await notificador.enviarChamadoResolvido(resolvido)
+
+    const texto = enviadas[0]?.text ?? ''
+    expect(texto).toContain('bruno@empresa.com')
+    expect(texto).toContain('2 dias')
+  })
+
+  it('vai para o Solicitante, com o remetente configurado', async () => {
+    await notificador.enviarChamadoResolvido(resolvido)
+
+    expect(enviadas[0]?.to).toBe('marina@empresa.com')
+    expect(enviadas[0]?.from).toBe('servicedesk@empresa.com')
+  })
+
+  it('o Numero esta no assunto, como no e-mail de abertura', async () => {
+    await notificador.enviarChamadoResolvido(resolvido)
+
+    expect(enviadas[0]?.subject).toBe('Chamado #1042 resolvido — Notebook nao liga')
+  })
+
+  it('leva o link de acesso ao Chamado', async () => {
+    await notificador.enviarChamadoResolvido(resolvido)
+
+    expect(enviadas[0]?.text).toContain(resolvido.link)
+  })
+
+  /**
+   * O Solicitante nao ve o Log (1.8) e nao muda Status (2.2): se o e-mail nao
+   * disser o que fazer quando o problema continua, ele responde no vazio. O
+   * intake por e-mail (1.9) e o caminho que existe.
+   */
+  it('diz o que fazer se o problema continuar', async () => {
+    await notificador.enviarChamadoResolvido(resolvido)
+
+    expect(enviadas[0]?.text?.toLowerCase()).toContain('responda')
+  })
+})
+
 describe('a mensagem montada e aceita pelo Nodemailer de verdade', () => {
   it('o jsonTransport serializa o e-mail de Chamado sem reclamar', async () => {
     const real = createTransport({ jsonTransport: true })
@@ -132,6 +182,7 @@ describe('a mensagem montada e aceita pelo Nodemailer de verdade', () => {
     // O duble acima aceita qualquer objeto; este teste garante que o formato
     // tambem passa pelo Nodemailer — cabecalhos, destinatario, corpo.
     await expect(comTransporteReal.enviarChamadoAberto(chamado)).resolves.toBeUndefined()
+    await expect(comTransporteReal.enviarChamadoResolvido(resolvido)).resolves.toBeUndefined()
   })
 })
 

@@ -55,6 +55,7 @@ Mapa paradigma → diretórios:
 - **Prevents:** o adapter MCP permitir uma transição que a API proíbe (ou vice-versa).
 - **Rule:** as transições válidas entre valores de Status são definidas uma vez no domínio; ambos os adapters chamam a mesma função de transição. Transição inválida é rejeitada pelo domínio.
 - **Implementado em 2026-08-11 (Story 2.2)** em `domain/transicoes.ts`, com **duas** tabelas: `TRANSICOES` (o que `mudar_status` executa) e `TRANSICOES_COM_CONFIRMACAO` (fechar, cancelar, reabrir — a Story 2.6 executa, com confirmação do AD-7). A separação é de segurança: se `mudar_status` aceitasse `fechado`, a IA encerraria Chamado sem human-in-the-loop pela tool genérica, e o guardrail nasceria furado. Um teste garante que as duas tabelas não se sobrepõem. Auto-transição não existe, e a garantia está nos **dados** — nenhuma tabela lista o próprio estado como destino — porque uma guarda `de !== para` no código seria inalcançável.
+- **Confirmado em 2026-08-18 (Story 2.5):** **resolver continua na tabela comum**, e o e-mail de resolução é consequência da transição dentro do command `mudarStatus` (FR-7, FR-18). Uma ação dedicada para Resolver criaria uma segunda porta para o mesmo estado — e uma delas não notificaria — enquanto fechá-la exigiria uma terceira tabela sem ganho de garantia. A linha entre as duas tabelas continua sendo a **irreversibilidade** (AD-7), não "tem efeito colateral": Resolver é reversível (`resolvido → em_andamento` está em `TRANSICOES`), e por isso não pede human-in-the-loop.
 
 ### AD-6 — Contratos MCP e API derivam de uma única fonte Zod
 - **Binds:** FR-13..FR-16
@@ -220,6 +221,7 @@ servicedesk/
 ## Deferred
 
 - **Topologia de deploy / hospedagem** — provider e forma de deploy (container único vs. serverless) não decididos; escala pequena permite adiar. Confirmar no cold-start junto ao starter.
+  - **O que está represado atrás desta decisão** (2026-08-18, Story 2.5): não existe raiz de composição, então ninguém injeta o canal de notificação nos handlers MCP — `criarHandlerAbrirChamado` (1.6) e `criarHandlerMudarStatus` (2.5) montam os commands **sem** `notificacao`, e nenhum dos dois e-mails do FR-18 dispara em produção. O mesmo vale para o agendador do intake por e-mail (1.9), pronto e desligado. Os três são trabalho da story de bootstrap que esta decisão precede.
 - **Transporte MCP em produção** — começar `stdio` local para validar; promover a HTTP autenticado quando mais de um cliente precisar (best practice atual). Decisão de transporte final adiada.
 - ~~**Auth concreta**~~ — **decidido em 2026-08-10** (Story 1.3): magic link por e-mail; sessão em tabela no Postgres com o token guardado apenas como hash SHA-256; link de 15 min de uso único; sessão de 8 h. O papel vive em `users` e é lido a cada resolução — sessão não o congela.
 - **Estratégia de migração CSV** — formato de export do contratado desconhecido (PRD Q5); o adapter de import é um caso à parte, desenhado quando o formato for conhecido.

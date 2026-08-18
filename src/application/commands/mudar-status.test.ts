@@ -3,6 +3,7 @@ import { ehDomainError } from '../../domain/errors.js'
 import type { Status, Ticket } from '../../domain/ticket.js'
 import { embrulharBruto } from '../../domain/visibilidade.js'
 import type { Principal } from '../contracts/principal.js'
+import type { ChamadoResolvido, NotificadorDeChamado } from '../ports/notificador-de-chamado.js'
 import type { TicketRepository } from '../ports/ticket-repository.js'
 import { mudarStatus } from './mudar-status.js'
 
@@ -274,5 +275,198 @@ describe('quando o UPDATE nao casa (AC #2, #3)', () => {
     )
 
     expect(ehDomainError(erro) && erro.code).toBe('TicketNaoEncontrado')
+  })
+})
+
+/**
+ * Story 2.5 — o e-mail de resolucao (FR-7, FR-18).
+ *
+ * Aqui se prova QUANDO o e-mail sai e o QUE o command entrega ao port. O texto
+ * da mensagem e do adapter (`adapters/email/smtp.test.ts`): teste que inspeciona
+ * efeito pela propria biblioteca costuma mentir (licao da 1.6).
+ */
+describe('e-mail de resolucao (Story 2.5)', () => {
+  const ABERTO_EM = new Date('2026-08-11T12:00:00.000Z')
+  const RESOLVIDO_EM = new Date('2026-08-13T15:30:00.000Z')
+
+  let enviados: ChamadoResolvido[]
+  let abertos: number[]
+  let logado: { evento: string; dados: Record<string, string | number> }[]
+  let linksEmitidos: { ticketNumber: number; email: string }[]
+
+  const notificador = (quebrado = false): NotificadorDeChamado => ({
+    async enviarChamadoAberto(m) {
+      abertos.push(m.numero)
+    },
+    async enviarChamadoResolvido(m) {
+      if (quebrado) {
+        throw new Error('SMTP recusou a conexao')
+      }
+      enviados.push(m)
+    },
+  })
+
+  const canal = (quem: NotificadorDeChamado) => ({
+    notificador: quem,
+    async criarLink(entrada: { readonly ticketNumber: number; readonly email: string }) {
+      linksEmitidos.push({ ...entrada })
+      return `token-${entrada.ticketNumber}-${linksEmitidos.length}`
+    },
+    montarUrl: (numero: number, token: string) =>
+      `https://desk.empresa.com/chamados/${numero}?acesso=${token}`,
+    logger: {
+      erro(evento: string, dados: Readonly<Record<string, string | number>>) {
+        logado.push({ evento, dados: { ...dados } })
+      },
+      aviso() {
+        throw new Error('esta suite nao espera aviso')
+      },
+    },
+    agora: () => RESOLVIDO_EM,
+  })
+
+  const resolver = (quem: NotificadorDeChamado) =>
+    mudarStatus({ repositorio, notificacao: canal(quem) })
+
+  beforeEach(() => {
+    enviados = []
+    abertos = []
+    logado = []
+    linksEmitidos = []
+    existente = chamado('em_andamento', { criadoEm: ABERTO_EM })
+  })
+
+  it('resolver avisa o Solicitante, com quem resolveu e o tempo total (AC #1)', async () => {
+    await resolver(notificador())({ numero: 1000, novoStatus: 'resolvido', versao: 3 }, bruno)
+
+    expect(enviados).toEqual([
+      {
+        destinatario: 'marina@empresa.com',
+        numero: 1000,
+        titulo: 'Notebook nao liga',
+        resolvidoPor: 'bruno@empresa.com',
+        duracao: '2 dias',
+        link: 'https://desk.empresa.com/chamados/1000?acesso=token-1000-1',
+      },
+    ])
+  })
+
+  /**
+   * Quem resolveu e quem EXECUTOU a acao (AD-9), nao o Dono: um Agente pode
+   * resolver o Chamado que esta na fila de outro.
+   */
+  it('quem resolveu e o autor da acao, nao o Dono', async () => {
+    existente = chamado('em_andamento', {
+      criadoEm: ABERTO_EM,
+      assignee: 'outro@empresa.com',
+    })
+
+    await resolver(notificador())({ numero: 1000, novoStatus: 'resolvido', versao: 3 }, bruno)
+
+    expect(enviados[0]?.resolvidoPor).toBe('bruno@empresa.com')
+  })
+
+  it('o link e emitido para o Solicitante daquele Chamado', async () => {
+    await resolver(notificador())({ numero: 1000, novoStatus: 'resolvido', versao: 3 }, bruno)
+
+    expect(linksEmitidos).toEqual([{ ticketNumber: 1000, email: 'marina@empresa.com' }])
+  })
+
+  /**
+   * FR-18 e explicito: so abertura e resolucao. A caixa de entrada de quem
+   * abriu um Chamado nao pode virar o log de tudo o que o time faz.
+   */
+  it.each([
+    ['aberto', 'em_andamento'],
+    ['em_andamento', 'aberto'],
+    ['resolvido', 'em_andamento'],
+  ] as const)('%s -> %s NAO manda e-mail (AC #3)', async (de, para) => {
+    existente = chamado(de, { criadoEm: ABERTO_EM })
+
+    await resolver(notificador())({ numero: 1000, novoStatus: para, versao: 3 }, bruno)
+
+    expect(enviados).toHaveLength(0)
+    expect(linksEmitidos).toHaveLength(0)
+  })
+
+  /**
+   * A licao da 1.7 aplicada ao e-mail: escrita que nao aconteceu nao notifica
+   * ninguem. Avisar o Solicitante de uma resolucao que perdeu o conflito seria
+   * mentira — e a mutacao mais importante desta story.
+   */
+  it('conflito de versao nao manda e-mail (AC #4)', async () => {
+    resultadoDoUpdate = null
+
+    const erro = await erroDe(
+      resolver(notificador())({ numero: 1000, novoStatus: 'resolvido', versao: 3 }, bruno),
+    )
+
+    expect(ehDomainError(erro) && erro.code).toBe('Conflict')
+    expect(enviados).toHaveLength(0)
+    expect(linksEmitidos).toHaveLength(0)
+  })
+
+  it('Solicitante recusado nao manda e-mail (AC #4)', async () => {
+    await erroDe(
+      resolver(notificador())({ numero: 1000, novoStatus: 'resolvido', versao: 3 }, marina),
+    )
+
+    expect(enviados).toHaveLength(0)
+  })
+
+  /**
+   * A resolucao ja aconteceu: desfaze-la porque o SMTP caiu seria pior que nao
+   * avisar. Mas silencio tambem nao e opcao (pilar Observavel).
+   */
+  it('SMTP fora do ar nao derruba a resolucao, e vira log (AC #5)', async () => {
+    const saida = await resolver(notificador(true))(
+      { numero: 1000, novoStatus: 'resolvido', versao: 3 },
+      bruno,
+    )
+
+    expect(saida).toEqual({ numero: 1000, de: 'em_andamento', para: 'resolvido', versao: 4 })
+    expect(logado).toEqual([
+      {
+        evento: 'falha_ao_notificar_resolucao',
+        dados: {
+          numero: 1000,
+          destinatario: 'marina@empresa.com',
+          causa: 'SMTP recusou a conexao',
+        },
+      },
+    ])
+  })
+
+  /** AD-9: nem token, nem link, nem corpo de e-mail no log. */
+  it('o log da falha nao carrega token nem link', async () => {
+    await resolver(notificador(true))({ numero: 1000, novoStatus: 'resolvido', versao: 3 }, bruno)
+
+    const registrado = JSON.stringify(logado)
+    expect(registrado).not.toContain('token-')
+    expect(registrado).not.toContain('https://')
+  })
+
+  /**
+   * Nada guarda "ja avisei": cada resolucao re-notifica (AC #2). O ciclo real
+   * — resolver, devolver ao atendimento, resolver de novo — esta na integracao
+   * com Postgres, onde a `version` anda de verdade.
+   */
+  it('duas resolucoes mandam dois e-mails (AC #2)', async () => {
+    const mudarComEmail = resolver(notificador())
+
+    await mudarComEmail({ numero: 1000, novoStatus: 'resolvido', versao: 3 }, bruno)
+    await mudarComEmail({ numero: 1000, novoStatus: 'resolvido', versao: 4 }, bruno)
+
+    expect(enviados).toHaveLength(2)
+  })
+
+  /**
+   * Opcional pelo mesmo motivo da 1.6: ha caminhos sem para quem avisar, e
+   * torna-la obrigatoria transformaria conveniencia em acoplamento.
+   */
+  it('sem canal de notificacao, resolver continua funcionando', async () => {
+    const saida = await mudar({ numero: 1000, novoStatus: 'resolvido', versao: 3 }, bruno)
+
+    expect(saida.para).toBe('resolvido')
   })
 })
