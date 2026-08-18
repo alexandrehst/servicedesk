@@ -1,7 +1,7 @@
 import type { EntradaDeAuditoria } from './auditoria.js'
 import { DomainError } from './errors.js'
 import { type Papel, pode } from './papeis.js'
-import type { Prioridade, Status, Ticket } from './ticket.js'
+import type { Categoria, Prioridade, Status, Ticket } from './ticket.js'
 
 /**
  * AD-8: regras de visibilidade vivem no dominio, nao em cada adapter. E o que
@@ -185,6 +185,70 @@ export const filaVisivelPara = (quem: QuemPergunta, bruta: FilaBruta): FilaVisiv
   const { itens, temMais } = bruta[conteudo]
 
   return { itens: itens.filter((item) => podeVerTicket(quem, item)), temMais }
+}
+
+/**
+ * O resumo da Fila (Story 3.3, FR-10).
+ *
+ * Aqui o AD-8 PERDE a segunda camada. Nas Stories 3.1 e 3.2 o dominio reaplicava
+ * `podeVerTicket` sobre os itens que voltavam; um resumo NAO TEM ITENS. Se o
+ * `WHERE` do escopo estiver errado, os numeros saem errados e nada os corrige —
+ * e o erro e mudo, porque `{ aberto: 47 }` parece igualmente certo para quem tem
+ * 47 e para quem deveria ver 3.
+ *
+ * O que ainda da para conferir nao sao os dados: e a PERGUNTA que os produziu.
+ * Por isso o embrulho carrega o escopo REALMENTE aplicado.
+ */
+export type ContadoresDaFila = {
+  readonly porStatus: Readonly<Record<Status, number>>
+  readonly porCategoria: Readonly<Record<Categoria, number>>
+  /** Eixo ABERTO: so aparecem identidades que tem Chamado. */
+  readonly porDono: Readonly<Record<string, number>>
+  /**
+   * Campo proprio, e nao uma chave nula em `porDono` (a 3.2 fez "sem Dono" ser
+   * de primeira classe). Em JSON, `null` como chave vira a string "null" e
+   * colidiria com uma identidade chamada assim — e este e o numero que quem
+   * gerencia procura primeiro.
+   */
+  readonly semDono: number
+}
+
+export type ResumoBruto = Bruto<{
+  readonly escopo: EscopoDeLeitura
+  readonly contadores: ContadoresDaFila
+}>
+
+export type ResumoVisivel = {
+  readonly contadores: ContadoresDaFila
+}
+
+const mesmoEscopo = (a: EscopoDeLeitura, b: EscopoDeLeitura): boolean =>
+  a.tipo === 'todos' ? b.tipo === 'todos' : b.tipo === 'apenasDe' && a.requester === b.requester
+
+/**
+ * Abre o resumo, conferindo a pergunta que o gerou.
+ *
+ * LANCA, em vez de devolver `null`, porque isto nao e "voce nao pode ver": e
+ * defeito de programacao. Um `null` viraria "resumo vazio" na cara de quem
+ * perguntou e esconderia o bug — mesmo raciocinio do `pode()` com papel
+ * desconhecido (1.4), que falha alto de proposito.
+ *
+ * Mora AQUI, e nao num modulo proprio, pelo mesmo motivo de
+ * `historicoVisivelPara`: a chave que abre o dado bruto e o simbolo privado
+ * deste arquivo, e ele continua privado justamente para que nenhuma leitura
+ * consiga pular esta funcao.
+ */
+export const resumoVisivelPara = (quem: QuemPergunta, bruto: ResumoBruto): ResumoVisivel => {
+  const { escopo, contadores } = bruto[conteudo]
+
+  if (!mesmoEscopo(escopo, escopoDeLeitura(quem))) {
+    throw new DomainError(
+      'EscopoDivergente',
+      'O resumo foi montado com um escopo diferente do que esta identidade alcanca.',
+    )
+  }
+
+  return { contadores }
 }
 
 export type HistoricoBruto = Bruto<{

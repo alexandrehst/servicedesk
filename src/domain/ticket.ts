@@ -24,6 +24,25 @@ export type Status = (typeof STATUS)[number]
  * `nao_classificado` afirma que ninguem avaliou. So a segunda e verdade num
  * intake automatico, e e ela que a triagem do Epic 3 vai querer filtrar.
  */
+/**
+ * Os Status que encerram o Chamado (Story 3.3, FR-10).
+ *
+ * DECLARADO, e nao derivado de `TRANSICOES` — mas os dois precisam concordar, e
+ * um teste amarra: encerrado e exatamente quem nao tem transicao COMUM de saida
+ * (so se sai dele reabrindo, e reabrir exige confirmacao, 2.6). Se alguem
+ * acrescentar um Status terminal e esquecer o resumo, o teste reprova.
+ *
+ * Existe porque o resumo mede CARGA: Chamado encerrado nao e carga, e conta-lo
+ * faria o contador por Dono virar o historico de quem mais fechou Chamado no
+ * ano — ruido no lugar de sinal. `resolvido` NAO esta aqui: ele ainda pode ser
+ * reaberto e representa trabalho aguardando confirmacao.
+ */
+export const STATUS_ENCERRADOS = ['fechado', 'cancelado'] as const
+export type StatusEncerrado = (typeof STATUS_ENCERRADOS)[number]
+
+export const ehStatusEmAberto = (status: Status): boolean =>
+  !(STATUS_ENCERRADOS as readonly string[]).includes(status)
+
 export const CATEGORIAS = ['hardware', 'software', 'rede', 'acesso', 'nao_classificado'] as const
 export type Categoria = (typeof CATEGORIAS)[number]
 

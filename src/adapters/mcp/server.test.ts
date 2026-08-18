@@ -52,6 +52,9 @@ const repositorio: TicketRepository = {
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
   },
+  async buscarResumoBruto() {
+    throw new Error('esta suite nao le o resumo')
+  },
   async buscarFilaBruta() {
     throw new Error('esta suite nao le a Fila')
   },
@@ -120,11 +123,11 @@ it('registra a tool abrir_chamado com o schema do contrato (AD-6)', () => {
 /**
  * O alvo muda a cada story que cria a tool anterior: era `fechar_chamado` ate a
  * 2.6, virou `buscar_chamados` ate a 3.1. A garantia e sempre a mesma — o
- * servidor nao expoe tool que nenhuma story especificou — e o alvo agora e o
- * resumo da Story 3.3.
+ * servidor nao expoe tool que nenhuma story especificou — e o alvo agora e a
+ * sugestao de parecidos da Story 3.5.
  */
 it('nao registra tool que a story nao especifica', () => {
-  expect(criarServidorMcp(deps).toolInputSchemaJson('resumo_fila')).toBeUndefined()
+  expect(criarServidorMcp(deps).toolInputSchemaJson('chamados_parecidos')).toBeUndefined()
 })
 
 it('retorna o Numero do Chamado aberto', async () => {
@@ -174,6 +177,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     },
     async executarAcaoIrreversivelComAuditoria() {
       throw new Error('esta suite nao executa Acao irreversivel')
+    },
+    async buscarResumoBruto() {
+      throw new Error('esta suite nao le o resumo')
     },
     async buscarFilaBruta() {
       throw new Error('esta suite nao le a Fila')
@@ -248,6 +254,9 @@ const repoLeitura: TicketRepository = {
   },
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
+  },
+  async buscarResumoBruto() {
+    throw new Error('esta suite nao le o resumo')
   },
   async buscarFilaBruta() {
     throw new Error('esta suite nao le a Fila')
@@ -417,6 +426,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     },
     async executarAcaoIrreversivelComAuditoria() {
       throw new Error('esta suite nao executa Acao irreversivel')
+    },
+    async buscarResumoBruto() {
+      throw new Error('esta suite nao le o resumo')
     },
     async buscarFilaBruta() {
       throw new Error('esta suite nao le a Fila')

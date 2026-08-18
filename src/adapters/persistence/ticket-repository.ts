@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, isNull, sql } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { auditEntries, comments, emailIntake, tickets } from '../../../drizzle/schema.js'
 import type { Principal } from '../../application/contracts/principal.js'
@@ -10,7 +10,16 @@ import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import { DomainError } from '../../domain/errors.js'
 import type { Origem } from '../../domain/origem.js'
-import type { Categoria, NovoTicket, Prioridade, Status, Ticket } from '../../domain/ticket.js'
+import {
+  CATEGORIAS,
+  type Categoria,
+  type NovoTicket,
+  type Prioridade,
+  STATUS,
+  STATUS_ENCERRADOS,
+  type Status,
+  type Ticket,
+} from '../../domain/ticket.js'
 import { type Comentario, type EscopoDeLeitura, embrulharBruto } from '../../domain/visibilidade.js'
 
 /**
@@ -313,6 +322,72 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         excluidoEm: linha.deletedAt,
       })),
       temMais,
+    })
+  },
+
+  /**
+   * O resumo da Fila (Story 3.3, FR-10).
+   *
+   * TRES `GROUP BY`, e nao um `GROUPING SETS`: este devolveria linhas
+   * heterogeneas que o adapter teria que desempilhar, trocando legibilidade por
+   * uma varredura a menos. Com indice parcial e uma fila de dezenas de milhares
+   * de linhas, tres agregacoes sao baratas — e a troca, se um dia o custo
+   * importar, e local: a assinatura do port nao muda.
+   *
+   * O `escopo` volta junto dos numeros porque o dominio nao tem itens para
+   * filtrar: e a pergunta que ele confere (`resumoVisivelPara`).
+   */
+  async buscarResumoBruto(escopo: EscopoDeLeitura) {
+    const base = [
+      // As mesmas duas condicoes de toda leitura de lista, mais a de CARGA:
+      // encerrado nao e carga (Story 3.3).
+      isNull(tickets.deletedAt),
+      ...(escopo.tipo === 'apenasDe' ? [eq(tickets.requester, escopo.requester)] : []),
+      sql`${tickets.status} NOT IN ${STATUS_ENCERRADOS}`,
+    ]
+
+    const [porStatus, porCategoria, porDono] = await Promise.all([
+      db
+        .select({ chave: tickets.status, quantos: count() })
+        .from(tickets)
+        .where(and(...base))
+        .groupBy(tickets.status),
+      db
+        .select({ chave: tickets.categoria, quantos: count() })
+        .from(tickets)
+        .where(and(...base))
+        .groupBy(tickets.categoria),
+      db
+        .select({ chave: tickets.assignee, quantos: count() })
+        .from(tickets)
+        .where(and(...base))
+        .groupBy(tickets.assignee),
+    ])
+
+    const contar = (linhas: { chave: string | null; quantos: number }[], chave: string) =>
+      linhas.find((l) => l.chave === chave)?.quantos ?? 0
+
+    return embrulharBruto({
+      escopo,
+      contadores: {
+        // Eixos FECHADOS preenchidos a partir das listas do dominio: Status sem
+        // Chamado aparece com ZERO, em vez de sumir. Ausencia e zero sao coisas
+        // diferentes para quem le um painel — e sumir esconde justamente o
+        // "nao ha nada aqui".
+        porStatus: Object.fromEntries(STATUS.map((s) => [s, contar(porStatus, s)])) as Record<
+          Status,
+          number
+        >,
+        porCategoria: Object.fromEntries(
+          CATEGORIAS.map((c) => [c, contar(porCategoria, c)]),
+        ) as Record<Categoria, number>,
+        // Eixo ABERTO: so as identidades que tem Chamado. `null` NAO vira chave
+        // — vai para `semDono`, que e campo proprio (licao da 3.2).
+        porDono: Object.fromEntries(
+          porDono.filter((l) => l.chave !== null).map((l) => [l.chave as string, l.quantos]),
+        ),
+        semDono: porDono.find((l) => l.chave === null)?.quantos ?? 0,
+      },
     })
   },
 

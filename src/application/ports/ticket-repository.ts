@@ -9,6 +9,7 @@ import type {
   EscopoDeLeitura,
   FilaBruta,
   HistoricoBruto,
+  ResumoBruto,
 } from '../../domain/visibilidade.js'
 import type { Principal } from '../contracts/principal.js'
 
@@ -210,6 +211,21 @@ export type TicketRepository = {
       readonly ordem: 'asc' | 'desc'
     },
   ): Promise<FilaBruta>
+
+  /**
+   * O resumo da Fila (Story 3.3, FR-10): contadores por Status, Categoria e
+   * Dono, sem trazer Chamado nenhum.
+   *
+   * O retorno carrega o `escopo` que foi APLICADO, e nao so os numeros: um
+   * resumo nao tem itens para o dominio filtrar, entao o que ele confere e a
+   * pergunta que gerou os dados (`resumoVisivelPara`). Devolver so os
+   * contadores tornaria impossivel distinguir "47 Chamados dela" de "47 da base
+   * inteira".
+   *
+   * Conta apenas o que esta EM ABERTO (`ehStatusEmAberto`) e nao excluido: o
+   * resumo mede carga.
+   */
+  buscarResumoBruto(escopo: EscopoDeLeitura): Promise<ResumoBruto>
 
   /**
    * Historico de acoes do Chamado (Story 1.8), embrulhado como todo dado de
