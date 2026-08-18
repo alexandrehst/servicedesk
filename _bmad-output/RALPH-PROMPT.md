@@ -20,8 +20,9 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 3 `done` | Encerre o épico (ver seção 7) |
 
-**Os Epics 0, 1 e 2 estão completos** (`epic-2: done` desde 2026-08-18, PRs #46
-a #61). Nenhuma story do Epic 3 começou: a primeira é a **3.1**.
+**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). No Epic 3, a **3.1 está
+`done`** (PR #63) — ela definiu a forma de toda leitura em conjunto. A próxima é
+a **3.2**.
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de uma
 volta interrompida. **PR de story aberto com checks verdes é a prioridade
@@ -265,11 +266,33 @@ de histórico aceita `origem` como parâmetro de consulta, com este comentário 
 > A decisão de quem enxerga continua no domínio (AD-8); se ela descesse para cá,
 > MCP e HTTP poderiam divergir.
 
-A saída para a 3.1 é **formalizar essa distinção**: o **domínio** decide *o que
-a pessoa pode alcançar* e produz um valor que descreve isso (algo como
-`escopoDeLeitura(quem)` → "todos os vivos" ou "apenas os de `identity`"); o
-**adapter** traduz esse valor para `WHERE`, sem decidir nada. A regra continua
-morando num lugar só e o banco continua fazendo o trabalho pesado.
+**A 3.1 resolveu isso, e a solução é para reusar:**
+
+```
+escopoDeLeitura(quem)  →  { tipo: 'todos' } | { tipo: 'apenasDe', requester }
+        ↓ dado
+adapter traduz para WHERE (sem decidir nada), com deleted_at IS NULL junto
+        ↓ FilaBruta (embrulhada no símbolo privado)
+filaVisivelPara(quem, bruta)  →  reaplica podeVerTicket sobre o que voltou
+```
+
+**Toda leitura de conjunto do épico passa por essas três etapas.** Se a sua
+story precisa de um recorte novo (sem Dono, meus, por Time), ele entra como
+**filtro** — a autorização continua sendo o escopo, e os dois se combinam em vez
+de competir.
+
+**E há uma armadilha que a 3.1 mediu na pele:** a segunda camada **esconde
+erros da primeira**. Remover o `WHERE` do escopo não reprovava teste nenhum,
+porque `filaVisivelPara` corrigia — o guardrail existia sem prova. Duas saídas,
+e você vai precisar das duas:
+
+- **chame o repositório direto** e abra o embrulho com um **Agente**, que vê
+  tudo: o que sobrar veio do SQL (é a lição da 2.2 com o `deleted_at` do
+  `UPDATE`);
+- quando nem isso isola — o filtro de excluídos, por exemplo, que o gargalo
+  também aplica —, **procure o campo que atravessa sem ser recalculado**. Na
+  3.1 foi o **`temMais`**: ele vem do SQL e o domínio não o refaz, então com
+  `limite: 1` e um único Chamado vivo ele denuncia o filtro ausente.
 
 Duas coisas para não perder no caminho:
 
@@ -315,37 +338,31 @@ novo**:
 
 | Story | O que **não existe** hoje |
 | --- | --- |
-| 3.1 | **Nenhuma leitura de lista.** O port só tem `buscarPorNumero` e `buscarHistoricoBruto`. Não há paginação, ordenação, nem `escopoDeLeitura` no domínio. Índices: só `tickets_vivos_idx (number) WHERE deleted_at IS NULL` — **nada** cobre `status`, `assignee` ou `categoria` |
-| 3.2 | Depende inteiramente da forma que a 3.1 definir. "Sem Dono" é `assignee IS NULL`, e a AC exige que seja **recorte de primeira classe**, não um filtro escondido |
+| ~~3.1~~ | ✅ `done` (PR #63) — `escopoDeLeitura` + `filaVisivelPara`, `buscarFilaBruta`, contrato com teto, tool `buscar_chamados`, migration `0011` com três índices parciais |
+| 3.2 | A forma já existe (3.1): o que falta é **"sem Dono" como recorte de primeira classe**, e não `dono: null` escondido num filtro. `assignee IS NULL` não é expressável pelo contrato de hoje — `dono` é `z.string().min(1).optional()`, e ausente significa "não filtre". Decida como o recorte se expressa **sem** transformar `undefined` em dois significados |
 | 3.3 | Nenhuma agregação. `resumo_fila` precisa de `COUNT ... GROUP BY` por Status, Categoria e Dono — e a autorização vale para o agregado: contar Chamado que a pessoa não pode ver **é** vazar (um contador é um oráculo) |
 | 3.4 | Nenhuma busca textual: sem `pg_trgm`, sem `tsvector`, sem índice de texto. E **`numero_legado` não existe** — a AC o cita, mas ele nasce no Epic 4. Decida se cria a coluna agora (nula) ou tira a AC de escopo, e **registre** |
 | 3.5 | Nada. Depende da busca da 3.4 e da decisão de escopo acima |
 | 3.6 | Nenhum Resource, nenhum Prompt. O SDK tem `registerResource(name, uriOrTemplate, config, cb)` e `registerPrompt(name, config, cb)` (`@modelcontextprotocol/server@2.0.0`) — e o Resource "chamado" precisa passar pela **mesma** query e pelo **mesmo** `visivelPara` de `ver_chamado`, senão nasce uma segunda porta de leitura sem autorização |
 
-#### Decisões que a 3.1 toma e as outras herdam
+#### O formato que a 3.1 fixou — herde, não reabra
 
-Estas não são detalhes de implementação — são o formato de tudo que vem depois.
-**Decida na 3.1, registre no PRD, e não as reabra sem motivo:**
+Estas decisões estão no PRD (FR-8) e na spine (AD-8). **Use como está**; mudar
+uma delas agora quebra a coerência das cinco stories seguintes:
 
-1. **Limite e paginação.** Não há nada disso hoje, e uma tool MCP que devolve a
-   base inteira **estoura o contexto da IA** — que é o consumidor primário
-   (FR-13). Um limite padrão com cursor ou offset explícito é o mínimo. Decida
-   o teto e o comportamento quando ele é atingido (truncar em silêncio é
-   inaceitável: quem chamou precisa saber que há mais).
-2. **O que uma linha da lista carrega.** `ver_chamado` devolve o Chamado
-   **inteiro, com a thread**. Uma lista de 50 desses é lixo para a IA ler.
-   Defina um **resumo** (Número, Título, Status, Prioridade, Dono, data) e um
-   contrato Zod próprio — derivado do domínio, como manda o AD-6.
-3. **Ordenação.** FR-8 pede ordenável por data de abertura. **A hora da
-   Prioridade chegou:** a 2.4 registrou que "a ordem de `PRIORIDADES` é
-   semântica, mas nada depende dela — o teste trava a sequência baixa→crítica
-   para o dia em que a fila ordenar". Esse dia é agora. Ordenação sem desempate
-   estável passa por acaso até parar de passar (lição da 1.2): **`ORDER BY` com
-   desempate por `number`**.
-4. **Índices.** Filtro sem índice funciona com 20 Chamados e morre com 20 mil —
-   e a paridade é com um sistema que tem anos de histórico. Índice novo entra na
-   migration junto com o filtro que o exige, e o Dev Agent Record diz **qual
-   consulta** ele serve.
+1. **Limite 20, teto 100 recusado pelo schema** (`LIMITE_PADRAO`,
+   `LIMITE_MAXIMO` em `contracts/buscar-chamados.ts`). Recusa, não truncamento.
+2. **`temMais`, não `total`** — o adapter pede `limite + 1` linhas.
+3. **A linha da lista é RESUMO** (`itemDaFilaSchema`): Número, Título, Status,
+   Prioridade, Dono, data. Sem Descrição, sem Comentários.
+4. **`ORDER BY criado_em, number`**, crescente por padrão. Ordenar por
+   Prioridade continua **fora** — a 2.4 deixou o teste que trava a sequência
+   `baixa→crítica` guardando a invariante até alguém pedir.
+5. **Índice novo entra na migration junto do filtro que o exige**, parcial
+   (`WHERE deleted_at IS NULL`), e o Dev Agent Record diz qual consulta ele
+   serve. Já existem: `tickets_fila_requester_idx`, `tickets_fila_status_idx`,
+   `tickets_fila_assignee_idx`. **Não** há índice para `categoria` (decisão
+   registrada: ela quase nunca vem sozinha).
 
 #### Use o que os Epics 1 e 2 deixaram prontos
 
@@ -361,6 +378,31 @@ uma diferença que merece registro: o limite conta **chamadas**, não custo. Uma
 tool de fila é ordens de magnitude mais cara que um `ver_chamado`. Se você achar
 que isso importa, registre como dívida; **não** invente um segundo mecanismo de
 limite nesta story.
+
+#### O que a 3.1 mediu
+
+- **A redundância que protege também esconde.** As duas camadas do AD-8 são a
+  decisão certa — e fizeram três mutações sobreviverem por **teste fraco**, não
+  por código fraco. Sempre que você puser uma rede de segurança, pergunte
+  **como provar a camada que ela protege**.
+- **`temMais` como sonda.** Campo que vem do SQL e o domínio não recalcula é
+  janela para o que a consulta realmente fez. Procure o equivalente na sua
+  story antes de concluir que uma condição é intestável.
+- **`EXPLAIN` só prova com volume**, e a violação plantada à mão (`DROP INDEX`)
+  é o que transforma o teste em gate de verdade.
+- **Mutação inócua tem duas caras.** "Usar `veHistorico` em vez de
+  `veChamadoDeTerceiro`" sobrevive porque as duas capacidades são hoje a mesma
+  lista — e vai virar detectável no dia em que existir um papel que lê a fila
+  sem ler o Log. Registrar isso é mais útil que forçar um teste artificial.
+- **Alargar um tipo de entrada não é quebrar contrato.** `podeVerTicket` passou
+  de `Ticket` para `{ requester, excluidoEm }` — aceita mais, não menos, e evita
+  a segunda função que duplicaria a regra. A story dizia "não mude a
+  assinatura"; o desvio foi deliberado e está registrado.
+- **O `claude-review` ficou mudo TRÊS vezes seguidas** no PR #63 (41s, 36s e
+  30s), inclusive no re-run. É a segunda story com silêncio repetido (a 2.4 teve
+  dois). Não é bloqueio — a regra é sobre check **vermelho** —, mas significa
+  que a decisão de arquitetura passou **sem segunda opinião**. Quando isso
+  acontecer, diga no Dev Agent Record o que sustenta a story no lugar dele.
 
 #### O que o Epic 2 mediu, e atravessa para cá
 
@@ -446,21 +488,23 @@ escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/acao-irreversivel.test.ts` (2.6) |
 | Migration com índice | `0006_soft_delete.sql` (índice parcial, com o porquê escrito) |
 
-**Estado do código em 2026-08-18:** 647 testes, cobertura 98,56%, 10 migrations
-aplicadas, Epics 0, 1 e 2 completos. O Chamado nasce, muda, é resolvido e
-encerrado — com auditoria, concorrência otimista e human-in-the-loop nas três
-ações que não voltam atrás.
+**Estado do código em 2026-08-18:** 688 testes, cobertura 98,32%, **11
+migrations** aplicadas, Epics 0, 1 e 2 completos e a Story 3.1 `done`. O Chamado
+nasce, muda, é resolvido e encerrado — e agora **a Fila se enxerga**, filtrada
+por Status, Dono e Categoria, paginada e ordenada.
 
 **Gate ativo:** nove required checks na `main` — `lint`, `typecheck`, `test`,
 `arch`, `traceability`, `security-deps`, `security-secrets`, `sonar`,
 `claude-review`. `enforce_admins` está ligado: não há como mergear com check
 vermelho, nem para você. Mais `required_conversation_resolution: true`.
 
-**Sem cobertura automática:** os pilares **Observável** e **Performático** não
-têm gate determinístico e nunca foram exercitados por violação plantada. **Neste
-épico o Performático deixa de ser teórico** — leitura de lista é exatamente onde
-N+1, varredura de tabela e I/O desnecessário aparecem. Preste atenção nele ao
-escrever código, e considere plantar a violação para ver se alguém reclama.
+**Sem cobertura automática:** **Observável** segue sem gate determinístico e
+nunca exercitado. O **Performático** deixou de ser teórico na 3.1: dois testes
+de `EXPLAIN` com 5.000 linhas afirmam `Index Scan` e não `Seq Scan`, e a
+violação foi plantada à mão (`DROP INDEX` → o teste reprova). **Copie o padrão**
+em toda story que criar consulta nova — sem volume o `EXPLAIN` não prova nada,
+porque com 20 linhas o planejador varre a tabela de qualquer jeito, e
+`enable_seqscan = off` testaria o `SET`, não o índice.
 
 **PRs do Dependabot abertos — não mergeie sem ler o `RESUME.md`:** #7
 (TypeScript 7.0) e #55 (`@types/node` 26) estão marcados para **rejeitar**, com
