@@ -20,8 +20,8 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 3 `done` | Encerre o épico (ver seção 7) |
 
-**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). No Epic 3, **3.1 e 3.2
-estão `done`** (PRs #63 e #65). A próxima é a **3.3**.
+**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). No Epic 3, **3.1, 3.2 e 3.3
+estão `done`** (PRs #63, #65 e #68). A próxima é a **3.4**.
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de uma
 volta interrompida. **PR de story aberto com checks verdes é a prioridade
@@ -339,8 +339,8 @@ novo**:
 | --- | --- |
 | ~~3.1~~ | ✅ `done` (PR #63) — `escopoDeLeitura` + `filaVisivelPara`, `buscarFilaBruta`, contrato com teto, tool `buscar_chamados`, migration `0011` com três índices parciais |
 | ~~3.2~~ | ✅ `done` (PR #65) — `RECORTES` e `filtroDeDono` no domínio, `dono: FiltroDeDono` no port, `recorte` no contrato |
-| 3.3 | Nenhuma agregação. `resumo_fila` precisa de `COUNT ... GROUP BY` por Status, Categoria e Dono — e a autorização vale para o agregado: contar Chamado que a pessoa não pode ver **é** vazar (um contador é um oráculo). Repare que a forma da 3.1 **não** se aplica direto: um resumo não tem itens para `filaVisivelPara` filtrar, então **a segunda camada não existe aqui** — o `WHERE` do escopo é a única linha de defesa, e precisa ser testado como tal |
-| 3.4 | Nenhuma busca textual: sem `pg_trgm`, sem `tsvector`, sem índice de texto. E **`numero_legado` não existe** — a AC o cita, mas ele nasce no Epic 4. Decida se cria a coluna agora (nula) ou tira a AC de escopo, e **registre** |
+| ~~3.3~~ | ✅ `done` (PR #68) — três `GROUP BY`, `STATUS_ENCERRADOS` no domínio, e o `ResumoBruto` que carrega o escopo aplicado para o domínio conferir |
+| 3.4 | Nenhuma busca textual: sem `pg_trgm`, sem `tsvector`, sem índice de texto. E **`numero_legado` não existe** — a AC o cita, mas ele nasce no Epic 4. Decida se cria a coluna agora (nula) ou tira a AC de escopo, e **registre**. Atenção ao que a 3.3 mostrou: se a busca casar em **Comentário**, o `JOIN` traz linhas que o gargalo da Fila **não** filtra por conteúdo — `filaVisivelPara` sabe de posse e exclusão, não de Comentário Interno. O match em conversa do time é vazamento por existência, e precisa ser resolvido no `WHERE` |
 | 3.5 | Nada. Depende da busca da 3.4 e da decisão de escopo acima |
 | 3.6 | Nenhum Resource, nenhum Prompt. O SDK tem `registerResource(name, uriOrTemplate, config, cb)` e `registerPrompt(name, config, cb)` (`@modelcontextprotocol/server@2.0.0`) — e o Resource "chamado" precisa passar pela **mesma** query e pelo **mesmo** `visivelPara` de `ver_chamado`, senão nasce uma segunda porta de leitura sem autorização |
 
@@ -377,6 +377,35 @@ uma diferença que merece registro: o limite conta **chamadas**, não custo. Uma
 tool de fila é ordens de magnitude mais cara que um `ver_chamado`. Se você achar
 que isso importa, registre como dívida; **não** invente um segundo mecanismo de
 limite nesta story.
+
+#### O que a 3.3 mediu
+
+- **Quando o gargalo não tem o que filtrar, confira a PERGUNTA.** Um resumo não
+  tem itens: se o `WHERE` errar, os números saem errados e nada os corrige — e
+  `{ aberto: 47 }` parece igualmente certo para quem tem 47 e para quem deveria
+  ver 3. A saída foi o `ResumoBruto` carregar o **escopo aplicado**, e o domínio
+  recusar quando ele não é o de quem pergunta. **Se a sua story devolve
+  agregado, derivado ou qualquer coisa sem itens, é esse o padrão a copiar.**
+- **Sem rede, o teste fica mais fácil — não mais difícil.** Foi a primeira story
+  do épico com **12 de 12 mutações reprovando na primeira rodada**, e a razão é
+  a mesma: como o gargalo não mascara nada, as mutações do `WHERE` chegam à
+  saída. Onde há duas camadas, espere sobreviventes e teste o repositório
+  direto; onde há uma, os testes de saída bastam.
+- **Erro de programação lança; erro de usuário devolve valor.** `EscopoDivergente`
+  é `throw`, e não `null`, porque um `null` viraria "resumo vazio" na cara de
+  quem perguntou e esconderia o bug — mesmo raciocínio do `pode()` com papel
+  desconhecido (1.4).
+- **O tipo cobrou o desenho antes do teste.** `resumoVisivelPara` nasceu num
+  módulo próprio e não compilou: a chave do embrulho é símbolo **não exportado**
+  de `visibilidade.ts`. O comentário de `historicoVisivelPara` já dizia por quê.
+  **Quando o compilador recusa, leia o comentário do módulo antes de contornar.**
+- **Zero é resposta; ausência não é.** Eixo fechado (lista do domínio) vem
+  completo, com zero; eixo aberto (identidades) traz só quem existe. Vale para
+  qualquer resposta agregada do épico.
+- **O `claude-review` voltou** — 3m11s e comentário substantivo no PR #68,
+  depois da correção do #66. O sinal de duração continua valendo: **menos de um
+  minuto é silêncio**, e agora o resumo do job traz turnos e negações sem
+  precisar baixar log.
 
 #### O que a 3.2 mediu
 
@@ -506,10 +535,12 @@ o resumo dirá por quê.
 - **Coluna nova entra `NOT NULL DEFAULT`**, não nulável, quando o domínio tem um
   valor natural (2.4).
 
-**Sobre o `claude-review`:** revisou de verdade nove vezes em vinte e três
-rodadas até o PR #60, e **nenhuma** depois disso — o defeito corrigido no #66
-explica a sequência. Conte com as mutações; e note que no #50 quem pegou o
-problema real foi o **Sonar**, olhando forma, e não ele.
+**Sobre o `claude-review`:** ficou mudo do PR #61 ao #65 por um defeito de
+configuração (não tinha o diff), corrigido no #66 — e voltou a revisar no #67
+(1m11s) e no #68 (3m11s, comentário substantivo). O sinal de duração continua
+valendo, e o **resumo do job** agora publica turnos, negações e duração. Ainda
+assim, conte com as mutações: no #50 quem pegou o problema real foi o **Sonar**,
+olhando forma, e não ele.
 
 ### 7. Fim do épico
 
@@ -546,10 +577,10 @@ escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/acao-irreversivel.test.ts` (2.6) |
 | Migration com índice | `0006_soft_delete.sql` (índice parcial, com o porquê escrito) |
 
-**Estado do código em 2026-08-18:** 713 testes, cobertura 98,34%, 11 migrations
-aplicadas, Epics 0, 1 e 2 completos e as Stories 3.1 e 3.2 `done`. O Chamado
-nasce, muda, é resolvido e encerrado — e a Fila se enxerga: filtrada por Status,
-Dono e Categoria, com os recortes "meus" e "sem Dono", paginada e ordenada.
+**Estado do código em 2026-08-18:** 738 testes, cobertura 98%, 11 migrations
+aplicadas, Epics 0, 1 e 2 completos e as Stories 3.1 a 3.3 `done`. O Chamado
+nasce, muda, é resolvido e encerrado; a Fila se enxerga — filtrada, com recortes,
+paginada e ordenada — e o resumo diz a carga por Status, Categoria e Dono.
 
 **Gate ativo:** nove required checks na `main` — `lint`, `typecheck`, `test`,
 `arch`, `traceability`, `security-deps`, `security-secrets`, `sonar`,
