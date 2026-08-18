@@ -17,6 +17,12 @@ import {
   atribuirChamadoInputSchema,
   atribuirChamadoOutputSchema,
 } from '../../application/contracts/atribuir-chamado.js'
+import type { BuscarChamadosFiltros } from '../../application/contracts/buscar-chamados.js'
+import {
+  buscarChamadosInputSchema,
+  buscarChamadosOutputSchema,
+  LIMITE_PADRAO,
+} from '../../application/contracts/buscar-chamados.js'
 import type { ComentarChamadoInput } from '../../application/contracts/comentar-chamado.js'
 import {
   comentarChamadoInputSchema,
@@ -37,6 +43,7 @@ import {
 } from '../../application/contracts/ver-chamado.js'
 import type { IdentityRepository } from '../../application/ports/identity-repository.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
+import { buscarChamados } from '../../application/queries/buscar-chamados.js'
 import { verChamado } from '../../application/queries/ver-chamado.js'
 import { ehDomainError } from '../../domain/errors.js'
 
@@ -154,6 +161,35 @@ export const criarHandlerAbrirChamado = (deps: McpDeps) =>
     abrirChamado({ repositorio: deps.repositorio }),
     (saida) => `Chamado #${saida.number} aberto (${saida.status}).`,
   )
+
+/**
+ * Handler da Fila (Story 3.1).
+ *
+ * O texto diz quantos vieram e se ha mais: sem isso a IA nao tem como saber que
+ * a lista foi paginada, e concluiria que viu tudo.
+ */
+export const criarHandlerBuscarChamados = (deps: McpDeps) => {
+  const executar = buscarChamados({ repositorio: deps.repositorio })
+
+  return criarHandler(
+    deps,
+    // O tipo de ENTRADA e `z.input`: os defaults do schema (limite, ordem)
+    // ficam opcionais ali, entao chegariam `undefined` ao caso de uso. Mesma
+    // armadilha do `interno` na Story 2.1.
+    (input: BuscarChamadosFiltros, quem) =>
+      executar(
+        {
+          ...input,
+          limite: input.limite ?? LIMITE_PADRAO,
+          deslocamento: input.deslocamento ?? 0,
+          ordem: input.ordem ?? 'asc',
+        },
+        quem,
+      ),
+    (saida) =>
+      `${saida.itens.length} Chamado(s)${saida.temMais ? ' — ha mais, use deslocamento' : ''}.`,
+  )
+}
 
 /** Handler da tool de leitura, extraido para ser testavel sem transporte. */
 export const criarHandlerVerChamado = (deps: McpDeps) =>
@@ -337,6 +373,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: acaoIrreversivelOutputSchema,
     },
     criarHandlerReabrirChamado(deps),
+  )
+
+  servidor.registerTool(
+    'buscar_chamados',
+    {
+      title: 'Buscar Chamados',
+      description:
+        'Lista a Fila com filtros combinaveis (status, dono, categoria), ordenada por data de abertura. Devolve resumo — use ver_chamado para o conteudo.',
+      inputSchema: buscarChamadosInputSchema,
+      outputSchema: buscarChamadosOutputSchema,
+    },
+    criarHandlerBuscarChamados(deps),
   )
 
   servidor.registerTool(

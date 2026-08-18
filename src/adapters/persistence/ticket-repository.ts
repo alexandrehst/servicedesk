@@ -1,4 +1,4 @@
-import { and, asc, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { auditEntries, comments, emailIntake, tickets } from '../../../drizzle/schema.js'
 import type { Principal } from '../../application/contracts/principal.js'
@@ -11,7 +11,7 @@ import type { NovoComentario } from '../../domain/comentario.js'
 import { DomainError } from '../../domain/errors.js'
 import type { Origem } from '../../domain/origem.js'
 import type { Categoria, NovoTicket, Prioridade, Status, Ticket } from '../../domain/ticket.js'
-import { type Comentario, embrulharBruto } from '../../domain/visibilidade.js'
+import { type Comentario, type EscopoDeLeitura, embrulharBruto } from '../../domain/visibilidade.js'
 
 /**
  * Driven adapter: implementa o port de repositorio.
@@ -249,6 +249,68 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
    * auditoria para uma exclusao — foi o mesmo raciocinio do consumo do link de
    * login (Story 1.3).
    */
+  /**
+   * A Fila (Story 3.1, FR-8).
+   *
+   * O `deleted_at IS NULL` fica DENTRO desta funcao, junto da traducao do
+   * escopo, e nao em cada chamada: e uma condicao que, esquecida, vaza em
+   * silencio. Aqui ha um lugar so onde esquece-la e possivel — e uma mutacao
+   * que a remova reprova teste.
+   *
+   * `ORDER BY criado_em, number`: sem o desempate por Numero, dois Chamados
+   * abertos no mesmo instante saem na ordem fisica, e a paginacao por
+   * deslocamento passa a duplicar e omitir linhas entre paginas (licao da 1.2).
+   */
+  async buscarFilaBruta(escopo: EscopoDeLeitura, filtros, pagina) {
+    const condicoes = [
+      // Invariante de TODA leitura de lista, na mesma funcao que traduz o
+      // escopo: excluido nao aparece para ninguem (1.7).
+      isNull(tickets.deletedAt),
+      // O escopo chega decidido pelo dominio; aqui vira SQL, so isso.
+      ...(escopo.tipo === 'apenasDe' ? [eq(tickets.requester, escopo.requester)] : []),
+      ...(filtros.status === undefined ? [] : [eq(tickets.status, filtros.status)]),
+      ...(filtros.dono === undefined ? [] : [eq(tickets.assignee, filtros.dono)]),
+      ...(filtros.categoria === undefined ? [] : [eq(tickets.categoria, filtros.categoria)]),
+    ]
+
+    const direcao = pagina.ordem === 'desc' ? desc : asc
+
+    const linhas = await db
+      .select({
+        number: tickets.number,
+        titulo: tickets.titulo,
+        status: tickets.status,
+        priority: tickets.priority,
+        requester: tickets.requester,
+        assignee: tickets.assignee,
+        criadoEm: tickets.criadoEm,
+        deletedAt: tickets.deletedAt,
+      })
+      .from(tickets)
+      .where(and(...condicoes))
+      .orderBy(direcao(tickets.criadoEm), direcao(tickets.number))
+      // Uma linha a mais que o pedido: e o que responde "ha mais?" sem pagar um
+      // COUNT sobre o conjunto inteiro.
+      .limit(pagina.limite + 1)
+      .offset(pagina.deslocamento)
+
+    const temMais = linhas.length > pagina.limite
+
+    return embrulharBruto({
+      itens: linhas.slice(0, pagina.limite).map((linha) => ({
+        number: linha.number,
+        titulo: linha.titulo,
+        status: linha.status as Status,
+        prioridade: linha.priority as Prioridade,
+        requester: linha.requester,
+        assignee: linha.assignee,
+        criadoEm: linha.criadoEm,
+        excluidoEm: linha.deletedAt,
+      })),
+      temMais,
+    })
+  },
+
   async buscarHistoricoBruto(numero: number, origem?: Origem) {
     const [linha] = await db.select().from(tickets).where(eq(tickets.number, numero)).limit(1)
 

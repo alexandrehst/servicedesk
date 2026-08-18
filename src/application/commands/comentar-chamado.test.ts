@@ -66,6 +66,9 @@ const repositorio: TicketRepository = {
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
   },
+  async buscarFilaBruta() {
+    throw new Error('esta suite nao le a Fila')
+  },
   async buscarHistoricoBruto() {
     throw new Error('esta suite nao le historico')
   },

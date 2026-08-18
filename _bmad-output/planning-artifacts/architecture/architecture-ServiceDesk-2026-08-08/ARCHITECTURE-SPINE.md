@@ -72,7 +72,7 @@ Mapa paradigma → diretórios:
 - **Binds:** FR-2, FR-19, FR-20, FR-21
 - **Prevents:** o MCP expor dados que a UI esconde (Solicitante ver Chamado alheio ou Comentário Interno).
 - **Rule:** todo command/query recebe um principal autenticado; as regras de visibilidade (Solicitante vê só os próprios Chamados e apenas Comentários Públicos; Agente vê todos) vivem em `application`/`domain`, não em cada adapter.
-
+- **Estendido em 2026-08-18 (Story 3.1) para leitura em CONJUNTO.** Ler um Chamado e ler uma lista são problemas diferentes: `visivelPara` recebe um item e devolve um, e aplicá-lo a uma Fila exigiria trazer a base inteira. A extensão tem três partes: (1) `escopoDeLeitura(quem)` decide **antes** de ler e devolve **dado** — `'todos'` ou `'apenasDe'`; (2) o adapter traduz esse dado para `WHERE`, sem decidir nada, exatamente como a Story 1.8 fez com `origem`; (3) `filaVisivelPara` reaplica a decisão sobre o que voltou, mantendo a garantia **estrutural** — o conteúdo continua atrás do símbolo privado, então não existe caminho para entregar linha sem passar pelo domínio. A redundância é deliberada: se o `WHERE` errar, o custo cai de vazamento para consulta ineficiente. Consequência para os testes: o `WHERE` precisa ser exercitado **chamando o repositório direto**, porque pela saída o gargalo esconde o erro.
 ### AD-9 — Identidade e origem propagam até a auditoria
 - **Binds:** FR-21, FR-22
 - **Prevents:** autoria ambígua ("humano via IA" vs. agente autônomo).
