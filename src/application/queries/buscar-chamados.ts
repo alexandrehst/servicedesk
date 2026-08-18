@@ -1,3 +1,4 @@
+import { alcanceDaBusca } from '../../domain/busca.js'
 import { filtroDeDono } from '../../domain/recorte-da-fila.js'
 import { escopoDeLeitura, filaVisivelPara } from '../../domain/visibilidade.js'
 import type { BuscarChamadosFiltros, BuscarChamadosOutput } from '../contracts/buscar-chamados.js'
@@ -30,6 +31,9 @@ export const buscarChamados =
         // passar `undefined` explicito e diferente de nao passar o campo.
         ...(input.status === undefined ? {} : { status: input.status }),
         ...(input.categoria === undefined ? {} : { categoria: input.categoria }),
+        // Story 3.4 — o dominio decide o que a busca ALCANCA, inclusive se
+        // Comentario Interno pode fazer um Chamado casar.
+        ...(input.texto === undefined ? {} : { busca: alcanceDaBusca(quem, input.texto) }),
         // Story 3.2 — o dominio decide QUAL filtro de Dono aplicar, inclusive
         // recusando `recorte` + `dono`. Aqui so se repassa o resultado.
         dono: filtroDeDono(quem, {

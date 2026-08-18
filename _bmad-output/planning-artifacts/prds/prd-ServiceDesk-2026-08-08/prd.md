@@ -231,6 +231,15 @@ Um Agente pode buscar Chamados por texto (Título, Descrição, Comentários) e 
 **Consequências (testáveis):**
 - Evita reabrir problema já resolvido: busca cobre Chamados Fechados/Resolvidos.
 
+**Decidido em 2026-08-18 (Story 3.4):**
+
+- **O match em Comentário respeita quem pode ver Comentário Interno**, e a regra vive no `WHERE`. Um Comentário Interno dizendo "escalar para o jurídico" não pode fazer o Chamado aparecer numa busca do Solicitante por "jurídico": o conteúdo não seria exibido, mas **a existência do resultado** já revelaria do que a conversa do time trata. É o raciocínio da resposta cega (FR-19) e do `AtribuicaoInvalida` (FR-5), agora num `LIKE` — **o que casa a busca também é informação**. O gargalo de visibilidade não pega isso: ele sabe de posse e exclusão, não de conteúdo.
+- **Comentário excluído não faz o Chamado casar**, nem para o Agente — senão o soft-delete (FR-23) vazaria por outra porta.
+- **`pg_trgm` + `ILIKE`, e não busca full-text.** O full-text exigiria dicionário e stemming em português e deixaria de achar **substring** — quem procura "VPN" num título "VPNs corporativas" não encontraria. O PRD pede busca **simples**, e previsibilidade vale mais que relevância ordenada. **Dependência de deploy registrada:** `CREATE EXTENSION` exige privilégio elevado.
+- **`numero_legado` nasce aqui, vazio** (`text`, nulo, indexado): quem preenche é o import do Epic 4 (FR-24). Criá-la agora fez a busca já cobri-la, evitando que a story de import tivesse de voltar e mexer na busca — que é justamente onde mora o vazamento acima. **Casa por igualdade**, não por trigrama: buscar "123" não pode trazer o Chamado legado "1234".
+- **Encerrados aparecem na busca**, ao contrário do resumo (FR-10), que os exclui por medir carga. A diferença é deliberada: a busca existe para **não reabrir problema já resolvido**.
+- **Termo vazio é recusado no domínio** (`TermoObrigatorio`) — devolver a base inteira com cara de resultado de busca seria pior que recusar.
+
 #### FR-12: Sugerir chamados parecidos
 Na abertura, o sistema pode sugerir Chamados parecidos ao texto informado. Realiza UJ-2.
 **Consequências (testáveis):**

@@ -1,5 +1,6 @@
 import type { AcaoIrreversivel } from '../../domain/acoes-irreversiveis.js'
 import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
+import type { AlcanceDaBusca } from '../../domain/busca.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import type { Origem } from '../../domain/origem.js'
 import type { FiltroDeDono } from '../../domain/recorte-da-fila.js'
@@ -204,6 +205,14 @@ export type TicketRepository = {
        */
       readonly dono: FiltroDeDono
       readonly categoria?: Categoria
+      /**
+       * Story 3.4 — o texto e o que ele PODE alcancar, decidido pelo dominio
+       * (`alcanceDaBusca`). O recorte de Comentario Interno viaja junto porque
+       * ele precisa entrar no `WHERE`: o gargalo (`filaVisivelPara`) sabe de
+       * posse e exclusao, e nao de conteudo — um Comentario Interno que casa
+       * faria o Chamado aparecer para quem nao pode ler a conversa do time.
+       */
+      readonly busca?: AlcanceDaBusca
     },
     pagina: {
       readonly limite: number

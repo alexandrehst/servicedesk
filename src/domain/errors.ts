@@ -68,6 +68,10 @@ export type DomainErrorCode =
   // numeros da base inteira, e nenhum contador denuncia de quem sao os
   // Chamados que ele contou.
   | 'EscopoDivergente'
+  // Story 3.4: busca sem termo. Um termo vazio devolveria a base inteira com
+  // cara de resultado de busca — e a recusa vive no dominio, nao so no schema,
+  // para que todo ponto de entrada a herde.
+  | 'TermoObrigatorio'
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode

@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, isNull, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, isNull, or, sql } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { auditEntries, comments, emailIntake, tickets } from '../../../drizzle/schema.js'
 import type { Principal } from '../../application/contracts/principal.js'
@@ -7,6 +7,7 @@ import type {
   TicketRepository,
 } from '../../application/ports/ticket-repository.js'
 import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
+import type { AlcanceDaBusca } from '../../domain/busca.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import { DomainError } from '../../domain/errors.js'
 import type { Origem } from '../../domain/origem.js'
@@ -122,6 +123,41 @@ const mutarCampoComAuditoria = async (
 
     return { version: linha.version }
   })
+
+/**
+ * O `WHERE` da busca textual (Story 3.4, FR-11).
+ *
+ * Tres coisas casam: Titulo, Descricao e Comentario — mais o `numero_legado`,
+ * por IGUALDADE (numero legado e identificador: buscar "123" nao deve trazer o
+ * Chamado "1234").
+ *
+ * O `EXISTS` do Comentario carrega duas condicoes que NAO sao detalhe:
+ *
+ * - `deleted_at IS NULL` — Comentario apagado nao pode continuar fazendo o
+ *   Chamado aparecer, senao o soft-delete (1.7) vaza por outra porta;
+ * - o recorte de INTERNO, que vem decidido do dominio. Sem ele, um Comentario
+ *   Interno faz o Chamado casar para quem nao pode le-lo: o conteudo nao
+ *   aparece, mas a EXISTENCIA do resultado ja conta do que a conversa do time
+ *   trata. O gargalo nao pega isso — `podeVerTicket` sabe de posse e exclusao,
+ *   nao de conteudo.
+ */
+const condicaoDeBusca = (busca: AlcanceDaBusca) => {
+  const padrao = `%${busca.termo}%`
+
+  const comentarioQueCasa = and(
+    eq(comments.ticketNumber, tickets.number),
+    isNull(comments.deletedAt),
+    ...(busca.comentarios === 'apenasPublicos' ? [eq(comments.internal, false)] : []),
+    sql`${comments.corpo} ILIKE ${padrao}`,
+  )
+
+  return or(
+    sql`${tickets.titulo} ILIKE ${padrao}`,
+    sql`${tickets.descricao} ILIKE ${padrao}`,
+    eq(tickets.numeroLegado, busca.termo),
+    sql`EXISTS (SELECT 1 FROM ${comments} WHERE ${comentarioQueCasa})`,
+  )
+}
 
 export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository => ({
   async criarComAuditoria(
@@ -285,6 +321,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       ...(filtros.dono.tipo === 'ninguem' ? [isNull(tickets.assignee)] : []),
       ...(filtros.dono.tipo === 'identidade' ? [eq(tickets.assignee, filtros.dono.identity)] : []),
       ...(filtros.categoria === undefined ? [] : [eq(tickets.categoria, filtros.categoria)]),
+      ...(filtros.busca === undefined ? [] : [condicaoDeBusca(filtros.busca)]),
     ]
 
     const direcao = pagina.ordem === 'desc' ? desc : asc
