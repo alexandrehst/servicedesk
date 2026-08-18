@@ -38,6 +38,11 @@ const entrada = {
 let enviados: { destinatario: string; numero: number; status: string; link: string }[]
 let logado: string[]
 
+/** Esta suite so ABRE Chamado — a resolucao tem suite propria (Story 2.5). */
+const naoResolve = async (): Promise<never> => {
+  throw new Error('esta suite nao resolve Chamado')
+}
+
 const notificador: NotificadorDeChamado = {
   async enviarChamadoAberto(m) {
     enviados.push({
@@ -47,12 +52,14 @@ const notificador: NotificadorDeChamado = {
       link: m.link,
     })
   },
+  enviarChamadoResolvido: naoResolve,
 }
 
 const notificadorQuebrado: NotificadorDeChamado = {
   async enviarChamadoAberto() {
     throw new Error('SMTP recusou a conexao')
   },
+  enviarChamadoResolvido: naoResolve,
 }
 
 const logger: Logger = criarLogger((linha) => logado.push(linha))
@@ -180,6 +187,7 @@ describe('o e-mail nao derruba a abertura (AC #3, #4)', () => {
         // que acontece; o log nao pode virar "[object Object]" por causa disso.
         throw 'conexao recusada'
       },
+      enviarChamadoResolvido: naoResolve,
     }
 
     await abrirChamado({ repositorio: chamados, notificacao: notificacao(lancaTexto) })(
