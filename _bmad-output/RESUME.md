@@ -75,8 +75,9 @@ opinião. O que era "nunca reprovou nada" (Story 0.6) virou "nem fala mais".
 | PR | Proposta | Decisão do projeto |
 | --- | --- | --- |
 | **#7** | TypeScript 5.9.3 → **7.0.2** | **Rejeitar.** A Story 0.1 escolheu 5.x deliberadamente: a 7.0 é o compilador em Go, e Drizzle (tipos avançados) e dependency-cruiser (usa a API do compilador) são pontos prováveis de atrito. A spine fixa 5.x. Reavaliar só quando ambos declararem suporte |
-| **#8** | `@types/node` 24 → **26** | **Rejeitar.** Fixado em `^24` para casar com o runtime. A 26.x expõe APIs que não existem no Node 24 — passariam no `tsc` e quebrariam em execução |
+| **#55** | `@types/node` 24 → **26** | **Rejeitar.** Fixado em `^24` para casar com o runtime. A 26.x expõe APIs que não existem no Node 24 — passariam no `tsc` e quebrariam em execução. *(Era o #8, que o Dependabot fechou e recriou como #55 — a decisão é a mesma e vale para qualquer bump de major deste pacote.)* |
 | **#16** | github-actions, 5 updates | Avaliar normalmente |
+| **#54** | `imapflow` 1.6.6 → **1.7.0** | Avaliar normalmente. Toca o intake por e-mail (1.9), que está **pronto e desligado** — não há teste contra IMAP real, então o upgrade não tem como ser provado por aqui |
 
 ## Decisões-chave
 
