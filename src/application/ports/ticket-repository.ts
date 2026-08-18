@@ -2,8 +2,13 @@ import type { AcaoIrreversivel } from '../../domain/acoes-irreversiveis.js'
 import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import type { Origem } from '../../domain/origem.js'
-import type { NovoTicket, Prioridade, Status, Ticket } from '../../domain/ticket.js'
-import type { ChamadoBruto, HistoricoBruto } from '../../domain/visibilidade.js'
+import type { Categoria, NovoTicket, Prioridade, Status, Ticket } from '../../domain/ticket.js'
+import type {
+  ChamadoBruto,
+  EscopoDeLeitura,
+  FilaBruta,
+  HistoricoBruto,
+} from '../../domain/visibilidade.js'
 import type { Principal } from '../contracts/principal.js'
 
 /**
@@ -170,6 +175,35 @@ export type TicketRepository = {
    * entao dois pedidos simultaneos produzem um vencedor so.
    */
   excluirComAuditoria(numero: number, autor: Principal): Promise<boolean>
+
+  /**
+   * A Fila (Story 3.1, FR-8). Leitura em CONJUNTO — a primeira do projeto.
+   *
+   * `escopo` chega PRONTO do dominio (`escopoDeLeitura`): o adapter o traduz
+   * para `WHERE` e nao decide nada. E a mesma divisao da Story 1.8, em que
+   * `origem` ia ao SQL por ser recorte de consulta — aqui o valor E
+   * autorizacao, mas ela ja foi tomada.
+   *
+   * O retorno vem embrulhado como toda leitura: so `filaVisivelPara` abre, e
+   * ele reaplica a decisao sobre o que voltou. Duas camadas de proposito — se
+   * este `WHERE` errar, o custo e consulta ineficiente, nao vazamento.
+   *
+   * `temMais` diz que existe pagina seguinte, sem um `COUNT` a mais: o adapter
+   * pede `limite + 1` linhas e devolve `limite`.
+   */
+  buscarFilaBruta(
+    escopo: EscopoDeLeitura,
+    filtros: {
+      readonly status?: Status
+      readonly dono?: string
+      readonly categoria?: Categoria
+    },
+    pagina: {
+      readonly limite: number
+      readonly deslocamento: number
+      readonly ordem: 'asc' | 'desc'
+    },
+  ): Promise<FilaBruta>
 
   /**
    * Historico de acoes do Chamado (Story 1.8), embrulhado como todo dado de

@@ -187,6 +187,16 @@ Um Agente pode listar/filtrar a Fila por Status, Dono, Categoria/Time e texto li
 **Consequências (testáveis):**
 - Filtros combináveis; resultado ordenável por data de abertura.
 
+**Decidido em 2026-08-18 (Story 3.1):**
+
+- **A autorização de lista acontece em DUAS camadas.** O domínio decide o que a pessoa alcança (`escopoDeLeitura`) e entrega isso como **dado**; o adapter traduz para `WHERE` sem decidir nada; e o domínio **reaplica** a decisão sobre o que voltou (`filaVisivelPara`). Filtrar só em memória leria a base para devolver 20 linhas; filtrar só no SQL faria a autorização descer para fora do domínio, e MCP e HTTP poderiam divergir (AD-8). Com as duas, se o `WHERE` errar o custo é consulta ineficiente, não vazamento.
+- **A linha da Fila é um RESUMO** — Número, Título, Status, Prioridade, Dono e data. Sem Descrição e sem Comentários: cinquenta Chamados inteiros são ilegíveis para a IA e trafegam mais do que a lista precisa mostrar. Quem quer conteúdo chama `ver_chamado`, que passa por `visivelPara` e filtra Comentário Interno.
+- **Limite padrão 20, teto 100 no schema.** A IA é o consumidor primário (FR-13) e uma lista sem teto estoura o contexto dela. Pedir acima do teto é **recusado**, não truncado: truncar em silêncio faria a IA concluir que viu tudo.
+- **`temMais` em vez de `total`.** O adapter pede `limite + 1` linhas; um `COUNT(*)` custaria uma segunda varredura por um número que ninguém usa — quem quer números tem o `resumo_fila` (FR-10).
+- **Ordenação por data de abertura com desempate por Número**, crescente por padrão (o mais antigo primeiro, como se atende uma fila). Sem o desempate, dois Chamados abertos no mesmo instante saem na ordem física e a paginação por deslocamento duplica e omite linhas entre páginas.
+- **Ordenar por Prioridade ficou fora**, e é decisão registrada: a AC pede data de abertura, e ordenar por Prioridade exige mapear a ordem semântica de `PRIORIDADES` no SQL. O teste que trava a sequência `baixa→crítica` (FR-6) continua guardando a invariante até alguém pedir.
+- **O filtro por TEXTO é da Story 3.4**, junto do índice textual e da decisão sobre o match em Comentário Interno. Esta story faz filtros estruturados: Status, Dono e Categoria. `buscar_chamados` **ganha** o parâmetro de texto lá — não vira outra tool.
+
 #### FR-9: Recortes "meus" e "sem dono"
 Um Agente pode ver rapidamente os Chamados que são seus e os que estão sem Dono.
 **Consequências (testáveis):**

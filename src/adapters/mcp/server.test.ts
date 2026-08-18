@@ -52,6 +52,9 @@ const repositorio: TicketRepository = {
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
   },
+  async buscarFilaBruta() {
+    throw new Error('esta suite nao le a Fila')
+  },
   async buscarHistoricoBruto() {
     throw new Error('esta suite nao le historico')
   },
@@ -115,12 +118,13 @@ it('registra a tool abrir_chamado com o schema do contrato (AD-6)', () => {
 })
 
 /**
- * O alvo mudou na Story 2.6: `fechar_chamado` passou a existir. A garantia
- * continua sendo a mesma — o servidor nao expoe tool que nenhuma story
- * especificou — e o alvo agora e a fila do Epic 3.
+ * O alvo muda a cada story que cria a tool anterior: era `fechar_chamado` ate a
+ * 2.6, virou `buscar_chamados` ate a 3.1. A garantia e sempre a mesma — o
+ * servidor nao expoe tool que nenhuma story especificou — e o alvo agora e o
+ * resumo da Story 3.3.
  */
 it('nao registra tool que a story nao especifica', () => {
-  expect(criarServidorMcp(deps).toolInputSchemaJson('buscar_chamados')).toBeUndefined()
+  expect(criarServidorMcp(deps).toolInputSchemaJson('resumo_fila')).toBeUndefined()
 })
 
 it('retorna o Numero do Chamado aberto', async () => {
@@ -170,6 +174,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     },
     async executarAcaoIrreversivelComAuditoria() {
       throw new Error('esta suite nao executa Acao irreversivel')
+    },
+    async buscarFilaBruta() {
+      throw new Error('esta suite nao le a Fila')
     },
     async buscarHistoricoBruto() {
       throw new Error('esta suite nao le historico')
@@ -241,6 +248,9 @@ const repoLeitura: TicketRepository = {
   },
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
+  },
+  async buscarFilaBruta() {
+    throw new Error('esta suite nao le a Fila')
   },
   async buscarHistoricoBruto() {
     throw new Error('esta suite nao le historico')
@@ -407,6 +417,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     },
     async executarAcaoIrreversivelComAuditoria() {
       throw new Error('esta suite nao executa Acao irreversivel')
+    },
+    async buscarFilaBruta() {
+      throw new Error('esta suite nao le a Fila')
     },
     async buscarHistoricoBruto() {
       throw new Error('esta suite nao le historico')
