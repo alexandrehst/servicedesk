@@ -20,13 +20,20 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 2 `done` | Encerre o épico (ver seção 7) |
 
-**2.1, 2.2 e 2.3 estão `done`** (PRs #46, #48 e #50). A próxima é a **2.4**.
+**2.1, 2.2, 2.3 e 2.4 estão `done`** (PRs #46, #48, #50 e #52). A próxima é a
+**2.5**.
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de
 uma volta interrompida. **PR de story aberto com checks verdes é a prioridade
 máxima** — foi assim que a volta anterior começou duas vezes.
 
 O Epic 1 fechou em 2026-08-11 com as nove stories `done` (PRs #31 a #44).
+
+**Volta interrompida deixa PR aberto por dias.** O PR #52 foi aberto em
+2026-08-11 com os 14 checks verdes e ficou parado até 2026-08-18, porque a volta
+morreu entre abrir o PR e mergear. A retomada começou por ele — como manda a
+regra acima — e a `main` não tinha andado no intervalo. **Antes de escrever uma
+linha, rode `gh pr list`.**
 
 ### 2. O ciclo de uma story
 
@@ -137,6 +144,36 @@ pnpm db:migrate               # aplica TODAS as migrations, em ordem
 **Docker parado deixou de ser bloqueio** (medido na Story 1.9): `open -a Docker`
 sobe o daemon sem intervenção humana. Só bloqueie se ele não subir.
 
+#### Quando o `security-deps` reprovar sem você ter tocado em dependência
+
+**O Trivy baixa a base de CVE a cada execução: o mesmo lockfile passa hoje e
+reprova amanhã.** Aconteceu em 2026-08-18 num PR **só de documentação** —
+CVE-2026-40345 (HIGH) em `deepmerge-ts@7.1.5`, transitiva de produção via
+`mailparser → html-to-text`. Não é regressão do seu diff, mas **bloqueia todo
+PR do repositório** até ser corrigida, porque o check é required.
+
+O caminho, quando não existe upgrade que resolva (era o caso: `html-to-text`
+já estava na última versão e sua faixa é `^7`):
+
+```jsonc
+// package.json
+"pnpm": { "overrides": { "deepmerge-ts": "^8.0.1" } }
+```
+
+**Override de major exige prova de que o consumidor sobrevive** — `pnpm install`
+sem erro não prova nada, porque a incompatibilidade aparece em execução:
+
+1. Veja **qual API** o consumidor usa (`grep deepmerge node_modules/.pnpm/<pkg>@<v>/…`).
+   Se for a superfície rica, é justamente o que uma major quebra.
+2. Rode um **smoke pelo caminho real** — no caso, `simpleParser` sobre e-mail
+   HTML, conferindo que parágrafo e lista continuam sendo convertidos.
+3. Rode a suíte inteira.
+
+Faça isso num PR `fix(deps):` **separado**, referenciando a Story que introduziu
+a dependência (o `traceability` exige `Story N.N` ou `FR-NN` no corpo), e
+mergeie-o **antes** do PR que estava travado — depois rebaseie o travado, porque
+a proteção tem `strict: true`.
+
 #### Quando o `claude-review` falhar
 
 **Re-run antes de investigar, sempre.** O check é instável e já falhou de duas
@@ -221,7 +258,8 @@ Duas coisas nessa ordem não são estilo:
 
 #### O AD-10 existe agora — e toda mutação nova precisa usá-lo
 
-A 2.2 construiu o mecanismo, e ele **não é opcional** para 2.3, 2.4 e 2.5:
+A 2.2 construiu o mecanismo, a 2.3 e a 2.4 o usaram, e ele **não é opcional**
+para a 2.5:
 
 ```sql
 UPDATE tickets SET <campo> = $novo, version = version + 1
@@ -269,8 +307,7 @@ Verificado no código em 2026-08-11 — **não descubra de novo**:
 | ~~2.1~~ | ✅ `done` (PR #46) — command, capacidade `comentaInterno`, vocabulário do Log |
 | ~~2.2~~ | ✅ `done` (PR #48) — máquina de estados, `version`, `Conflict`, par `de`/`para` |
 | ~~2.3~~ | ✅ `done` (PR #50) — atribuição, e a dívida do `assignee` paga |
-| 2.3 | Nada de `assignee` além da coluna (que existe e é sempre `null`). Reatribuição precisa registrar **Dono anterior e novo** no audit — e `audit_entries` hoje só tem `acao`, `autor`, `origin`: não há onde guardar "de X para Y" |
-| 2.4 | **A Prioridade inteira.** Não existe coluna `priority` em `tickets`, nem tipo `Prioridade` no domínio. Precisa de migration **e** de lista fechada (`Baixa..Crítica`), no padrão de `STATUS`/`CATEGORIAS`/`ORIGENS`/`PAPEIS` |
+| ~~2.4~~ | ✅ `done` (PR #52) — `PRIORIDADES`, migration `0009`, e a coluna lida de verdade |
 | 2.5 | `enviarChamadoResolvido` no port `NotificadorDeChamado` — que hoje só tem `enviarChamadoAberto`. O e-mail traz **quem resolveu e o tempo total** (exige `criadoEm` e o instante da resolução) |
 | 2.6 | **AD-7 inteiro.** Não existe `ConfirmationRequired`, nem sinal de confirmação em nenhum contrato |
 
@@ -294,7 +331,9 @@ const saida = await executar(input, autor)
 
 Autenticar antes de agir (senão a auditoria fica sem autor) e limitar antes de
 executar (senão a escrita acontece e o limite não serve para nada numa IA em
-loop). São seis chances de esquecer o `limitarChamadas` por copiar-e-colar.
+loop). São seis chances de esquecer o `limitarChamadas` por copiar-e-colar —
+**quatro já gastas**, e nenhuma esquecida, porque `criarHandler` (2.3) passou a
+ser o único lugar onde essa ordem existe.
 
 #### Autorização: a matriz obriga a decidir
 
@@ -319,6 +358,47 @@ vezes (PR #39 e #43).
 
 **Verifique por mutação:** remova a checagem de confirmação e confirme que um
 teste reprova. Se nenhum reprovar, o guardrail não existe.
+
+#### O que a 2.4 mediu
+
+- **Os três helpers cobraram o preço combinado: a story custou 67 linhas de
+  produção.** Um `set` no adapter, uma ação em `ACOES`, uma capacidade na
+  matriz, o contrato, o command e a tool — e o Sonar não teve o que reprovar
+  (0 duplicação em código novo, contra os 9% que reprovaram a 2.3). **Se a sua
+  story de mutação de campo passar de ~80 linhas de produção, você está
+  reescrevendo algo que já existe.**
+- **O alvo de uma mutação precisa ser inequívoco e resistente ao formatador.**
+  As duas mutações que sobreviveram na 2.4 eram erro do **script**, não do
+  código — modo de falha novo, diferente da mutação inócua (1.9, 2.1, 2.3) e da
+  redundância (2.2):
+  1. o alvo `prioridade: linha.priority` casava em **três** lugares e o
+     `replace(..., 1)` pegou o primeiro, que nenhum teste distingue;
+  2. o alvo do `UPDATE` foi escrito antes do `biome check --write`, que quebrou
+     a chamada em várias linhas — o texto procurado deixou de existir.
+
+  **Rode o formatador antes de escrever o script de mutação**, e ancore cada
+  alvo em algo único (o comentário da linha, por exemplo).
+- **Campo novo? Escreva direto no banco e leia pelo command.** A lição do
+  `assignee` (2.3) foi aplicada preventivamente na 2.4, e foi exatamente esse
+  teste que pegou a mutação "voltar a hardcodar a prioridade na leitura". Sem
+  ele, a coluna nova nasceria com o defeito que o `assignee` carregou por oito
+  stories.
+- **Autorizar antes de validar o valor.** Um Solicitante pedindo a prioridade
+  que o Chamado já tem recebe `SemPermissao`, não `PrioridadeInalterada` — senão
+  a mensagem de erro ensina a quem não pode ver o campo qual é o valor atual. É
+  o mesmo raciocínio da resposta cega da 1.3, uma camada acima.
+- **"Mudança que não muda" é recusa, e já é padrão do épico.** Auto-transição
+  (2.2), reatribuição para o mesmo Dono (2.3) e prioridade igual à atual (2.4):
+  as três recusam, porque aceitar gravaria no Log um evento que não aconteceu.
+  A 2.5 e a 2.6 herdam a pergunta.
+- **Coluna nova entra `NOT NULL DEFAULT`, não nulável.** Prioridade nula seria
+  um terceiro estado que a fila do Epic 3 teria que tratar em toda ordenação, e
+  o `DEFAULT` resolve de graça as linhas que nasceram antes do campo existir.
+- **O `claude-review` ficou mudo duas vezes na mesma story** — 47s ao abrir o
+  PR #52 e **37s no re-run** de 2026-08-18, zero comentários nas duas. Re-run
+  depois do silêncio já tinha virado achado real no #46; desta vez não virou.
+  Não é bloqueio (a seção 5 é sobre check **vermelho**), mas assume o que o
+  histórico já dizia: **conte com as mutações, não com ele.**
 
 #### O que a 2.3 mediu
 
@@ -422,8 +502,9 @@ teste reprova. Se nenhum reprovar, o guardrail não existe.
 - Migration nova entra em `drizzle/migrations/` e o `pnpm db:migrate` já itera
   sobre todas — **não** referencie arquivo por nome.
 
-**Sobre o `claude-review`:** revisou de verdade seis vezes em dezessete rodadas
-(#35, #39, #41, #43, #46, #50). O silêncio tem assinatura clara: **menos de um
+**Sobre o `claude-review`:** revisou de verdade seis vezes em **dezenove**
+rodadas (#35, #39, #41, #43, #46, #50) — as duas rodadas novas são o PR #52,
+mudo na abertura **e** no re-run. O silêncio tem assinatura clara: **menos de um
 minuto** de execução, contra 4–5 minutos quando revisa. Não conte com ele;
 conte com as mutações — e note que no #50 quem pegou o problema real foi o
 **Sonar**, não ele. Sempre confira:
@@ -455,7 +536,7 @@ encerre para escapar de um bloqueio: bloqueio se resolve com a seção 5.
 
 | Você vai escrever | Copie |
 | --- | --- |
-| Command de mutação de campo | `atribuir-chamado.ts` (2.3) — usa os três helpers |
+| Command de mutação de campo | `mudar-prioridade.ts` (2.4) — o mais enxuto; `atribuir-chamado.ts` (2.3) quando houver validação do valor |
 | Command de mutação simples | `excluir-chamado.ts` (1.7), `comentar-chamado.ts` (2.1) |
 | Regra de domínio com política | `papeis.ts` + `visibilidade.ts` (1.4) |
 | Contrato Zod | `contracts/abrir-chamado.ts` (1.1) |
@@ -464,8 +545,8 @@ encerre para escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/soft-delete.test.ts` (1.7) |
 | Caso de uso que orquestra sem escrever | `abrir-chamado-por-email.ts` (1.9) |
 
-**Estado do código em 2026-08-11:** 518 testes, cobertura 98,6%, 8 migrations
-aplicadas, Epic 0 e Epic 1 completos, Epic 2 com 2.1, 2.2 e 2.3 `done`.
+**Estado do código em 2026-08-18:** 551 testes, cobertura 98,8%, 9 migrations
+aplicadas, Epic 0 e Epic 1 completos, Epic 2 com 2.1, 2.2, 2.3 e 2.4 `done`.
 
 **Gate ativo:** nove required checks na `main` — `lint`, `typecheck`, `test`,
 `arch`, `traceability`, `security-deps`, `security-secrets`, `sonar`,

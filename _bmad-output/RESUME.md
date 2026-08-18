@@ -1,6 +1,6 @@
 # ServiceDesk — Ponto de Retomada
 
-**Última atualização:** 2026-08-11
+**Última atualização:** 2026-08-18
 **Repo:** https://github.com/alexandrehst/servicedesk (público)
 
 ## O que é o projeto
@@ -9,15 +9,16 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7). Epic 1 COMPLETO (9/9).** Próximo: **Epic 2** — ciclo de vida do Chamado (comentar, mudar status, atribuir dono, prioridade, resolver, ações irreversíveis).
+**Epic 0 completo (7/7). Epic 1 completo (9/9). Epic 2 em 4/6.** Próxima story: **2.5** — resolver Chamado, com e-mail de resolução.
 
-O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois papéis com autorização no domínio, token de máquina com rate limit, e-mail de abertura com link de acesso, soft-delete, revisão do Log de auditoria e intake por e-mail com remetente verificado.
+O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois papéis com autorização no domínio, token de máquina com rate limit, e-mail de abertura com link de acesso, soft-delete, revisão do Log de auditoria e intake por e-mail com remetente verificado. E o Chamado já **muda**: comentário público ou interno, status por máquina de estados, Dono e Prioridade — todos com concorrência otimista (AD-10) e auditoria na mesma transação.
 
 | Épico | Estado |
 | --- | --- |
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
 | Epic 1 — Fundação segura | ✅ 9/9 `done` |
-| Epics 2–4 | `backlog` |
+| Epic 2 — Ciclo de vida do Chamado | 🔄 4/6 (`2.5` e `2.6` faltam) |
+| Epics 3–4 | `backlog` |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 
@@ -243,9 +244,9 @@ Os pilares **Observável** e **Performático** não têm gate determinístico e 
 
 ## Próximas ações
 
-1. **Ligar o loop** para 1.3–1.9. Decisão de 2026-08-10: a 1.3 (auth) sai **sem** revisão humana no caminho. O RALPH-PROMPT ganhou uma seção específica sobre ela — o gate não entende autenticação e o `claude-review` nunca reprovou nada aqui:
+1. **Ligar o loop** para 2.5 e 2.6, fechando o Epic 2:
    ```
-   /ralph-loop:ralph-loop Leia e execute _bmad-output/RALPH-PROMPT.md --completion-promise 'EPIC 1 COMPLETO' --max-iterations 20
+   /ralph-loop:ralph-loop Leia e execute _bmad-output/RALPH-PROMPT.md --completion-promise 'EPIC 2 COMPLETO' --max-iterations 8
    ```
    O prompt do loop está em `_bmad-output/RALPH-PROMPT.md` — editável durante a execução, é relido a cada volta.
 
