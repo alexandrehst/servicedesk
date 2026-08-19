@@ -1,4 +1,5 @@
-import { McpServer } from '@modelcontextprotocol/server'
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server'
+import { z } from 'zod'
 import { abrirChamado } from '../../application/commands/abrir-chamado.js'
 import { acaoIrreversivel, type Confirmacao } from '../../application/commands/acao-irreversivel.js'
 import { atribuirChamado } from '../../application/commands/atribuir-chamado.js'
@@ -159,6 +160,109 @@ const criarHandler =
       throw erro
     }
   }
+
+/**
+ * O esqueleto de todo RESOURCE (Story 3.6, FR-16).
+ *
+ * Mesma ordem do `criarHandler`, e pelas mesmas razoes: autenticar primeiro
+ * (sem identidade nao ha `escopoDeLeitura`), limitar antes de executar (senao o
+ * limite nao serve para nada numa IA em loop, FR-21).
+ *
+ * A UNICA diferenca e o erro, e ela existe porque o PROTOCOLO difere: tool
+ * devolve `isError: true` com texto no envelope; leitura de Resource nao tem
+ * esse envelope e o SDK espera que ela LANCE. Entao aqui nao ha `catch` — o
+ * `DomainError` sobe e vira erro de protocolo.
+ *
+ * O que NAO difere: quem le um Resource ve exatamente o que veria pela tool. O
+ * Resource e casca; a leitura e a mesma query, com o mesmo `visivelPara`.
+ */
+const criarLeitor =
+  <Entrada, Saida>(
+    { autenticar, limitarChamadas }: Pick<McpDeps, 'autenticar' | 'limitarChamadas'>,
+    executar: (input: Entrada, quem: Principal) => Promise<Saida>,
+  ) =>
+  async (uri: URL, input: Entrada) => {
+    const quem: Principal = { ...(await autenticar()), origin: 'mcp' }
+    await limitarChamadas(quem.identity)
+
+    const saida = await executar(input, quem)
+
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          // JSON porque o consumidor e uma IA: texto formatado exigiria dela um
+          // parser que o contrato Zod ja resolve.
+          mimeType: 'application/json',
+          text: JSON.stringify(saida),
+        },
+      ],
+    }
+  }
+
+/**
+ * Leitor do Resource `chamado` (Story 3.6) — casca sobre `ver_chamado`.
+ *
+ * O `numero` chega como TEXTO da URI, e precisa passar pelo mesmo contrato Zod
+ * da tool (AD-6). O SDK valida os argumentos de uma TOOL contra o schema antes
+ * de chamar o handler, mas `ResourceTemplate` nao aceita schema para as
+ * variaveis da URI — entao a validacao tem de ser feita aqui.
+ *
+ * Sem isso (achado do `claude-review` no PR #74), `chamado://abc` viraria `NaN`
+ * e `chamado://-5` ou `chamado://1.5` seguiriam para o repositorio: valores que
+ * a tool recusa de cara chegariam ao `WHERE`, e o erro que sobe seria o do
+ * driver, nao o de validacao. Era exatamente a divergencia entre pontos de
+ * entrada que o AD-6 existe para impedir — e que esta story dizia estar
+ * impedindo.
+ */
+export const criarLeitorDeChamado = (deps: McpDeps) => {
+  const ler = criarLeitor(deps, verChamado({ repositorio: deps.repositorio }))
+
+  return async (uri: URL, numeroDaUri: string) =>
+    ler(uri, verChamadoInputSchema.parse({ numero: Number(numeroDaUri) }))
+}
+
+/** Leitor do Resource `fila` (Story 3.6) — casca sobre `buscar_chamados`. */
+export const criarLeitorDaFila = (deps: McpDeps) => {
+  const executar = buscarChamados({ repositorio: deps.repositorio })
+
+  return criarLeitor(deps, (_input: Record<string, never>, quem) =>
+    // Sem parametros: Resource e contexto BARATO, e quem quer recortar tem a
+    // tool. Os defaults sao os mesmos do contrato (AD-6).
+    executar({ limite: LIMITE_PADRAO, deslocamento: 0, ordem: 'asc' }, quem),
+  )
+}
+
+/**
+ * O texto do Prompt de triagem (Story 3.6, FR-16).
+ *
+ * Exportado para que o teste possa cruza-lo com a lista REAL de tools do
+ * servidor: um template que cita tool inexistente ensina a IA a tentar o que o
+ * servidor nao faz, e envelhece sozinho quando uma tool e renomeada.
+ */
+export const TEXTO_DA_TRIAGEM = (numero: number): string =>
+  [
+    `Triagem do Chamado #${numero}.`,
+    '',
+    'Passo a passo, usando as tools deste servidor:',
+    '',
+    `1. Leia o Chamado com ver_chamado(numero: ${numero}). Anote a versao: toda`,
+    '   mudanca a exige, e ela muda a cada escrita.',
+    '2. Se a Categoria estiver errada, diga isso em comentar_chamado — nao ha',
+    '   tool para corrigir Categoria.',
+    '3. Ajuste a urgencia com mudar_prioridade (baixa, media, alta, critica),',
+    '   passando a versao que voce leu.',
+    '4. Defina o Dono com atribuir_chamado. Omita `agente` para pegar para si.',
+    '5. Se for comecar o atendimento, mude para em_andamento com mudar_status.',
+    '',
+    'Regras que valem sempre:',
+    '- A versao vem de ver_chamado e e obrigatoria em toda mutacao. Se vier',
+    '  Conflict, releia e refaca com a versao nova.',
+    '- Comentario interno (interno: true) e conversa do time; o Solicitante nao',
+    '  o ve.',
+    '- Fechar, cancelar e reabrir NAO fazem parte da triagem: sao acoes',
+    '  irreversiveis e exigem confirmacao humana explicita.',
+  ].join('\n')
 
 /**
  * Handler da tool, extraido do registro para ser testavel sem transporte.
@@ -459,6 +563,54 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: verChamadoOutputSchema,
     },
     criarHandlerVerChamado(deps),
+  )
+
+  // Story 3.6 — Resources e Prompt (FR-16).
+  //
+  // Os Resources sao CASCA: `chamado` chama a mesma `verChamado` da tool, e
+  // `fila` a mesma `buscarChamados`. Uma consulta propria aqui seria uma segunda
+  // porta de leitura, com uma segunda chance de divergir do AD-8 — que e
+  // exatamente o que o epico inteiro existe para impedir.
+  servidor.registerResource(
+    'chamado',
+    new ResourceTemplate('chamado://{numero}', { list: undefined }),
+    {
+      title: 'Chamado',
+      description:
+        'O mesmo conteudo de ver_chamado, como contexto de leitura. Respeita a autorizacao: quem nao pode ver o Chamado recebe o mesmo erro da tool.',
+      mimeType: 'application/json',
+    },
+    async (uri, variaveis) => criarLeitorDeChamado(deps)(uri, String(variaveis.numero)),
+  )
+
+  servidor.registerResource(
+    'fila',
+    'fila://atual',
+    {
+      title: 'Fila',
+      description:
+        'A Fila como buscar_chamados a devolveria, com os limites padrao. Sem parametros: para recortar, use a tool.',
+      mimeType: 'application/json',
+    },
+    async (uri) => criarLeitorDaFila(deps)(uri, {}),
+  )
+
+  servidor.registerPrompt(
+    'triagem_de_chamado',
+    {
+      title: 'Triagem de Chamado',
+      description:
+        'Passo a passo para triar um Chamado usando as tools deste servidor, com as regras de versao e de acao irreversivel.',
+      argsSchema: { numero: z.string() },
+    },
+    ({ numero }) => ({
+      messages: [
+        {
+          role: 'user' as const,
+          content: { type: 'text' as const, text: TEXTO_DA_TRIAGEM(Number(numero)) },
+        },
+      ],
+    }),
   )
 
   return servidor
