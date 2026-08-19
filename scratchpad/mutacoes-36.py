@@ -40,6 +40,12 @@ MUTACOES = [
         "    executar({ limite: 1, deslocamento: 0, ordem: 'desc' }, quem),",
     ),
     (
+        "O numero da URI nao passa pelo contrato Zod (achado do review, PR #74)",
+        SERVER,
+        "    ler(uri, verChamadoInputSchema.parse({ numero: Number(numeroDaUri) }))",
+        "    ler(uri, { numero: Number(numeroDaUri) })",
+    ),
+    (
         "O Prompt cita uma tool que nao existe",
         SERVER,
         "    `1. Leia o Chamado com ver_chamado(numero: ${numero}). Anote a versao: toda`,",

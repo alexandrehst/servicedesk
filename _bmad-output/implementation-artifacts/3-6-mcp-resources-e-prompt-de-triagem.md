@@ -208,6 +208,28 @@ nada quando o repositório ignora os parâmetros. Quem a pegou foi a asserção
 sobre **o que o Resource pediu**. É o mesmo padrão da 3.1 e da 3.5, e o quinto
 lembrete de que **duble que ignora entrada esconde mutação**.
 
+**O `claude-review` achou uma violação real — e ela contradizia o que esta
+própria story afirmava.** O `numero` do Resource chega como **texto da URI**, e
+o SDK **não** o valida: ele aplica o schema Zod aos argumentos de uma **tool**,
+mas `ResourceTemplate` não aceita schema para variáveis. Então `chamado://abc`
+virava `NaN`, e `chamado://-5` ou `chamado://1.5` seguiam para o repositório —
+valores que a tool recusa de cara chegando ao `WHERE`, com o erro do driver no
+lugar do erro de validação.
+
+Era exatamente a divergência entre pontos de entrada que o AD-6 existe para
+impedir, dentro da story cujo tema é "Resource não é porta nova". Pior: o Dev
+Agent Record afirmava que "o contrato Zod recusa" — **e não recusava**. O
+revisor rastreou o código e mostrou que `verChamado` nunca faz o parse.
+
+**Corrigido:** `criarLeitorDeChamado` aplica `verChamadoInputSchema.parse` antes
+de executar. O teste cobre `abc`, `-5`, `1.5`, `0` e vazio, e verifica que o
+repositório **não é tocado**. Virou mutação também.
+
+**A lição:** quando um adapter recebe dado por um caminho que o SDK não valida
+— URI, header, variável de rota —, o contrato precisa ser aplicado **à mão**. E
+uma afirmação no Dev Agent Record não substitui um teste: eu tinha escrito que
+algo era recusado sem nunca ter exercitado a recusa.
+
 **O Prompt tem um teste que o mantém vivo:** ele extrai os nomes de tool citados
 no texto e confirma, um a um, que o servidor os registra. Sem isso, renomear uma
 tool deixaria o template mentindo em silêncio.
@@ -217,6 +239,7 @@ tool deixaria o template mentindo em silêncio.
 | O Resource não autentica | 3 testes |
 | O Resource não chama `limitarChamadas` | 2 testes |
 | O Resource de Fila ignora os defaults | 1 teste |
+| **O `numero` da URI não passa pelo contrato Zod** | 5 testes |
 | O Prompt cita uma tool que não existe | 1 teste |
 | O Prompt esquece a regra da versão | 1 teste |
 | O Prompt encaminha para ação irreversível | 1 teste |
@@ -246,10 +269,8 @@ tool deixaria o template mentindo em silêncio.
    decidir o escopo da listagem — que é a mesma pergunta do AD-8, e não foi
    pedida.
 4. **Sem `subscribe`**: mudança em Chamado não notifica quem leu o Resource.
-5. **O `numero` do Resource vem da URI como texto** e é convertido com
-   `Number()`. URI malformada (`chamado://abc`) vira `NaN` e o contrato Zod
-   recusa — mas a mensagem que chega é a do schema, não uma explicação sobre a
-   URI.
+5. **O `numero` do Resource vem da URI como texto**, e a mensagem de recusa é a
+   do schema, não uma explicação sobre a URI malformada.
 
 ### File List
 

@@ -200,9 +200,27 @@ const criarLeitor =
     }
   }
 
-/** Leitor do Resource `chamado` (Story 3.6) — casca sobre `ver_chamado`. */
-export const criarLeitorDeChamado = (deps: McpDeps) =>
-  criarLeitor(deps, verChamado({ repositorio: deps.repositorio }))
+/**
+ * Leitor do Resource `chamado` (Story 3.6) — casca sobre `ver_chamado`.
+ *
+ * O `numero` chega como TEXTO da URI, e precisa passar pelo mesmo contrato Zod
+ * da tool (AD-6). O SDK valida os argumentos de uma TOOL contra o schema antes
+ * de chamar o handler, mas `ResourceTemplate` nao aceita schema para as
+ * variaveis da URI — entao a validacao tem de ser feita aqui.
+ *
+ * Sem isso (achado do `claude-review` no PR #74), `chamado://abc` viraria `NaN`
+ * e `chamado://-5` ou `chamado://1.5` seguiriam para o repositorio: valores que
+ * a tool recusa de cara chegariam ao `WHERE`, e o erro que sobe seria o do
+ * driver, nao o de validacao. Era exatamente a divergencia entre pontos de
+ * entrada que o AD-6 existe para impedir — e que esta story dizia estar
+ * impedindo.
+ */
+export const criarLeitorDeChamado = (deps: McpDeps) => {
+  const ler = criarLeitor(deps, verChamado({ repositorio: deps.repositorio }))
+
+  return async (uri: URL, numeroDaUri: string) =>
+    ler(uri, verChamadoInputSchema.parse({ numero: Number(numeroDaUri) }))
+}
 
 /** Leitor do Resource `fila` (Story 3.6) — casca sobre `buscar_chamados`. */
 export const criarLeitorDaFila = (deps: McpDeps) => {
@@ -562,7 +580,7 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
         'O mesmo conteudo de ver_chamado, como contexto de leitura. Respeita a autorizacao: quem nao pode ver o Chamado recebe o mesmo erro da tool.',
       mimeType: 'application/json',
     },
-    async (uri, variaveis) => criarLeitorDeChamado(deps)(uri, { numero: Number(variaveis.numero) }),
+    async (uri, variaveis) => criarLeitorDeChamado(deps)(uri, String(variaveis.numero)),
   )
 
   servidor.registerResource(
