@@ -50,6 +50,9 @@ const repositorioFake = (): TicketRepository & { chamadas: [NovoTicket, Principa
     async executarAcaoIrreversivelComAuditoria() {
       throw new Error('esta suite nao executa Acao irreversivel')
     },
+    async buscarParaExportarBruto() {
+      throw new Error('esta suite nao exporta')
+    },
     async buscarParecidosBruto() {
       throw new Error('esta suite nao sugere parecidos')
     },
@@ -118,6 +121,9 @@ it('propaga falha da persistencia sem mascarar', async () => {
     },
     async executarAcaoIrreversivelComAuditoria() {
       throw new Error('esta suite nao executa Acao irreversivel')
+    },
+    async buscarParaExportarBruto() {
+      throw new Error('esta suite nao exporta')
     },
     async buscarParecidosBruto() {
       throw new Error('esta suite nao sugere parecidos')

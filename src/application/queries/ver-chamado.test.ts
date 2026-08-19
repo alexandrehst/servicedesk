@@ -91,6 +91,9 @@ const repo = (
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
   },
+  async buscarParaExportarBruto() {
+    throw new Error('esta suite nao exporta')
+  },
   async buscarParecidosBruto() {
     throw new Error('esta suite nao sugere parecidos')
   },

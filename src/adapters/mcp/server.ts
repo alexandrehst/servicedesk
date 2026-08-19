@@ -33,6 +33,12 @@ import {
   comentarChamadoInputSchema,
   comentarChamadoOutputSchema,
 } from '../../application/contracts/comentar-chamado.js'
+import type { ExportarCsvInput } from '../../application/contracts/exportar-csv.js'
+import {
+  exportarCsvInputSchema,
+  exportarCsvOutputSchema,
+  LIMITE_PADRAO_EXPORT,
+} from '../../application/contracts/exportar-csv.js'
 import {
   mudarPrioridadeInputSchema,
   mudarPrioridadeOutputSchema,
@@ -54,6 +60,7 @@ import type { IdentityRepository } from '../../application/ports/identity-reposi
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
 import { buscarChamados } from '../../application/queries/buscar-chamados.js'
 import { chamadosParecidos } from '../../application/queries/chamados-parecidos.js'
+import { exportarCsv } from '../../application/queries/exportar-csv.js'
 import { resumoFila } from '../../application/queries/resumo-fila.js'
 import { verChamado } from '../../application/queries/ver-chamado.js'
 import { ehDomainError } from '../../domain/errors.js'
@@ -333,6 +340,34 @@ export const criarHandlerChamadosParecidos = (deps: McpDeps) =>
           .join(', ')}.`,
   )
 
+/**
+ * Handler do export (Story 4.1).
+ *
+ * O texto diz quantas linhas sairam e se ha mais — sem isso, quem paginou nao
+ * sabe que parou no meio.
+ */
+export const criarHandlerExportarCsv = (deps: McpDeps) => {
+  const executar = exportarCsv({ repositorio: deps.repositorio })
+
+  return criarHandler(
+    deps,
+    // `z.input`: os defaults ficam opcionais no tipo de entrada e chegariam
+    // `undefined` ao caso de uso (mesma armadilha da 2.1 e da 3.1).
+    (input: ExportarCsvInput, quem) =>
+      executar(
+        {
+          ...input,
+          limite: input.limite ?? LIMITE_PADRAO_EXPORT,
+          deslocamento: input.deslocamento ?? 0,
+          cabecalho: input.cabecalho ?? true,
+        },
+        quem,
+      ),
+    (saida) =>
+      `${saida.linhas} linha(s) exportada(s)${saida.temMais ? ' — ha mais, continue com deslocamento e cabecalho=false' : ''}.`,
+  )
+}
+
 /** Handler da tool de leitura, extraido para ser testavel sem transporte. */
 export const criarHandlerVerChamado = (deps: McpDeps) =>
   criarHandler(
@@ -551,6 +586,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: chamadosParecidosOutputSchema,
     },
     criarHandlerChamadosParecidos(deps),
+  )
+
+  servidor.registerTool(
+    'exportar_csv',
+    {
+      title: 'Exportar CSV',
+      description:
+        'Exporta os Chamados em CSV, com os mesmos filtros de buscar_chamados. Devolve o arquivo como texto; se `temMais` for verdadeiro, continue com `deslocamento` e `cabecalho: false` para juntar as paginas.',
+      inputSchema: exportarCsvInputSchema,
+      outputSchema: exportarCsvOutputSchema,
+    },
+    criarHandlerExportarCsv(deps),
   )
 
   servidor.registerTool(

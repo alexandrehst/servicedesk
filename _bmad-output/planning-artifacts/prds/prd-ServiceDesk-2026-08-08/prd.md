@@ -359,6 +359,14 @@ Um Agente/Gestor pode exportar Chamados em CSV.
 **Consequências (testáveis):**
 - Export cobre filtros aplicados; evita lock-in próprio.
 
+**Decidido em 2026-08-19 (Story 4.1):**
+
+- **Tool e limites próprios.** O teto de 100 da Fila (FR-8) existe para não estourar o contexto da IA numa leitura de trabalho; um export de 100 linhas não migra nada e não prova independência de fornecedor. `exportar_csv` tem padrão **1.000** e teto **5.000**, com `deslocamento`, `temMais` e um `cabecalho: boolean` — quem pagina precisa juntar os pedaços, e um cabeçalho repetido no meio corrompe o arquivo.
+- **CSV é formato hostil, e o tratamento é de segurança.** Escape RFC 4180 (campo com vírgula, aspas ou quebra de linha desloca as colunas e o arquivo passa a mentir) **e neutralização de fórmula**: campo que começa com `=`, `+`, `-`, `@`, tab ou CR é interpretado como fórmula pelo Excel e pelo Sheets. O Título vem do **Solicitante** — é entrada de usuário indo para um executor, a mesma classe do XSS com planilha no lugar do navegador. Prefixado com apóstrofo (recomendação do OWASP), o que **altera o dado**: é a troca deliberada entre fidelidade do campo e execução de código na máquina de quem abre.
+- **O export leva os campos do Chamado, incluindo Descrição e `numero_legado`** — um backup sem a Descrição não é backup. **Comentários ficam fora:** uma thread não cabe numa linha de CSV, e representá-la exigiria um segundo arquivo, onde o recorte de Comentário Interno voltaria a ser obrigatório (FR-11). **Este export é o dado do Chamado, não a migração completa.**
+- **A autorização é a das leituras do Epic 3, e aqui não tem segunda chance:** um vazamento na Fila aparece numa tela e some; num CSV vira **arquivo**, e arquivo é encaminhado.
+- **Sem BOM.** O BOM UTF-8 ajuda o Excel a abrir acento num arquivo salvo; aqui o CSV volta como texto na resposta da tool, onde apareceria como lixo. Se houver download um dia, o BOM entra lá.
+
 #### FR-25: Import CSV (migração)
 O sistema pode importar Chamados do software atual via CSV.
 **Consequências (testáveis):**
