@@ -309,6 +309,14 @@ os dois valores coincidem (0,3).
    campos — e a FR-12 pede busca **simples**.
 5. **Nada mede o custo da sugestão dentro do rate limit** (FR-21), que conta
    chamadas e não peso — mesma dívida registrada desde a 3.1.
+6. **`similarity()` é referenciado no `WHERE` e no `ORDER BY`**, e o Postgres
+   pode calculá-lo duas vezes por linha candidata (observação do `claude-review`
+   no PR #72, que ele mesmo classificou como contexto e não achado). **Fica como
+   está:** o conjunto candidato já vem filtrado pelo índice GIN e cortado por
+   `LIMIT 5`, então o custo é irrelevante no caminho quente. Extrair para uma
+   CTE reusável trocaria uma linha legível por três para economizar cálculo
+   sobre punhado de linhas — e a hora de fazer isso é quando alguém medir que
+   importa.
 
 ### File List
 
