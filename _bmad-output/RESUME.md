@@ -1,6 +1,6 @@
 # ServiceDesk — Ponto de Retomada
 
-**Última atualização:** 2026-08-18 (**Epic 2 completo** — PR #60 fechou a 2.6)
+**Última atualização:** 2026-08-19 (**Epic 3 completo** — PR #74 fechou a 3.6)
 **Repo:** https://github.com/alexandrehst/servicedesk (público)
 
 ## O que é o projeto
@@ -9,11 +9,15 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epic 0 completo (7/7). Epic 1 completo (9/9). Epic 2 completo (6/6).** Próximo: **Epic 3** — fila, triagem e busca (a primeira story é a 3.1, `filtrar a fila`).
+**Epics 0, 1, 2 e 3 completos.** Próximo: **Epic 4** — portabilidade e migração de dados (a primeira story é a 4.1, `export CSV`).
 
 O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois papéis com autorização no domínio, token de máquina com rate limit, e-mail de abertura com link de acesso, soft-delete, revisão do Log de auditoria e intake por e-mail com remetente verificado. E o Chamado já **muda**: comentário público ou interno, status por máquina de estados, Dono e Prioridade — todos com concorrência otimista (AD-10) e auditoria na mesma transação. Resolver **avisa o Solicitante** por e-mail, com quem resolveu e o tempo total (2.5). E as três ações que não voltam atrás — fechar, cancelar, reabrir — **exigem confirmação humana** (2.6): um token que o servidor emite, com uso único, 5 minutos e escopo de um Chamado, uma ação e uma identidade.
 
-**O ciclo de vida do Chamado está fechado.** O que falta para a paridade é ENXERGAR o trabalho: fila, filtros, busca e resumo — o Epic 3. Hoje só se acha um Chamado sabendo o Número dele.
+**E o trabalho se enxerga** (Epic 3): a Fila filtra por Status, Dono e Categoria, com os recortes "meus" e "sem Dono", paginada e ordenada; o resumo dá a carga por Status, Categoria e Dono; a busca acha por texto em Título, Descrição, Comentários e número do sistema anterior; a sugestão de parecidos evita duplicado na abertura; e o MCP expõe Resources (`chamado`, `fila`) e um Prompt de triagem.
+
+**O que falta para a paridade é TIRAR e PÔR dado:** export, import da base antiga e o corte de baseline — o Epic 4. Sem isso, não há como migrar os anos de histórico que o sistema contratado guarda, e "paridade comprovada" não se sustenta.
+
+**A leitura em conjunto trouxe uma regra que atravessa o resto do projeto:** a autorização de lista acontece em duas camadas — o domínio decide o escopo e entrega como dado, o adapter traduz para `WHERE`, e o domínio reaplica sobre o que voltou. Onde não há itens para reaplicar (o resumo), o que se confere é **a pergunta que gerou os dados**.
 
 **Os dois e-mails do FR-18 estão prontos e DESLIGADOS.** Não há raiz de composição: `criarHandlerAbrirChamado` e `criarHandlerMudarStatus` montam os commands sem o canal de notificação, então nenhum e-mail dispara em produção — como o agendador do intake (1.9). Os três esperam a story de bootstrap, que depende da topologia de deploy (`Deferred` na spine).
 
@@ -22,7 +26,7 @@ O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois 
 | Epic 0 — Governança de CI | ✅ 7/7 `done` |
 | Epic 1 — Fundação segura | ✅ 9/9 `done` |
 | Epic 2 — Ciclo de vida do Chamado | ✅ 6/6 `done` (PRs #46, #48, #50, #52, #58, #60) |
-| Epic 3 — Fila, triagem e busca | `backlog` (6 stories) |
+| Epic 3 — Fila, triagem e busca | ✅ 6/6 `done` (PRs #63, #65, #68, #70, #72, #74) |
 | Epic 4 — Portabilidade & migração | `backlog` (4 stories) |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
@@ -250,13 +254,15 @@ Os pilares **Observável** e **Performático** não têm gate determinístico e 
 
 ## Próximas ações
 
-1. **Rearmar o prompt do loop para o Epic 3.** `_bmad-output/RALPH-PROMPT.md` está escrito para o Epic 2, que acabou: a seção 6 inteira fala de mutação de campo, e a 7 encerra num épico já encerrado. Antes de ligar o loop de novo, reescreva-a para o que o Epic 3 traz — **leitura em conjunto**, e não mais mutação de um Chamado por vez: filtros combináveis, ordenação, recortes, resumo, busca e os Resources/Prompts do MCP (FR-8..FR-12, FR-16).
+1. **Rearmar o prompt do loop para o Epic 4.** `_bmad-output/RALPH-PROMPT.md` está escrito para o Epic 3, que acabou. O Epic 4 é **portabilidade e migração**: export CSV, import CSV da base antiga, soft-delete completo e o corte de baseline com validação de paridade.
 
-   O risco muda junto: no Epic 2, errar corrompia estado; no Epic 3, errar **vaza Chamado alheio numa lista** — e `visivelPara` foi escrito para um Chamado por vez. Essa é a primeira pergunta da 3.1.
+   O risco muda de novo, e é o terceiro tipo do projeto: no Epic 2 errar corrompia **um** Chamado; no Epic 3, vazava numa lista; no Epic 4, um import errado **corrompe a base inteira de uma vez** — e o dado vem de fora, sem passar pelas validações que o domínio faz na abertura. As perguntas que a 4.1/4.2 precisam responder: o export respeita o escopo de quem exporta (um CSV é a forma mais fácil de vazar tudo)? O import valida cada linha pelo domínio ou confia no arquivo? O que acontece com a linha 5.000 quando a 4.999 falha?
+
+   Aproveite o que o Epic 3 deixou: `numero_legado` já existe (criada vazia na 3.4, indexada, e a busca já a cobre) — foi feita exatamente para o import preencher.
 
    ```
-   /ralph-loop:ralph-loop Leia e execute _bmad-output/RALPH-PROMPT.md --completion-promise 'EPIC 3 COMPLETO' --max-iterations 12
+   /ralph-loop:ralph-loop Leia e execute _bmad-output/RALPH-PROMPT.md --completion-promise 'EPIC 4 COMPLETO' --max-iterations 8
    ```
-   O prompt é relido a cada volta, então dá para editá-lo com o loop rodando.
+
 
    **Exige sessão sem sandbox** (`--dangerously-skip-permissions`). Medido em 2026-08-10: sob sandbox, `docker`, `psql`/Postgres e `gh` estão todos bloqueados — ou seja, o loop não roda teste de integração, não abre PR e não mergeia. O `excludedCommands` do `.claude/settings.json` **não funciona**; `git` por https é o único que passa.
