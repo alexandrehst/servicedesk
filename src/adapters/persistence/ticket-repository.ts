@@ -11,6 +11,7 @@ import type { AlcanceDaBusca } from '../../domain/busca.js'
 import type { NovoComentario } from '../../domain/comentario.js'
 import { DomainError } from '../../domain/errors.js'
 import type { Origem } from '../../domain/origem.js'
+import type { FiltroDeDono } from '../../domain/recorte-da-fila.js'
 import {
   CATEGORIAS,
   type Categoria,
@@ -158,6 +159,44 @@ const condicaoDeBusca = (busca: AlcanceDaBusca) => {
     sql`EXISTS (SELECT 1 FROM ${comments} WHERE ${comentarioQueCasa})`,
   )
 }
+
+/**
+ * As condicoes de TODA leitura de conjunto (Stories 3.1 a 3.4; extraida na 4.1).
+ *
+ * A Fila e o export compartilham esta funcao porque a FR-24 exige que o export
+ * "cubra os filtros aplicados" — e duas copias ficariam sincronizadas por
+ * disciplina, nao por construcao. Um filtro novo na Fila que esquecesse o
+ * export nao seria acusado por nenhum teste, porque as suites sao separadas
+ * (achado do `claude-review` no PR #77).
+ *
+ * O que cada linha carrega:
+ *
+ * - `deleted_at IS NULL` — invariante de toda leitura, na MESMA funcao que
+ *   traduz o escopo, porque esquece-la vaza em silencio (1.7);
+ * - o **escopo** chega decidido pelo dominio (`escopoDeLeitura`); aqui vira
+ *   SQL, so isso (AD-8);
+ * - o **Dono** tambem chega decidido (`filtroDeDono`, 3.2): 'qualquer' nao
+ *   restringe, 'ninguem' e a ausencia, 'identidade' e a igualdade. Ele SOMA com
+ *   o escopo, nunca o substitui — um Solicitante pedindo "sem dono" recebe os
+ *   DELE sem Dono.
+ */
+const condicoesDaFila = (
+  escopo: EscopoDeLeitura,
+  filtros: {
+    readonly status?: Status
+    readonly dono: FiltroDeDono
+    readonly categoria?: Categoria
+    readonly busca?: AlcanceDaBusca
+  },
+) => [
+  isNull(tickets.deletedAt),
+  ...(escopo.tipo === 'apenasDe' ? [eq(tickets.requester, escopo.requester)] : []),
+  ...(filtros.status === undefined ? [] : [eq(tickets.status, filtros.status)]),
+  ...(filtros.dono.tipo === 'ninguem' ? [isNull(tickets.assignee)] : []),
+  ...(filtros.dono.tipo === 'identidade' ? [eq(tickets.assignee, filtros.dono.identity)] : []),
+  ...(filtros.categoria === undefined ? [] : [eq(tickets.categoria, filtros.categoria)]),
+  ...(filtros.busca === undefined ? [] : [condicaoDeBusca(filtros.busca)]),
+]
 
 export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository => ({
   async criarComAuditoria(
@@ -307,22 +346,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
    * deslocamento passa a duplicar e omitir linhas entre paginas (licao da 1.2).
    */
   async buscarFilaBruta(escopo: EscopoDeLeitura, filtros, pagina) {
-    const condicoes = [
-      // Invariante de TODA leitura de lista, na mesma funcao que traduz o
-      // escopo: excluido nao aparece para ninguem (1.7).
-      isNull(tickets.deletedAt),
-      // O escopo chega decidido pelo dominio; aqui vira SQL, so isso.
-      ...(escopo.tipo === 'apenasDe' ? [eq(tickets.requester, escopo.requester)] : []),
-      ...(filtros.status === undefined ? [] : [eq(tickets.status, filtros.status)]),
-      // Story 3.2 — o filtro de Dono chega decidido: 'qualquer' nao restringe,
-      // 'ninguem' e a ausencia, 'identidade' e a igualdade. Repare que ele
-      // SOMA com o escopo acima, nunca o substitui: um Solicitante pedindo
-      // "sem dono" recebe os DELE sem Dono.
-      ...(filtros.dono.tipo === 'ninguem' ? [isNull(tickets.assignee)] : []),
-      ...(filtros.dono.tipo === 'identidade' ? [eq(tickets.assignee, filtros.dono.identity)] : []),
-      ...(filtros.categoria === undefined ? [] : [eq(tickets.categoria, filtros.categoria)]),
-      ...(filtros.busca === undefined ? [] : [condicaoDeBusca(filtros.busca)]),
-    ]
+    const condicoes = condicoesDaFila(escopo, filtros)
 
     const direcao = pagina.ordem === 'desc' ? desc : asc
 
@@ -447,15 +471,10 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
    * olho — e o Numero e unico, entao nao ha desempate a inventar.
    */
   async buscarParaExportarBruto(escopo: EscopoDeLeitura, filtros, pagina) {
-    const condicoes = [
-      isNull(tickets.deletedAt),
-      ...(escopo.tipo === 'apenasDe' ? [eq(tickets.requester, escopo.requester)] : []),
-      ...(filtros.status === undefined ? [] : [eq(tickets.status, filtros.status)]),
-      ...(filtros.dono.tipo === 'ninguem' ? [isNull(tickets.assignee)] : []),
-      ...(filtros.dono.tipo === 'identidade' ? [eq(tickets.assignee, filtros.dono.identity)] : []),
-      ...(filtros.categoria === undefined ? [] : [eq(tickets.categoria, filtros.categoria)]),
-      ...(filtros.busca === undefined ? [] : [condicaoDeBusca(filtros.busca)]),
-    ]
+    // As MESMAS condicoes da Fila, pela mesma funcao: a FR-24 exige que o
+    // export "cubra os filtros aplicados", e isso precisa valer por construcao,
+    // nao por disciplina de quem mexer na Fila depois.
+    const condicoes = condicoesDaFila(escopo, filtros)
 
     const linhas = await db
       .select({

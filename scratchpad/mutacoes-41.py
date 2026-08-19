@@ -72,25 +72,20 @@ MUTACOES = [
         "  return [colunas.join(','), ...corpo].join('\\n')",
     ),
     # ---- Seguranca do conteudo ----
+    # Depois do PR #77, a Fila e o export compartilham `condicoesDaFila`: uma
+    # mutacao aqui reprova os DOIS lados, e e essa a garantia que a extracao
+    # comprou — o export nao pode divergir da Fila por esquecimento.
     (
-        "O export ignora o escopo (vaza a base num arquivo)",
+        "As leituras de conjunto ignoram o escopo (vaza a base)",
         REPO,
-        """  async buscarParaExportarBruto(escopo: EscopoDeLeitura, filtros, pagina) {
-    const condicoes = [
-      isNull(tickets.deletedAt),
-      ...(escopo.tipo === 'apenasDe' ? [eq(tickets.requester, escopo.requester)] : []),""",
-        """  async buscarParaExportarBruto(escopo: EscopoDeLeitura, filtros, pagina) {
-    const condicoes = [
-      isNull(tickets.deletedAt),""",
+        "  ...(escopo.tipo === 'apenasDe' ? [eq(tickets.requester, escopo.requester)] : []),\n  ...(filtros.status === undefined ? [] : [eq(tickets.status, filtros.status)]),",
+        "  ...(filtros.status === undefined ? [] : [eq(tickets.status, filtros.status)]),",
     ),
     (
-        "O export inclui Chamado excluido",
+        "As leituras de conjunto incluem Chamado excluido",
         REPO,
-        """  async buscarParaExportarBruto(escopo: EscopoDeLeitura, filtros, pagina) {
-    const condicoes = [
-      isNull(tickets.deletedAt),""",
-        """  async buscarParaExportarBruto(escopo: EscopoDeLeitura, filtros, pagina) {
-    const condicoes = [""",
+        "  isNull(tickets.deletedAt),\n  ...(escopo.tipo === 'apenasDe'",
+        "  ...(escopo.tipo === 'apenasDe'",
     ),
     (
         "A query do export pula o gargalo do dominio",

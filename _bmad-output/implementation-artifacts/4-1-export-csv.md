@@ -231,6 +231,20 @@ início, e eu de novo os escrevi depois.**
 export, e `filaVisivelPara` passou a usá-lo — os testes da 3.1 passaram sem
 edição, que é o sinal de que a refatoração não mudou semântica.
 
+**E o `claude-review` pegou o lugar onde eu NÃO generalizei.** Extraí o gargalo
+no domínio e, no mesmo PR, **copiei** a tradução escopo→SQL no adapter: o bloco
+de `condicoes` do export repetia campo a campo o de `buscarFilaBruta`. O
+argumento dele é o que convence: a FR-24 exige que o export "cubra os filtros
+aplicados", e duas cópias ficariam sincronizadas **por disciplina, não por
+construção** — um filtro novo na Fila que esquecesse o export não seria acusado
+por teste nenhum, porque as suítes são separadas.
+
+Extraído em `condicoesDaFila`, e o efeito apareceu nas mutações: "ignorar o
+escopo" passou de **1 para 4 testes** reprovados e "incluir excluído" de **1
+para 2**, porque agora cada mutação atinge Fila e export ao mesmo tempo.
+**Duplicação some quando alguém a aponta; a garantia contra divergência futura
+só existe com a extração.**
+
 | Mutação aplicada | Reprovou |
 | --- | --- |
 | **Não neutralizar fórmula** | 8 testes |
@@ -238,10 +252,10 @@ edição, que é o sinal de que a refatoração não mudou semântica.
 | Não escapar | 5 testes |
 | Não duplicar aspas internas | 2 testes |
 | Nulo vira a string `null` | 2 testes |
-| Cabeçalho volta em toda página | 3 testes |
-| **O export ignora o escopo** | 1 teste |
-| O export inclui excluído | 1 teste |
-| A query pula o gargalo | 1 teste |
+| Cabeçalho volta em toda página | 4 testes |
+| **As leituras de conjunto ignoram o escopo** | 4 testes |
+| As leituras de conjunto incluem excluído | 2 testes |
+| A query pula o gargalo | 3 testes |
 | O export pede sempre `'todos'` | 1 teste |
 | Ignora os filtros | 1 teste |
 | `temMais` sempre falso | 1 teste |
@@ -287,7 +301,7 @@ edição, que é o sinal de que a refatoração não mudou semântica.
 - `src/application/ports/ticket-repository.ts` (modificado — `buscarParaExportarBruto`)
 - `src/application/contracts/exportar-csv.ts` (novo)
 - `src/application/queries/exportar-csv.ts` + teste (novos)
-- `src/adapters/persistence/ticket-repository.ts` (modificado — a consulta do export)
+- `src/adapters/persistence/ticket-repository.ts` (modificado — a consulta do export e `condicoesDaFila`, extraída de `buscarFilaBruta`)
 - `src/adapters/persistence/export-csv.test.ts` (novo — integração)
 - `src/adapters/mcp/server.ts` + teste (modificados — tool `exportar_csv`)
 - Dubles de teste (modificados)
@@ -302,3 +316,4 @@ edição, que é o sinal de que a refatoração não mudou semântica.
 | 2026-08-19 | Tasks 1–3: CSV seguro, leitura de export, contrato, query e tool |
 | 2026-08-19 | Task 4: 846 testes; 14 mutações — duas sobreviveram na primeira rodada, pegas pelo `temMais` e pela asserção do que a query pediu |
 | 2026-08-19 | Task 5: FR-24 registrado no PRD |
+| 2026-08-19 | Achado do `claude-review` (PR #77): a tradução escopo→SQL estava duplicada entre Fila e export. Extraída em `condicoesDaFila` — e as mutações de escopo/excluídos passaram a reprovar o dobro de testes |
