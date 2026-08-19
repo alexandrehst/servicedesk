@@ -4,7 +4,7 @@ baseline_commit: ffd19af
 
 # Story 4.1: Export CSV
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -45,21 +45,22 @@ so that os dados sejam da empresa e sem lock-in.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1 — O CSV seguro, em `platform`** (AC: #3, #4)
-  - [ ] `paraCsv(colunas, linhas)` em `platform/csv/csv.ts`
-  - [ ] Escape RFC 4180 **e** neutralização de fórmula
-  - [ ] Teste com os casos hostis, incluindo `=cmd|...`
-- [ ] **Task 2 — A leitura para export** (AC: #1, #2, #6)
-  - [ ] `buscarParaExportarBruto` no port — campos completos, não o resumo
-  - [ ] `visiveisPara` genérico no domínio, e `filaVisivelPara` passa a usá-lo
-- [ ] **Task 3 — Contrato, query e tool** (AC: #1, #5)
-  - [ ] `contracts/exportar-csv.ts` com limite **próprio**
-  - [ ] `exportar_csv` **usando** `criarHandler`
-- [ ] **Task 4 — Testes** (AC: #1..#6)
-  - [ ] Duas identidades; casos hostis de CSV; paginação
-  - [ ] **Verificar por mutação** — `scratchpad/mutacoes-41.py`
-- [ ] **Task 5 — Registrar** (AC: —)
-  - [ ] PRD (FR-24) e prompt do loop (PR `docs:` separado)
+- [x] **Task 1 — O CSV seguro, em `platform`** (AC: #3, #4)
+  - [x] `paraCsv(colunas, linhas)` em `platform/csv/csv.ts`
+  - [x] Escape RFC 4180 **e** neutralização de fórmula
+  - [x] Teste com os casos hostis, incluindo `=cmd|...`
+- [x] **Task 2 — A leitura para export** (AC: #1, #2, #6)
+  - [x] `buscarParaExportarBruto` no port — campos completos, não o resumo
+  - [x] `visiveisPara` genérico no domínio, e `filaVisivelPara` passa a usá-lo
+- [x] **Task 3 — Contrato, query e tool** (AC: #1, #5)
+  - [x] `contracts/exportar-csv.ts` com limite **próprio**
+  - [x] `exportar_csv` **usando** `criarHandler`
+- [x] **Task 4 — Testes** (AC: #1..#6)
+  - [x] Duas identidades; casos hostis de CSV; paginação
+  - [x] **Verificar por mutação** — `scratchpad/mutacoes-41.py`
+- [x] **Task 5 — Registrar** (AC: —)
+  - [x] PRD (FR-24)
+  - [ ] Prompt do loop (PR `docs:` separado, depois do merge)
 
 ## Dev Notes
 
@@ -192,14 +193,112 @@ formatado** ao escrever o alvo.
 
 ### Agent Model Used
 
+claude-opus-5
+
 ### Debug Log References
+
+**A story tem duas seguranças diferentes, e as duas precisaram de teste.** A do
+**formato** (o arquivo mente sobre as colunas, ou executa no Excel) e a do
+**conteúdo** (o arquivo carrega Chamado que a pessoa não podia ver). São
+independentes: um CSV perfeitamente escapado pode vazar a base inteira, e um CSV
+com o escopo certo pode executar `calc` na máquina de quem abre.
+
+**A neutralização de fórmula é o achado que não estava óbvio.** O Título vem do
+**Solicitante** — quem abre um Chamado escolhe o texto —, e um Título como
+`=cmd|' /C calc'!A0` vira execução quando alguém abre o CSV no Excel. É a mesma
+classe do XSS, com planilha no lugar do navegador, e o campo atravessa todo o
+sistema sem que ninguém o trate: o domínio não sabe o que é CSV, e o CSV não sabe
+de onde veio o campo. **Onde há um executor no fim do caminho, o dado precisa
+ser tratado ali.**
+
+Prefixar com apóstrofo **altera o dado**, e isso está registrado no PRD: a
+alternativa é fidelidade do campo em troca de execução de código na máquina de
+terceiros.
+
+**Duas mutações sobreviveram na primeira rodada, e as duas foram o mascaramento
+de sempre** — sexta e sétima ocorrência no projeto:
+
+| Sobrevivente | A sonda que a pegou |
+| --- | --- |
+| O export inclui excluído | **`temMais`** — vem do SQL (`limite + 1`) e o domínio não recalcula; com `limite: 1` e um excluído, ele denuncia o filtro ausente |
+| O export pede sempre `'todos'` | asserção sobre **o que a query pediu**, com duble |
+
+Nenhuma das duas é novidade — a 3.3 já tinha usado o `temMais` e a 3.5 a
+asserção do pedido. **O prompt do loop manda escrever esses testes desde o
+início, e eu de novo os escrevi depois.**
+
+**O gargalo foi generalizado em vez de duplicado.** `visiveisPara` serve Fila e
+export, e `filaVisivelPara` passou a usá-lo — os testes da 3.1 passaram sem
+edição, que é o sinal de que a refatoração não mudou semântica.
+
+| Mutação aplicada | Reprovou |
+| --- | --- |
+| **Não neutralizar fórmula** | 8 testes |
+| Neutralizar apenas `=` | 4 testes |
+| Não escapar | 5 testes |
+| Não duplicar aspas internas | 2 testes |
+| Nulo vira a string `null` | 2 testes |
+| Cabeçalho volta em toda página | 3 testes |
+| **O export ignora o escopo** | 1 teste |
+| O export inclui excluído | 1 teste |
+| A query pula o gargalo | 1 teste |
+| O export pede sempre `'todos'` | 1 teste |
+| Ignora os filtros | 1 teste |
+| `temMais` sempre falso | 1 teste |
+| Teto sobe para 100 mil | 1 teste |
+| — | — |
 
 ### Completion Notes List
 
+- **Task 1** — `platform/csv/csv.ts`: escape RFC 4180 e neutralização de
+  fórmula, com 18 testes só de casos hostis.
+- **Task 2** — `buscarParaExportarBruto` no port e no adapter;
+  `visiveisPara` generalizado no domínio.
+- **Task 3** — contrato com limites próprios, query e tool `exportar_csv`.
+- **Task 4** — **846 testes** (eram 798), cobertura **97,62%**; 14 mutações, 14
+  reprovações.
+- **Task 5** — FR-24 registrado no PRD.
+
+**Não provado — registrado em vez de deixado implícito:**
+
+1. **O CSV volta no CONTEXTO da IA, e esse é o limite real — não o teto de
+   5.000.** Cinco mil linhas com Descrição são centenas de KB de texto na
+   resposta da tool, e nenhuma IA lê isso com proveito: ela repassa. **Um export
+   de base inteira pede um canal que não existe** (arquivo, download, storage),
+   e ele depende da topologia de deploy, `Deferred` na spine. Enquanto isso, o
+   export serve para recortes — que é o que a FR-24 pede ao falar de "filtros
+   aplicados".
+2. **Nada mede o tamanho da resposta.** Não há teste que exporte 5.000 linhas
+   reais e verifique o peso do texto; o teto foi escolhido, não medido.
+3. **Comentários não são exportados**, então este arquivo **não** é suficiente
+   para migrar para outro sistema — só para levar o dado do Chamado. Está no
+   PRD.
+4. **Sem BOM**, então abrir o CSV salvo no Excel em português pode mostrar
+   acento torto. A decisão foi do canal (texto, não arquivo).
+5. **O `numero_legado` sai no arquivo mas ainda é sempre vazio** — quem o
+   preenche é o import (4.2).
+6. **A ordem é por Número**, não por data: para um arquivo, estabilidade entre
+   páginas vale mais que a ordem de trabalho da Fila.
+
 ### File List
+
+- `src/platform/csv/csv.ts` + teste (novos)
+- `src/domain/visibilidade.ts` (modificado — `visiveisPara`, `ExportacaoBruta`, `exportacaoVisivelPara`)
+- `src/application/ports/ticket-repository.ts` (modificado — `buscarParaExportarBruto`)
+- `src/application/contracts/exportar-csv.ts` (novo)
+- `src/application/queries/exportar-csv.ts` + teste (novos)
+- `src/adapters/persistence/ticket-repository.ts` (modificado — a consulta do export)
+- `src/adapters/persistence/export-csv.test.ts` (novo — integração)
+- `src/adapters/mcp/server.ts` + teste (modificados — tool `exportar_csv`)
+- Dubles de teste (modificados)
+- `scratchpad/mutacoes-41.py` (novo)
+- `prd.md` (FR-24)
 
 ## Change Log
 
 | Data | Evento |
 |---|---|
-| 2026-08-19 | Story criada; decidido por delegação que o export tem tool e limites próprios, que o campo perigoso é prefixado com apóstrofo (alterando o dado, com o porquê registrado), que Comentários ficam fora e que o gargalo é generalizado em vez de duplicado |
+| 2026-08-19 | Story criada; decidido por delegação que o export tem tool e limites próprios, que o campo perigoso é prefixado com apóstrofo, que Comentários ficam fora e que o gargalo é generalizado |
+| 2026-08-19 | Tasks 1–3: CSV seguro, leitura de export, contrato, query e tool |
+| 2026-08-19 | Task 4: 846 testes; 14 mutações — duas sobreviveram na primeira rodada, pegas pelo `temMais` e pela asserção do que a query pediu |
+| 2026-08-19 | Task 5: FR-24 registrado no PRD |

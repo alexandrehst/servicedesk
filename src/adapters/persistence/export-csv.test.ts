@@ -182,6 +182,31 @@ describe('excluidos ficam fora (AC #6)', () => {
   })
 })
 
+/**
+ * Abrir com um Agente NAO isola o filtro de excluidos: `podeVerTicket` tambem os
+ * descarta, e o gargalo esconde a falta do `WHERE` (foi assim que a mutacao
+ * sobreviveu na primeira rodada). A sonda e o `temMais`, que vem do SQL
+ * (`limite + 1` linhas) e o dominio NAO recalcula.
+ */
+describe('o filtro de excluidos, isolado do gargalo (AC #6)', () => {
+  it('com limite 1 e um excluido, o temMais denuncia o filtro ausente', async () => {
+    await inserir([
+      { numero: 1000, requester: 'marina@empresa.com' },
+      { numero: 1001, requester: 'marina@empresa.com', excluido: true },
+    ])
+
+    const bruta = await repositorio.buscarParaExportarBruto(
+      { tipo: 'todos' },
+      { dono: { tipo: 'qualquer' } },
+      { limite: 1, deslocamento: 0 },
+    )
+
+    const visivel = exportacaoVisivelPara(bruno, bruta)
+    expect(visivel.itens.map((i) => i.number)).toEqual([1000])
+    expect(visivel.temMais).toBe(false)
+  })
+})
+
 describe('paginacao sem truncar em silencio (AC #5)', () => {
   beforeEach(async () => {
     await inserir(
