@@ -91,6 +91,9 @@ const repo = (
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
   },
+  async buscarParecidosBruto() {
+    throw new Error('esta suite nao sugere parecidos')
+  },
   async buscarResumoBruto() {
     throw new Error('esta suite nao le o resumo')
   },

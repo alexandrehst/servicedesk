@@ -23,6 +23,10 @@ import {
   buscarChamadosOutputSchema,
   LIMITE_PADRAO,
 } from '../../application/contracts/buscar-chamados.js'
+import {
+  chamadosParecidosInputSchema,
+  chamadosParecidosOutputSchema,
+} from '../../application/contracts/chamados-parecidos.js'
 import type { ComentarChamadoInput } from '../../application/contracts/comentar-chamado.js'
 import {
   comentarChamadoInputSchema,
@@ -48,6 +52,7 @@ import {
 import type { IdentityRepository } from '../../application/ports/identity-repository.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
 import { buscarChamados } from '../../application/queries/buscar-chamados.js'
+import { chamadosParecidos } from '../../application/queries/chamados-parecidos.js'
 import { resumoFila } from '../../application/queries/resumo-fila.js'
 import { verChamado } from '../../application/queries/ver-chamado.js'
 import { ehDomainError } from '../../domain/errors.js'
@@ -207,6 +212,22 @@ export const criarHandlerResumoFila = (deps: McpDeps) =>
     const total = Object.values(saida.porStatus).reduce((soma, n) => soma + n, 0)
     return `${total} Chamado(s) em aberto, ${saida.semDono} sem Dono.`
   })
+
+/**
+ * Handler da sugestao de parecidos (Story 3.5).
+ *
+ * O texto da resposta diz quantos vieram — inclusive ZERO, que e resposta e nao
+ * falha: nada parecido e melhor que um palpite que empurra quem abre a "achar"
+ * que ja existe Chamado.
+ */
+export const criarHandlerChamadosParecidos = (deps: McpDeps) =>
+  criarHandler(deps, chamadosParecidos({ repositorio: deps.repositorio }), (saida) =>
+    saida.parecidos.length === 0
+      ? 'Nenhum Chamado parecido — pode abrir.'
+      : `${saida.parecidos.length} Chamado(s) parecido(s): ${saida.parecidos
+          .map((p) => `#${p.numero}`)
+          .join(', ')}.`,
+  )
 
 /** Handler da tool de leitura, extraido para ser testavel sem transporte. */
 export const criarHandlerVerChamado = (deps: McpDeps) =>
@@ -414,6 +435,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: resumoFilaOutputSchema,
     },
     criarHandlerResumoFila(deps),
+  )
+
+  servidor.registerTool(
+    'chamados_parecidos',
+    {
+      title: 'Chamados parecidos',
+      description:
+        'Sugere Chamados semelhantes a um texto de abertura, para evitar duplicado. E CONSELHO, nao pre-requisito: a abertura nao depende desta consulta, e lista vazia significa "nada parecido". Inclui Chamados ja encerrados — "ja resolvemos isso" e a resposta mais util.',
+      inputSchema: chamadosParecidosInputSchema,
+      outputSchema: chamadosParecidosOutputSchema,
+    },
+    criarHandlerChamadosParecidos(deps),
   )
 
   servidor.registerTool(
