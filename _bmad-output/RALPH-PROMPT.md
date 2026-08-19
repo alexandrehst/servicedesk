@@ -20,8 +20,9 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 3 `done` | Encerre o épico (ver seção 7) |
 
-**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). No Epic 3, **3.1 a 3.4 estão `done`**
-(PRs #63, #65, #68 e #70). A próxima é a **3.5**.
+**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). No Epic 3, **3.1 a 3.5 estão `done`**
+(PRs #63, #65, #68, #70 e #72). A próxima é a **3.6** — e ela **fecha o épico**
+(ver seção 7).
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de uma
 volta interrompida. **PR de story aberto com checks verdes é a prioridade
@@ -341,7 +342,7 @@ novo**:
 | ~~3.2~~ | ✅ `done` (PR #65) — `RECORTES` e `filtroDeDono` no domínio, `dono: FiltroDeDono` no port, `recorte` no contrato |
 | ~~3.3~~ | ✅ `done` (PR #68) — três `GROUP BY`, `STATUS_ENCERRADOS` no domínio, e o `ResumoBruto` que carrega o escopo aplicado para o domínio conferir |
 | ~~3.4~~ | ✅ `done` (PR #70) — `alcanceDaBusca` no domínio, `pg_trgm` + GIN, `numero_legado` criada vazia, e o recorte de Comentário Interno dentro do `EXISTS` |
-| 3.5 | A busca já existe (3.4): `condicaoDeBusca` e `alcanceDaBusca` são reusáveis. O que falta é **decidir o conflito com o AD-8** — quem abre Chamado costuma ser o Solicitante, e sugerir "parecidos" a ele ou devolve quase nada útil (só os dele), ou vaza Chamado de terceiro. Note que a sugestão é **conselho, não gate**: a AC diz que ela não bloqueia a abertura, então falha ao sugerir não pode derrubar `abrir_chamado` |
+| ~~3.5~~ | ✅ `done` (PR #72) — `similarity()` com limiar no domínio, escopo respeitado, Comentário fora do match |
 | 3.6 | Nenhum Resource, nenhum Prompt. O SDK tem `registerResource(name, uriOrTemplate, config, cb)` e `registerPrompt(name, config, cb)` (`@modelcontextprotocol/server@2.0.0`) — e o Resource "chamado" precisa passar pela **mesma** query e pelo **mesmo** `visivelPara` de `ver_chamado`, senão nasce uma segunda porta de leitura sem autorização |
 
 #### O formato que a 3.1 fixou — herde, não reabra
@@ -377,6 +378,38 @@ uma diferença que merece registro: o limite conta **chamadas**, não custo. Uma
 tool de fila é ordens de magnitude mais cara que um `ver_chamado`. Se você achar
 que isso importa, registre como dívida; **não** invente um segundo mecanismo de
 limite nesta story.
+
+#### O que a 3.5 mediu — e a volta que custou uma rodada inteira
+
+- **Escrevi a lição na volta anterior e não a segui nesta.** O prompt já dizia
+  "o gargalo mascarou pela terceira vez — escreva desde o início o teste que
+  chama o repositório direto". Na 3.5, **cinco de oito mutações sobreviveram na
+  primeira rodada**, e quatro eram exatamente isso. **Antes de rodar mutação,
+  releia esta seção e pergunte quais dos seus testes o gargalo pode estar
+  respondendo por você.**
+- **As duas camadas se mascaram MUTUAMENTE.** Com o `WHERE` certo, remover o
+  gargalo dá o mesmo resultado; com o gargalo no lugar, remover o `WHERE` dá o
+  mesmo resultado. Cada camada precisa de um teste que **desligue a outra**:
+  para o `WHERE`, chamar o repositório direto; para o gargalo, um **duble
+  devolvendo dado alheio de propósito**.
+- **Uma sonda nova: o `limite`.** Na 3.3 foi o `temMais` (vem do SQL e o domínio
+  não recalcula); aqui, `limite: 1` com o excluído sendo o mais parecido faz o
+  filtro ausente gastar a única vaga com ele — e o resultado chega **vazio** ao
+  domínio. **Procure sempre o efeito que atravessa a camada de baixo sem ser
+  refeito em cima:** contagem, ordem, corte, sinal de paginação.
+- **Teste de ordenação passou por acaso pela QUARTA vez** (1.2, 2.2, 3.1, 3.5).
+  Aqui o mais parecido também era o de menor Número, então ordenar por data dava
+  o mesmo. **Monte os dados para que a ordem certa DIVIRJA da ordem trivial.**
+- **Redundância deliberada precisa de teste que a isole.** O
+  `similarity() >= limiar` parece redundante com o operador `%` — e não é, porque
+  `%` usa o threshold da **sessão**. O que prova isso é um teste que **muda a
+  sessão** (`SET pg_trgm.similarity_threshold = 0.05`). Sempre que você escrever
+  "isto é defesa contra configuração externa", o teste tem de mexer nessa
+  configuração.
+- **Título é conteúdo.** A tentação de devolver "só Número e Título" de Chamados
+  de terceiros parece anonimizar e não anonimiza nada. Quando uma AC pedir para
+  mostrar "um pouquinho" de algo restrito, **a pergunta é o que exatamente pode
+  ser mostrado** — e isso é decisão de produto, não detalhe de implementação.
 
 #### O que a 3.4 mediu
 
@@ -604,11 +637,12 @@ escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/acao-irreversivel.test.ts` (2.6) |
 | Migration com índice | `0006_soft_delete.sql` (índice parcial, com o porquê escrito) |
 
-**Estado do código em 2026-08-19:** 758 testes, cobertura 98%, **12 migrations**
-aplicadas, Epics 0, 1 e 2 completos e as Stories 3.1 a 3.4 `done`. O Chamado
+**Estado do código em 2026-08-19:** 785 testes, cobertura 97,8%, 12 migrations
+aplicadas, Epics 0, 1 e 2 completos e as Stories 3.1 a 3.5 `done`. O Chamado
 nasce, muda, é resolvido e encerrado; a Fila se enxerga — filtrada, com recortes,
 paginada e ordenada —, o resumo diz a carga, e a busca acha por texto em Título,
-Descrição, Comentários e número do sistema anterior.
+Descrição, Comentários e número do sistema anterior — e a sugestão de parecidos
+evita duplicado na abertura.
 
 **Dependência de deploy nova (3.4):** a extensão `pg_trgm` precisa existir no
 banco. `CREATE EXTENSION` exige privilégio elevado — some junto com a topologia
