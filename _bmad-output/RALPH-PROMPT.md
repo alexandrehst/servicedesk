@@ -1,35 +1,4 @@
-# Prompt do loop — Epic 3 (ENCERRADO em 2026-08-19)
-
-> **PARE ANTES DE COMEÇAR.** O Epic 3 fechou com as seis stories `done` (PRs
-> #63, #65, #68, #70, #72 e #74) e `epic-3: done` no `sprint-status.yaml`. Este
-> arquivo continua aqui como registro do que o épico mediu — **não** como
-> tarefa. Se o loop foi ligado com ele, confirme o estado, diga que o épico está
-> fechado e encerre.
->
-> **Para o Epic 4, este prompt precisa ser REESCRITO.** A seção 6 inteira é
-> sobre leitura em conjunto — escopo, gargalo, índices, vazamento por
-> existência. O Epic 4 é **portabilidade e migração**: export CSV (4.1), import
-> CSV da base antiga (4.2), soft-delete completo (4.3) e o corte de baseline com
-> validação de paridade (4.4).
->
-> **O risco muda pela terceira vez.** No Epic 2, errar corrompia **um** Chamado;
-> no Epic 3, vazava **numa lista**; no Epic 4, um import errado **corrompe a
-> base inteira de uma vez** — e o dado vem de **fora**, sem passar pelas
-> validações que o domínio aplica na abertura. As perguntas de partida:
->
-> - o **export** respeita o escopo de quem exporta? Um CSV é a forma mais fácil
->   de vazar tudo, e ele não tem `filaVisivelPara` para corrigir depois;
-> - o **import** valida cada linha pelo domínio (`abrirTicket`, `ehCategoria`,
->   `PRIORIDADES`) ou confia no arquivo?
-> - o que acontece com a linha 5.000 quando a 4.999 falha — transação inteira,
->   linha a linha, ou relatório de rejeitadas?
-> - `numero_legado` **já existe** (criada vazia na 3.4, indexada, e a busca já a
->   cobre): foi feita exatamente para o import preencher.
->
-> O que sobrevive sem mudança: as seções 2 a 5 (o ciclo, as regras
-> não-negociáveis, o ambiente e quando bloquear) e as lições transversais da
-> seção 6 — em especial **as sondas** (o campo que atravessa sem ser recalculado)
-> e **o teste que chama o repositório direto**.
+# Prompt do loop — Epic 4
 
 Este arquivo é realimentado **inteiro** a cada iteração do `ralph-loop`. Você
 não lembra das voltas anteriores: descubra o estado lendo os arquivos e o
@@ -37,7 +6,7 @@ histórico do git.
 
 ## Sua tarefa nesta volta
 
-Avançar **uma** story do Epic 3, do início ao merge. Uma só. Não tente duas.
+Avançar **uma** story do Epic 4, do início ao merge. Uma só. Não tente duas.
 
 ### 1. Descobrir onde parou
 
@@ -45,14 +14,20 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 
 | Estado encontrado | O que fazer |
 | --- | --- |
-| Alguma story do Epic 3 em `in-progress` | Retome ela. Não comece outra |
+| Alguma story do Epic 4 em `in-progress` | Retome ela. Não comece outra |
 | Alguma em `review` com PR aberto | Verifique os checks; se verdes, mergeie e conclua a volta |
 | Alguma em `ready-for-dev` | Rode `bmad-dev-story` nela |
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
-| Todas as 6 stories do Epic 3 `done` | Encerre o épico (ver seção 7) |
+| Todas as 4 stories do Epic 4 `done` | Encerre o épico (ver seção 7) |
 
-**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). **As seis stories do Epic 3 estão `done`** (PRs #63, #65, #68, #70, #72 e #74),
-e `epic-3: done`. Não há próxima story neste épico.
+**Os Epics 0, 1, 2 e 3 estão completos** (PRs #1 a #75). Nenhuma story do Epic 4
+começou: a primeira é a **4.1**.
+
+**Atenção à ordem:** o `epics.md` apresenta a **4.4 antes da 4.3**; o
+`sprint-status.yaml` está em ordem numérica, e **é ele que manda** (a nota está
+escrita lá, do sprint planning de 2026-08-08). A sequência é 4.1 → 4.2 → 4.3 →
+4.4 — e leia a seção 6 antes de chegar na **4.4**, que **não é completável por
+código**.
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de uma
 volta interrompida. **PR de story aberto com checks verdes é a prioridade
@@ -71,7 +46,7 @@ main atualizada  →  branch story/<chave>  →  bmad-create-story <n.n>
 O último passo não é enfeite: **você não lembra desta volta**. O que a story
 mediu — armadilha nova, decisão tomada, modo de falha inédito do CI — só chega
 à próxima se estiver escrito **aqui**, na seção 6, num PR `docs:` separado.
-Todas as quinze stories dos Epics 1 e 2 foram fechadas assim.
+Todas as vinte e uma stories dos Epics 1, 2 e 3 foram fechadas assim.
 
 - Sempre parta da `main` atualizada (`git checkout main && git pull --ff-only`).
 - Nome da branch: `story/<chave-da-story>`, igual à chave do sprint-status.
@@ -221,9 +196,9 @@ Só trate como bloqueio se falhar **duas vezes**.
 
 ### 5. Quando bloquear
 
-Pare o loop e reporte. **Não pule a story bloqueada** — as stories do Epic 3 são
-sequenciais: a 3.1 define a forma de **toda** leitura em conjunto, e a 3.2, 3.4
-e 3.5 são recortes dela.
+Pare o loop e reporte. **Não pule a story bloqueada** — a 4.1 e a 4.2 são as
+duas metades do mesmo problema (o dado sai e o dado entra), e a 4.2 depende de
+decisões que a 4.1 toma sobre formato.
 
 Situações de bloqueio:
 
@@ -243,433 +218,198 @@ delegação. O Epic 2 tomou dezenas de decisões assim.
 já foi feito, o que falta), rode `/ralph-loop:cancel-ralph` e encerre com um
 resumo do bloqueio.
 
-### 6. O Epic 3 é o épico da LEITURA EM CONJUNTO — leia isto antes de escrever a story
+### 6. O Epic 4 é o épico do DADO QUE VEM DE FORA — leia isto antes de escrever a story
 
-O Epic 1 construiu um sistema que **abre** e **lê um** Chamado. O Epic 2 fez o
-Chamado **mudar**, seis vezes. O Epic 3 faz o sistema **enxergar o trabalho**:
-fila filtrada (3.1), recortes (3.2), resumo (3.3), busca (3.4), parecidos (3.5)
-e a superfície de Resources/Prompts do MCP (3.6).
+O Epic 1 abriu e leu **um** Chamado. O Epic 2 fez o Chamado **mudar**. O Epic 3
+fez o trabalho **se enxergar**. O Epic 4 tira e põe dado: export CSV (4.1),
+import CSV do sistema antigo (4.2), soft-delete completo (4.3) e o corte de
+baseline (4.4).
 
-Hoje só se acha um Chamado **sabendo o Número dele**. Essa é a distância que
-falta para a paridade com o software contratado.
+É o épico que **fecha o contrato de R$240k/ano** — sem migrar o histórico, não
+há paridade a comprovar.
 
-#### O risco muda de lugar, e isso muda o que precisa ser testado
+#### O risco muda pela terceira vez, e agora é o pior
 
 | Épico | Errar significa |
 | --- | --- |
-| Epic 1 | vazar **um** Chamado a quem não devia |
-| Epic 2 | **corromper estado**, e o Log registra a corrupção como fato |
-| **Epic 3** | **vazar Chamado alheio numa lista** — e uma lista vaza em silêncio |
+| Epic 1 | vazar **um** Chamado |
+| Epic 2 | **corromper estado** de um Chamado |
+| Epic 3 | vazar Chamado alheio **numa lista** |
+| **Epic 4** | **corromper a base inteira de uma vez** — com dado que nunca passou pelo domínio |
 
-Um `ver_chamado` indevido é um vazamento pontual e visível. Uma consulta de
-lista com autorização frouxa entrega a base inteira de uma vez, e o resultado
-*parece* correto: vem ordenado, filtrado, com contadores plausíveis. **Nada na
-resposta denuncia que ela contém Chamado de terceiro.**
+Duas coisas são novas e as duas são perigosas:
 
-Por isso, toda story deste épico precisa de um teste com **duas identidades e
-dados de ambas no banco** — e não apenas "o Solicitante vê os dele". A pergunta
-que reprova é: *o resultado do Solicitante contém alguma linha que não é dele?*
+1. **O dado vem de FORA.** Todo Chamado do sistema já nasceu por `abrirTicket`,
+   que valida Título, Descrição e Categoria. Uma linha de CSV não passou por
+   nada. Se o import escrever direto no banco, ele cria Chamado que a **própria
+   abertura recusaria** — e o resto do sistema passa a lidar com dado que ele
+   supõe impossível.
+2. **O export sai do alcance do sistema.** Um CSV gerado não tem
+   `filaVisivelPara` para corrigir depois. O que saiu, saiu — e vai para o
+   e-mail, o Drive, o WhatsApp de alguém.
 
-#### O gargalo: `visivelPara` foi escrito para UM Chamado por vez
+#### Story 4.1 — o export tem DOIS problemas que a Fila não tinha
 
-`domain/visibilidade.ts` é a peça central do AD-8, e hoje ela é assim:
+**a) O teto de 100 torna o export inútil.** `LIMITE_MAXIMO` (3.1) existe para
+não estourar o contexto da IA. Um export de 100 linhas não migra nada e não
+prova independência de fornecedor. **Decida como o export escapa do teto** — e
+registre: outro limite, cursor, streaming, ou uma tool separada com contrato
+próprio. O que **não** vale é reusar o teto e chamar de export.
 
-```ts
-visivelPara(quem, bruto: ChamadoBruto): ChamadoVisivel | null
-```
+**b) CSV é formato hostil, e isso é segurança, não estética.** Três armadilhas
+conhecidas, e as três precisam de teste:
 
-Um Chamado entra, um Chamado (ou `null`) sai. O conteúdo bruto mora atrás de um
-**símbolo não exportado**, então nenhum caso de uso consegue entregar Chamado
-sem passar por lá — a garantia é estrutural, não disciplina. Isso funcionou
-lindamente para leitura de um item. **Para lista, cria uma escolha, e a escolha
-é a decisão da Story 3.1:**
+- **campo com vírgula, aspas ou quebra de linha** — sem escape correto, o
+  arquivo abre com colunas trocadas, e a Descrição de um Chamado vira outro
+  campo;
+- **CSV injection**: um campo que começa com `=`, `+`, `-` ou `@` é interpretado
+  como **fórmula** pelo Excel e pelo Sheets. Um Chamado cujo título seja
+  `=cmd|...` vira execução na máquina de quem abre o arquivo. Quem digita o
+  título é o Solicitante — **é entrada de usuário indo para um executor**;
+- **encoding**: acento em UTF-8 sem BOM abre torto no Excel em português.
 
-| Caminho | O que ganha | O que perde |
-| --- | --- | --- |
-| **A.** Trazer tudo do banco e filtrar com `visivelPara` no domínio | AD-8 intacto, zero regra nova | lê a base inteira para devolver 20 linhas — o pilar **Performático**, e o `claude-review` já pegou N+1 no PR #43 |
-| **B.** Filtrar no SQL (`WHERE requester = $1`) | rápido, paginável | a regra de autorização **desce para o adapter**, que é exatamente o que o AD-8 proíbe: MCP e HTTP passam a poder divergir |
+**c) A autorização continua sendo a do Epic 3.** `escopoDeLeitura` vale; um
+Solicitante que exporte recebe os dele. E decida explicitamente: **Comentário
+Interno entra no CSV?** Se entrar, o arquivo carrega conversa do time para fora
+do sistema — e um export do Agente vira o vazamento que a 3.4 evitou no `LIKE`.
 
-**Nenhum dos dois, puro.** E o precedente já existe, medido na Story 1.8: o port
-de histórico aceita `origem` como parâmetro de consulta, com este comentário —
+#### Story 4.2 — o import é o inverso, e mais perigoso
 
-> `origem` é **recorte de consulta**, não autorização — por isso pode ir ao SQL.
-> A decisão de quem enxerga continua no domínio (AD-8); se ela descesse para cá,
-> MCP e HTTP poderiam divergir.
+**a) Cada linha passa pelo DOMÍNIO, não pelo SQL.** `abrirTicket` valida e
+normaliza; `ehCategoria` recusa categoria inventada; `PRIORIDADES` é lista
+fechada. Um import que faça `INSERT` direto contorna tudo isso — e a 2.4 já
+registrou o que acontece quando uma coluna nasce com valor que o domínio não
+conhece.
 
-**A 3.1 resolveu isso, e a solução é para reusar:**
+**b) O Número é da sequence; o número antigo vai para `numero_legado`.** O AD-4
+é explícito: o Numero é gerado pela persistência, **nunca** pelo chamador.
+`numero_legado` **já existe** (criada vazia na 3.4, `text`, indexada, e a busca
+já a cobre — foi feita exatamente para isto). Preservar o número antigo como
+**referência**, não como identidade.
 
-```
-escopoDeLeitura(quem)  →  { tipo: 'todos' } | { tipo: 'apenasDe', requester }
-        ↓ dado
-adapter traduz para WHERE (sem decidir nada), com deleted_at IS NULL junto
-        ↓ FilaBruta (embrulhada no símbolo privado)
-filaVisivelPara(quem, bruta)  →  reaplica podeVerTicket sobre o que voltou
-```
+**c) A AC pede relatório de erros SEM abortar o lote.** Isso conflita com
+"transação única": ou tudo entra, ou nada. **Decida e registre** — o caminho
+provável é transação **por linha**, com um relatório do que foi rejeitado e por
+quê. E responda: o que acontece com a linha 5.000 quando a 4.999 falha?
 
-**Toda leitura de conjunto do épico passa por essas três etapas.** Se a sua
-story precisa de um recorte novo (sem Dono, meus, por Time), ele entra como
-**filtro** — a autorização continua sendo o escopo, e os dois se combinam em vez
-de competir.
+**d) Quem é o AUTOR de um Chamado importado?** O AD-3 exige autor e origem em
+toda escrita, e `audit_entries.autor` é obrigatório. O Chamado veio de um
+sistema que não tem identidade aqui. **Decida**: uma identidade de import
+(`import@sistema`), o Solicitante do CSV se ele existir no cadastro, ou os dois
+— e o que fazer quando o e-mail do CSV não estiver em `users`.
 
-**E há uma armadilha que a 3.1 mediu na pele:** a segunda camada **esconde
-erros da primeira**. Remover o `WHERE` do escopo não reprovava teste nenhum,
-porque `filaVisivelPara` corrigia — o guardrail existia sem prova. Duas saídas,
-e você vai precisar das duas:
+**e) Rodar duas vezes duplica tudo?** `numero_legado` **não é UNIQUE** hoje. Um
+import repetido cria a base inteira de novo. **Decida**: índice único, checagem
+prévia, ou aceitar e registrar — mas não descubra isso em produção.
 
-- **chame o repositório direto** e abra o embrulho com um **Agente**, que vê
-  tudo: o que sobrar veio do SQL (é a lição da 2.2 com o `deleted_at` do
-  `UPDATE`);
-- quando nem isso isola — o filtro de excluídos, por exemplo, que o gargalo
-  também aplica —, **procure o campo que atravessa sem ser recalculado**. Na
-  3.1 foi o **`temMais`**: ele vem do SQL e o domínio não o refaz, então com
-  `limite: 1` e um único Chamado vivo ele denuncia o filtro ausente.
+**f) Não há biblioteca de CSV no projeto.** Escrever o parser à mão é onde as
+armadilhas da 4.1 aparecem de novo, agora na leitura (aspas escapadas, campo com
+quebra de linha). **Dependência nova exige aprovação** (seção 5 do fluxo de
+dev): se for o caminho, pare e pergunte. Se for parser próprio, **documente o
+subconjunto de CSV que ele aceita** e teste os casos hostis.
 
-Duas coisas para não perder no caminho:
+**g) O formato real do fornecedor é desconhecido** — a AC diz isso. Não invente
+um formato "provável" e o chame de pronto: defina o **contrato de entrada** que
+você aceita (colunas, tipos, obrigatórias), e registre que o mapeamento do CSV
+real virá quando o arquivo existir.
 
-- **`filtrarComentarios` continua sendo do domínio.** Se a busca (3.4) devolver
-  Comentários junto, eles passam pelo filtro — Comentário Interno não vai para
-  Solicitante nem dentro de um resultado de lista.
-- **Chamado excluído continua invisível** (1.7). Hoje isso vem de graça dentro
-  de `podeVerTicket`; num `WHERE` montado à parte, é uma condição que alguém
-  precisa lembrar de escrever. **Mutação obrigatória:** remover o
-  `deleted_at IS NULL` do escopo e confirmar que um teste reprova.
+#### Story 4.3 — soft-delete completo, e o que falta é concreto
 
-#### O vazamento sutil da busca textual (3.4): o match em Comentário Interno
+Verificado no código em 2026-08-19:
 
-FR-11 diz que a busca cobre **Título, Descrição e Comentários**. Considere:
+- `tickets.deleted_at` ✅ (1.7) e `comments.deleted_at` ✅ (existe no schema
+  desde a 1.2, e `filtrarComentarios` já o respeita);
+- **`users` NÃO tem `deleted_at`** — é o buraco da FR-23;
+- **não existe comando para excluir Comentário nem Usuário**: só
+  `excluir-chamado.ts`. A coluna de Comentário existe e nada a escreve.
 
-> Um Comentário **Interno** diz "cliente é encrenqueiro, escalar para o
-> jurídico". O Solicitante busca por "jurídico" e o Chamado dele aparece.
+Excluir Usuário toca coisas que as outras exclusões não tocam: login (1.3),
+atribuição (2.3 — o Dono de um Chamado aberto), o escopo de leitura (3.1) e o
+cadastro que a 2.3 consulta. **Decida o que acontece com o Chamado de um
+Solicitante excluído e com o Chamado atribuído a um Agente excluído** — e note
+que `audit_entries` **não** recebe soft-delete (decisão da 1.7: é append-only, e
+uma coluna de exclusão ali permitiria apagar a prova).
 
-O conteúdo interno não foi exibido — mas a **existência do resultado** revelou
-que ele existe e do que fala. É o mesmo raciocínio da resposta cega da 1.3 e do
-`AtribuicaoInvalida` da 2.3, agora num `LIKE`: **o que casa a busca também é
-informação.** Decida na 3.4 (e registre): para quem não vê Comentário Interno,
-o match não pode considerá-lo.
+#### Story 4.4 — NÃO é completável por código, e isso precisa estar claro
 
-#### `chamados_parecidos` (3.5) tem um conflito de frente com o AD-8
+A AC pede medir o baseline do sistema atual e **rodar em paralelo por ~1 mês**.
+O loop não roda um mês, não tem acesso ao software contratado e não avalia
+checklist operacional. **Não finja que fez.**
 
-FR-12 quer sugerir Chamados parecidos **na abertura** para evitar duplicados —
-e quem abre costuma ser o **Solicitante**, que só pode ver os próprios Chamados
-(FR-2). Sugerir "parecidos" a ele, respeitando o AD-8, devolve quase nada útil;
-não respeitar é vazar Chamado de terceiro para quem abre um ticket.
+O que é entregável por código, e é o que a story deve entregar:
 
-Não invente uma terceira coisa sem registrar. Os caminhos honestos são: sugerir
-apenas dentro do escopo de quem pergunta (útil de verdade só para o Agente), ou
-devolver ao Solicitante uma forma **sem conteúdo** (Número e Título de Chamados
-dele; nada de terceiros). **Decida, registre no PRD, e diga no Dev Agent Record
-o que a sugestão NÃO faz.** A AC já garante uma coisa: *a sugestão não bloqueia
-a abertura* — ela é conselho, não gate.
+- **o instrumento de medição** — a consulta/relatório que calcula tempo médio de
+  resolução a partir do Log (`audit_entries` já tem `mudar_status` com o par
+  `de`/`para` e `registrado_em`, desde a 2.2);
+- **a checklist de paridade** como documento versionado, com os critérios do
+  SM-1/SM-5 em forma verificável.
 
-#### O que cada story encontra faltando
+O que **não** é: os números do sistema antigo e o mês de operação em paralelo.
+Isso é do dono do projeto. **Entregue o instrumento, marque a story como
+parcialmente entregue no Dev Agent Record, e diga exatamente o que falta e quem
+faz.** Se preferir tratar como bloqueio, use a seção 5 — mas não marque `done`
+o que não foi feito.
 
-Verificado no código em 2026-08-18, depois do merge da 2.6 — **não descubra de
-novo**:
-
-| Story | O que **não existe** hoje |
-| --- | --- |
-| ~~3.1~~ | ✅ `done` (PR #63) — `escopoDeLeitura` + `filaVisivelPara`, `buscarFilaBruta`, contrato com teto, tool `buscar_chamados`, migration `0011` com três índices parciais |
-| ~~3.2~~ | ✅ `done` (PR #65) — `RECORTES` e `filtroDeDono` no domínio, `dono: FiltroDeDono` no port, `recorte` no contrato |
-| ~~3.3~~ | ✅ `done` (PR #68) — três `GROUP BY`, `STATUS_ENCERRADOS` no domínio, e o `ResumoBruto` que carrega o escopo aplicado para o domínio conferir |
-| ~~3.4~~ | ✅ `done` (PR #70) — `alcanceDaBusca` no domínio, `pg_trgm` + GIN, `numero_legado` criada vazia, e o recorte de Comentário Interno dentro do `EXISTS` |
-| ~~3.5~~ | ✅ `done` (PR #72) — `similarity()` com limiar no domínio, escopo respeitado, Comentário fora do match |
-| ~~3.6~~ | ✅ `done` (PR #74) — Resources `chamado` e `fila` como casca sobre as queries, `criarLeitor`, e o Prompt de triagem com teste que o cruza com a lista real de tools |
-
-#### O formato que a 3.1 fixou — herde, não reabra
-
-Estas decisões estão no PRD (FR-8) e na spine (AD-8). **Use como está**; mudar
-uma delas agora quebra a coerência das cinco stories seguintes:
-
-1. **Limite 20, teto 100 recusado pelo schema** (`LIMITE_PADRAO`,
-   `LIMITE_MAXIMO` em `contracts/buscar-chamados.ts`). Recusa, não truncamento.
-2. **`temMais`, não `total`** — o adapter pede `limite + 1` linhas.
-3. **A linha da lista é RESUMO** (`itemDaFilaSchema`): Número, Título, Status,
-   Prioridade, Dono, data. Sem Descrição, sem Comentários.
-4. **`ORDER BY criado_em, number`**, crescente por padrão. Ordenar por
-   Prioridade continua **fora** — a 2.4 deixou o teste que trava a sequência
-   `baixa→crítica` guardando a invariante até alguém pedir.
-5. **Índice novo entra na migration junto do filtro que o exige**, parcial
-   (`WHERE deleted_at IS NULL`), e o Dev Agent Record diz qual consulta ele
-   serve. Já existem: `tickets_fila_requester_idx`, `tickets_fila_status_idx`,
-   `tickets_fila_assignee_idx`. **Não** há índice para `categoria` (decisão
-   registrada: ela quase nunca vem sozinha).
-
-#### Use o que os Epics 1 e 2 deixaram prontos
+#### Use o que os Epics 1–3 deixaram prontos
 
 | Use | Onde | O que carrega |
 | --- | --- | --- |
-| `criarHandler` | `adapters/mcp/server.ts` | autenticar → limitar → executar → traduzir erro. **Toda** tool nova passa por ele |
-| `visivelPara` / `filtrarComentarios` | `domain/visibilidade.ts` | posse, papel, excluído e Comentário Interno |
-| `embrulharBruto` / `Bruto<T>` | `domain/visibilidade.ts` | o símbolo privado que torna impossível entregar dado sem autorizar — **a leitura de lista precisa do mesmo tratamento** |
-| Contrato Zod derivado do domínio | `contracts/*.ts` | AD-6; `STATUS`, `PRIORIDADES` e `CATEGORIAS` vêm de `domain/ticket.ts` |
+| `escopoDeLeitura` / `filaVisivelPara` | `domain/visibilidade.ts` | a autorização de leitura em conjunto |
+| `buscarFilaBruta` | port | filtros, ordem e escopo já resolvidos |
+| `abrirTicket` | `domain/ticket.ts` | a validação que o import **precisa** atravessar |
+| `criarComAuditoria` | port | escrita + auditoria na mesma transação (AD-3) |
+| `numero_legado` | `tickets` (3.4) | criada vazia para o import preencher |
+| `criarHandler` / `criarLeitor` | `adapters/mcp/server.ts` | autenticar → limitar → executar |
 
-**Rate limit vale para leitura também** (FR-21, via `criarHandler`) — e aqui com
-uma diferença que merece registro: o limite conta **chamadas**, não custo. Uma
-tool de fila é ordens de magnitude mais cara que um `ver_chamado`. Se você achar
-que isso importa, registre como dívida; **não** invente um segundo mecanismo de
-limite nesta story.
+#### O que os Epics 2 e 3 mediram, e atravessa para cá
 
-#### O que a 3.6 mediu
-
-- **Dado que entra por um caminho que o SDK não valida precisa do contrato
-  aplicado À MÃO.** O `numero` de `chamado://{numero}` chega como texto da URI, e
-  `ResourceTemplate` **não** aceita schema para variáveis — o SDK só valida
-  argumentos de **tool**. Sem o `parse` explícito, `chamado://abc` virava `NaN` e
-  `chamado://-5` seguia para o `WHERE`. Vale para URI, header, variável de rota:
-  **o AD-6 não se aplica sozinho fora das tools.**
-- **Afirmação no Dev Agent Record não substitui teste.** Eu tinha escrito, em
-  "Não provado", que "o contrato Zod recusa" — e não recusava. O `claude-review`
-  rastreou o código e mostrou. **Se você escrever que algo é recusado, exercite
-  a recusa.**
-- **Casca é a forma de não criar porta nova.** Os Resources chamam as mesmas
-  queries das tools, e o teste que fixa isso **compara os dois**: mesmo
-  Chamado, mesma pessoa, mesmo objeto. Quando uma story adicionar um ponto de
-  entrada, esse é o teste que impede a divergência.
-- **Duble que ignora entrada esconde mutação** (quinta vez no projeto). "O
-  Resource de Fila ignora os defaults" sobreviveu porque o duble devolvia a
-  mesma lista para qualquer parâmetro. Ou o duble respeita a entrada, ou o teste
-  afirma **o que foi pedido**.
-- **Template que cita ferramenta precisa de teste que cruze com a lista real.**
-  O Prompt de triagem extrai os nomes citados e confirma que o servidor os
-  registra — sem isso, renomear uma tool deixa o texto mentindo em silêncio.
-
-#### O que a 3.5 mediu — e a volta que custou uma rodada inteira
-
-- **Escrevi a lição na volta anterior e não a segui nesta.** O prompt já dizia
-  "o gargalo mascarou pela terceira vez — escreva desde o início o teste que
-  chama o repositório direto". Na 3.5, **cinco de oito mutações sobreviveram na
-  primeira rodada**, e quatro eram exatamente isso. **Antes de rodar mutação,
-  releia esta seção e pergunte quais dos seus testes o gargalo pode estar
-  respondendo por você.**
-- **As duas camadas se mascaram MUTUAMENTE.** Com o `WHERE` certo, remover o
-  gargalo dá o mesmo resultado; com o gargalo no lugar, remover o `WHERE` dá o
-  mesmo resultado. Cada camada precisa de um teste que **desligue a outra**:
-  para o `WHERE`, chamar o repositório direto; para o gargalo, um **duble
-  devolvendo dado alheio de propósito**.
-- **Uma sonda nova: o `limite`.** Na 3.3 foi o `temMais` (vem do SQL e o domínio
-  não recalcula); aqui, `limite: 1` com o excluído sendo o mais parecido faz o
-  filtro ausente gastar a única vaga com ele — e o resultado chega **vazio** ao
-  domínio. **Procure sempre o efeito que atravessa a camada de baixo sem ser
-  refeito em cima:** contagem, ordem, corte, sinal de paginação.
-- **Teste de ordenação passou por acaso pela QUARTA vez** (1.2, 2.2, 3.1, 3.5).
-  Aqui o mais parecido também era o de menor Número, então ordenar por data dava
-  o mesmo. **Monte os dados para que a ordem certa DIVIRJA da ordem trivial.**
-- **Redundância deliberada precisa de teste que a isole.** O
-  `similarity() >= limiar` parece redundante com o operador `%` — e não é, porque
-  `%` usa o threshold da **sessão**. O que prova isso é um teste que **muda a
-  sessão** (`SET pg_trgm.similarity_threshold = 0.05`). Sempre que você escrever
-  "isto é defesa contra configuração externa", o teste tem de mexer nessa
-  configuração.
-- **Título é conteúdo.** A tentação de devolver "só Número e Título" de Chamados
-  de terceiros parece anonimizar e não anonimiza nada. Quando uma AC pedir para
-  mostrar "um pouquinho" de algo restrito, **a pergunta é o que exatamente pode
-  ser mostrado** — e isso é decisão de produto, não detalhe de implementação.
-
-#### O que a 3.4 mediu
-
-- **Vazamento por EXISTÊNCIA: o que casa a busca também é informação.** Um
-  Comentário Interno com "escalar para o jurídico" fazia o Chamado **da própria
-  Solicitante** casar numa busca dela por "jurídico" — o gargalo deixa passar
-  (o Chamado é dela), o conteúdo não aparece, e mesmo assim o resultado já
-  contou do que a conversa do time trata. Sempre que uma story fizer um
-  **conteúdo restrito decidir se uma linha aparece**, o recorte tem de ir para
-  o `WHERE`.
-- **O gargalo mascarou pela TERCEIRA vez** (3.1 com o escopo, 3.2 com o recorte,
-  3.4 com o texto). Já não é surpresa: **escreva desde o início o teste que
-  chama o repositório direto e abre com um Agente**, em vez de esperar a mutação
-  sobreviver para descobrir que falta.
-- **Índice de texto só se prova com texto de verdade.** Com 5.000 linhas de
-  `'Chamado ' || i` o planejador varre — e acerta. Só com **20.000 linhas de
-  título realista** o `Bitmap Index Scan` no GIN aparece. Quando um `EXPLAIN`
-  reprovar, pergunte se o **dado** é representativo antes de mexer na consulta.
-- **Coluna que a story seguinte vai preencher pode nascer agora.**
-  `numero_legado` veio vazia aqui para que o import do Epic 4 não tivesse de
-  voltar e mexer na busca — que é onde mora o vazamento delicado. Custou uma
-  coluna nula e um índice parcial.
-- **Identificador casa por igualdade, texto casa por trigrama.** Buscar "123"
-  não pode trazer o Chamado legado "1234".
-- **Terceira story seguida com a mesma mutação inócua**: `veComentarioInterno` e
-  `veChamadoDeTerceiro` são a mesma lista (`['agente']`). Não force teste
-  artificial — registre e siga.
-
-#### O que a 3.3 mediu
-
-- **Quando o gargalo não tem o que filtrar, confira a PERGUNTA.** Um resumo não
-  tem itens: se o `WHERE` errar, os números saem errados e nada os corrige — e
-  `{ aberto: 47 }` parece igualmente certo para quem tem 47 e para quem deveria
-  ver 3. A saída foi o `ResumoBruto` carregar o **escopo aplicado**, e o domínio
-  recusar quando ele não é o de quem pergunta. **Se a sua story devolve
-  agregado, derivado ou qualquer coisa sem itens, é esse o padrão a copiar.**
-- **Sem rede, o teste fica mais fácil — não mais difícil.** Foi a primeira story
-  do épico com **12 de 12 mutações reprovando na primeira rodada**, e a razão é
-  a mesma: como o gargalo não mascara nada, as mutações do `WHERE` chegam à
-  saída. Onde há duas camadas, espere sobreviventes e teste o repositório
-  direto; onde há uma, os testes de saída bastam.
-- **Erro de programação lança; erro de usuário devolve valor.** `EscopoDivergente`
-  é `throw`, e não `null`, porque um `null` viraria "resumo vazio" na cara de
-  quem perguntou e esconderia o bug — mesmo raciocínio do `pode()` com papel
-  desconhecido (1.4).
-- **O tipo cobrou o desenho antes do teste.** `resumoVisivelPara` nasceu num
-  módulo próprio e não compilou: a chave do embrulho é símbolo **não exportado**
-  de `visibilidade.ts`. O comentário de `historicoVisivelPara` já dizia por quê.
-  **Quando o compilador recusa, leia o comentário do módulo antes de contornar.**
-- **Zero é resposta; ausência não é.** Eixo fechado (lista do domínio) vem
-  completo, com zero; eixo aberto (identidades) traz só quem existe. Vale para
-  qualquer resposta agregada do épico.
-- **O `claude-review` voltou** — 3m11s e comentário substantivo no PR #68,
-  depois da correção do #66. O sinal de duração continua valendo: **menos de um
-  minuto é silêncio**, e agora o resumo do job traz turnos e negações sem
-  precisar baixar log.
-
-#### O que a 3.2 mediu
-
-- **O gargalo protege o que ele conhece — e só isso.** `filaVisivelPara`
-  reaplica `podeVerTicket`, que sabe sobre **posse e exclusão**. Não sabe nada
-  sobre Dono, status ou categoria. Consequência prática: para o recorte, os
-  testes de saída bastam; para a interação **recorte × escopo**, o gargalo
-  volta a mascarar — e a mutação que faz o recorte **substituir** o escopo
-  passou pela suíte inteira até existir um teste que chama o repositório
-  direto. **Antes de escrever o teste, pergunte o que o gargalo sabe.**
-- **O alvo de mutação evaporou pelo formatador, de novo** (a 2.4 já tinha
-  medido). Rodar `biome check --write` antes não basta: é preciso **reler o
-  arquivo formatado** e copiar o texto de lá.
-- **Dado de teste é configuração de teste.** O `EXPLAIN` do `sem_dono`
-  reprovava porque o teste atribuía Dono com `UPDATE` depois do `INSERT`, e o
-  bloat dobrou as páginas — o planejador passou a preferir varredura com razão.
-  Gerando os dados já com a distribuição certa, o plano usa o índice. E a
-  distribuição importa: "sem Dono" precisa ser **minoria** para o índice fazer
-  sentido.
-- **Erro de entrada também mora no domínio.** `recorte` + `dono` juntos são
-  recusados por `filtroDeDono`, não por um `.refine()` no Zod — mesmo raciocínio
-  do motivo da reabertura (2.6). Um `.refine()` teria funcionado igual **hoje**,
-  e deixado o adapter HTTP futuro sem a regra.
-- **Mutação inócua pode ser prova de que outra guarda funciona.** "'meus' usa o
-  parâmetro `dono`" sobrevive **porque** a recusa do conflito garante que `dono`
-  é `undefined` ali. Registrar isso é mais útil que forçar um teste artificial —
-  e a mutação que remove a recusa reprova 6 testes.
-
-#### O gate `claude-review` estava verde SEM revisar — corrigido no PR #66
-
-Descoberto ao investigar o quarto silêncio seguido. O log do job dizia:
-
-```json
-{ "is_error": false, "duration_ms": 7442, "num_turns": 5,
-  "permission_denials_count": 4 }
-```
-
-Sete segundos, quatro negações de permissão, **check verde**. A causa: o prompt
-manda "revise o diff do PR" e **nenhuma ferramenta permitida entregava o diff**
-(`fetch-depth: 1`, sem `Bash`, sem MCP de PR). Nas vezes em que revisou de
-verdade, ele reconstruía o contexto com `Read`/`Grep` — às vezes persistia, às
-vezes desistia.
-
-**Duas correções foram para a `main`:**
-
-1. um step captura `gh pr diff` num arquivo, e o prompt manda lê-lo com `Read`
-   (ferramenta que já era permitida — dar `Bash` ao revisor seria mais poder do
-   que o problema exige);
-2. um step publica **turnos, negações e duração** no resumo do job, porque há um
-   **segundo** caminho para verde sem alvo: a ação se **pula sozinha** quando o
-   PR altera o próprio workflow (`Workflow validation failed`), e o step termina
-   `success`.
-
-**O que isso significa para você:** o `claude-review` das stories 3.1 e 3.2 não
-revisou nada. **Não conte com ele como cobertura retroativa** — e, a partir de
-agora, **leia o resumo do job** antes de tratar o verde como revisão. Se voltar
-a levar 4–6 minutos e comentar, a correção funcionou; se continuar em segundos,
-o resumo dirá por quê.
-
-#### O que a 3.1 mediu
-
-- **A redundância que protege também esconde.** As duas camadas do AD-8 são a
-  decisão certa — e fizeram três mutações sobreviverem por **teste fraco**, não
-  por código fraco. Sempre que você puser uma rede de segurança, pergunte
-  **como provar a camada que ela protege**.
-- **`temMais` como sonda.** Campo que vem do SQL e o domínio não recalcula é
-  janela para o que a consulta realmente fez. Procure o equivalente na sua
-  story antes de concluir que uma condição é intestável.
-- **`EXPLAIN` só prova com volume**, e a violação plantada à mão (`DROP INDEX`)
-  é o que transforma o teste em gate de verdade.
-- **Mutação inócua tem duas caras.** "Usar `veHistorico` em vez de
-  `veChamadoDeTerceiro`" sobrevive porque as duas capacidades são hoje a mesma
-  lista — e vai virar detectável no dia em que existir um papel que lê a fila
-  sem ler o Log. Registrar isso é mais útil que forçar um teste artificial.
-- **Alargar um tipo de entrada não é quebrar contrato.** `podeVerTicket` passou
-  de `Ticket` para `{ requester, excluidoEm }` — aceita mais, não menos, e evita
-  a segunda função que duplicaria a regra. A story dizia "não mude a
-  assinatura"; o desvio foi deliberado e está registrado.
-- **O `claude-review` ficou mudo TRÊS vezes seguidas** no PR #63 (41s, 36s e
-  30s), inclusive no re-run. É a segunda story com silêncio repetido (a 2.4 teve
-  dois). Não é bloqueio — a regra é sobre check **vermelho** —, mas significa
-  que a decisão de arquitetura passou **sem segunda opinião**. Quando isso
-  acontecer, diga no Dev Agent Record o que sustenta a story no lugar dele.
-
-#### O que o Epic 2 mediu, e atravessa para cá
-
-- **A pergunta que abre a story não é "como implementar", é "o mecanismo já
-  existe?".** Duas stories seguidas descobriram que sim (2.5 e 2.6): o que
-  faltava era o caminho de execução, não a regra. Antes de criar tabela, port ou
-  tool, procure o que já responde à pergunta.
-- **Guardrail que o próprio chamador preenche não é guardrail** (2.6). Quando
-  uma AD deixa a forma em aberto, **a forma é a decisão da story** — e a decisão
-  barata costuma ser a que não protege.
-- **Diga o que o guardrail NÃO garante.** A 2.6 registrou que nenhum protocolo
-  server-side prova que um humano confirmou. Aqui o análogo é: até onde a
-  autorização de lista cobre? Contadores? Ordenação? A existência de um
-  resultado?
-- **Extrair antes do Sonar reprovar já é barato** (2.3, 2.5). O gate reprova
-  duplicação acima de **3%** em código novo. Seis stories de leitura vão
-  compartilhar escopo, paginação e formato de saída — extraia na segunda, não na
-  quinta.
-- **Quatro modos de mutação sobrevivente já vistos.** Quando uma sobreviver,
-  pergunte nesta ordem: (1) ela muda comportamento observável? [inócua — 1.9,
-  2.1, 2.3]; (2) o código é redundante? [2.2]; (3) o alvo está certo e é único?
-  [2.4 — rode `biome check --write` **antes** de escrever o script]; (4) **o
-  teste chega até aquela linha?** [2.6 — o caso usava dado que era barrado por
-  outro filtro antes].
-- **Teste que passa de primeira merece segunda leitura** (2.6): um deles passava
-  pela razão errada, e só o nome denunciava. **Confira que ele passou pela razão
-  que anuncia** — especialmente neste épico, em que "a lista veio certa" é fácil
-  de afirmar e difícil de provar.
-- **Cobertura lida por arquivo**, nunca só o total: 92% global escondia um
-  arquivo em 0% na 1.9.
-- **Teste de ordenação insere fora de ordem**, e `ORDER BY` com desempate.
-- **Decisão sobre confiança fica no domínio, não no adapter** (achado do review
-  no PR #43).
-- **Conceito de negócio duplicado no contrato sobe para o domínio** e o contrato
-  deriva (`PAPEIS` na 1.4, `ORIGENS` na 1.8, `duracaoLegivel` na 2.5).
-- **Erros só se separam quando a distinção ajuda quem tem direito**, e o relógio
-  é sempre injetado.
-- **`await promessa.catch((e) => e as Error)` não devolve `Error`.** Use um
-  helper que estreite com `ehDomainError` e **falhe quando não houver erro**.
+- **A pergunta que abre a story é "o mecanismo já existe?"** — três stories
+  seguidas (2.5, 2.6, 3.6) descobriram que sim.
+- **Guardrail que o próprio chamador preenche não é guardrail** (2.6).
+- **Duas camadas se mascaram mutuamente** (3.5): cada uma precisa de um teste
+  que desligue a outra. **Escreva o teste que chama o repositório direto desde o
+  início** — foi ignorado uma vez e custou uma rodada inteira de mutação.
+- **Procure a SONDA**: o campo que atravessa a camada de baixo sem ser refeito
+  em cima (`temMais` na 3.3, o `limite` na 3.5). No import, os candidatos são
+  **a contagem de linhas aceitas e o relatório de rejeitadas**.
+- **Duble que ignora entrada esconde mutação** (3.6, quinta ocorrência).
+- **Dado que entra por caminho que o SDK não valida precisa do contrato aplicado
+  à mão** (3.6) — e **um CSV é exatamente esse caminho**.
+- **Afirmação no Dev Agent Record não substitui teste** (3.6): se escrever que
+  algo é recusado, exercite a recusa.
+- **Índice/plano só se prova com volume e dado realista** (3.4).
+- **Teste de ordenação passou por acaso quatro vezes** (1.2, 2.2, 3.1, 3.5):
+  monte os dados para a ordem certa **divergir** da trivial.
+- **Cobertura lida por arquivo**, nunca só o total.
+- **Migration nova entra em `drizzle/migrations/`** — a próxima é a **0013**.
 - **`psql -f` sai com código 0 mesmo com SQL quebrado** — exige
   `-v ON_ERROR_STOP=1`.
-- Migration nova entra em `drizzle/migrations/` (a próxima é a **0011**) e o
-  `pnpm db:migrate` já itera sobre todas — **não** referencie arquivo por nome.
-- **Coluna nova entra `NOT NULL DEFAULT`**, não nulável, quando o domínio tem um
-  valor natural (2.4).
 
-**Sobre o `claude-review`:** ficou mudo do PR #61 ao #65 por um defeito de
-configuração (não tinha o diff), corrigido no #66 — e voltou a revisar no #67
-(1m11s) e no #68 (3m11s, comentário substantivo). O sinal de duração continua
-valendo, e o **resumo do job** agora publica turnos, negações e duração. Ainda
-assim, conte com as mutações: no #50 quem pegou o problema real foi o **Sonar**,
-olhando forma, e não ele.
+**Sobre o `claude-review`:** ficou mudo do PR #61 ao #65 por defeito de
+configuração (não recebia o diff), corrigido no #66 — e voltou a achar coisa
+real: no #74 apontou que o `numero` da URI não passava pelo contrato Zod, e
+estava certo. **Leia o resumo do job** (turnos, negações, duração) antes de
+tratar o verde como revisão: menos de um minuto é silêncio.
 
-### 7. Fim do épico — FEITO em 2026-08-19
+### 7. Fim do épico
 
-O Epic 3 fechou: seis stories `done`, `epic-3: done`, `RESUME.md` atualizado e
-este aviso no topo. O que a seção pedia, para referência da próxima vez:
+Quando as **quatro** stories do Epic 4 estiverem `done` no `sprint-status.yaml`,
+com PRs mergeados:
 
-1. Marque `epic-3: done` e atualize o `RESUME.md`, num PR `docs:`.
-2. Deixe no topo deste arquivo o aviso de épico encerrado — como o Epic 2 fez —
-   e diga o que o Epic 4 (portabilidade e migração: export CSV, import,
-   soft-delete completo, corte de baseline) exige de diferente.
+1. Marque `epic-4: done` e atualize o `RESUME.md`, num PR `docs:`.
+2. Deixe no topo deste arquivo o aviso de épico encerrado.
 3. Rode `/ralph-loop:cancel-ralph` e encerre com o resumo do épico.
 
-**Verifique antes de encerrar** — as seis `done`, `epic-3: done`, árvore limpa,
-nenhum PR de story aberto (os do Dependabot não contam). Não encerre para
-escapar de um bloqueio: bloqueio se resolve com a seção 5.
+**Verifique antes de encerrar** — as quatro `done`, `epic-4: done`, árvore
+limpa, nenhum PR de story aberto. E **atenção especial à 4.4**: ela só é `done`
+se o que ficou fora do alcance do código estiver **escrito** como pendência de
+quem opera, não escondido.
+
+**Este é o último épico do MVP.** Ao fechá-lo, o `RESUME.md` deve dizer o que
+falta para o corte do contrato acontecer de verdade — incluindo as dívidas que
+atravessaram todos os épicos: a **story de bootstrap** (não há raiz de
+composição; os dois e-mails do FR-18 e o agendador do intake estão prontos e
+desligados) e a **topologia de deploy**, que segue `Deferred` na spine.
 
 ## Contexto do projeto
 
@@ -690,13 +430,22 @@ escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Tool MCP | `criarHandler` em `adapters/mcp/server.ts` (2.3) |
 | Teste de integração com Postgres real | `persistence/acao-irreversivel.test.ts` (2.6) |
 | Migration com índice | `0006_soft_delete.sql` (índice parcial, com o porquê escrito) |
+| Leitura em conjunto com escopo | `queries/buscar-chamados.ts` + `escopoDeLeitura` (3.1) — o export parte daqui |
+| Escrita que valida no domínio | `commands/abrir-chamado.ts` (1.1) — o import **precisa** passar por `abrirTicket` |
+| Escrita em lote com auditoria | não existe: a 4.2 é a primeira |
 
 **Estado do código em 2026-08-19:** 798 testes, cobertura 97,7%, 12 migrations
 aplicadas, **Epics 0, 1, 2 e 3 completos**. O Chamado
 nasce, muda, é resolvido e encerrado; a Fila se enxerga — filtrada, com recortes,
 paginada e ordenada —, o resumo diz a carga, e a busca acha por texto em Título,
-Descrição, Comentários e número do sistema anterior — e a sugestão de parecidos
-evita duplicado na abertura.
+Descrição, Comentários e número do sistema anterior; a sugestão de parecidos
+evita duplicado na abertura; e o MCP expõe Resources e um Prompt de triagem.
+
+**O que o Epic 4 encontra pronto:** `numero_legado` (coluna vazia, indexada),
+`escopoDeLeitura` para o export, `abrirTicket` para o import validar, e
+`pg_trgm` instalado. **O que não encontra:** nenhuma biblioteca de CSV, nenhuma
+escrita em lote, `users` sem `deleted_at` e nenhum comando que exclua Comentário
+ou Usuário.
 
 **Dependência de deploy nova (3.4):** a extensão `pg_trgm` precisa existir no
 banco. `CREATE EXTENSION` exige privilégio elevado — some junto com a topologia
