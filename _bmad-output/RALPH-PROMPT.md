@@ -20,8 +20,8 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 3 `done` | Encerre o épico (ver seção 7) |
 
-**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). No Epic 3, **3.1, 3.2 e 3.3
-estão `done`** (PRs #63, #65 e #68). A próxima é a **3.4**.
+**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). No Epic 3, **3.1 a 3.4 estão `done`**
+(PRs #63, #65, #68 e #70). A próxima é a **3.5**.
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de uma
 volta interrompida. **PR de story aberto com checks verdes é a prioridade
@@ -340,8 +340,8 @@ novo**:
 | ~~3.1~~ | ✅ `done` (PR #63) — `escopoDeLeitura` + `filaVisivelPara`, `buscarFilaBruta`, contrato com teto, tool `buscar_chamados`, migration `0011` com três índices parciais |
 | ~~3.2~~ | ✅ `done` (PR #65) — `RECORTES` e `filtroDeDono` no domínio, `dono: FiltroDeDono` no port, `recorte` no contrato |
 | ~~3.3~~ | ✅ `done` (PR #68) — três `GROUP BY`, `STATUS_ENCERRADOS` no domínio, e o `ResumoBruto` que carrega o escopo aplicado para o domínio conferir |
-| 3.4 | Nenhuma busca textual: sem `pg_trgm`, sem `tsvector`, sem índice de texto. E **`numero_legado` não existe** — a AC o cita, mas ele nasce no Epic 4. Decida se cria a coluna agora (nula) ou tira a AC de escopo, e **registre**. Atenção ao que a 3.3 mostrou: se a busca casar em **Comentário**, o `JOIN` traz linhas que o gargalo da Fila **não** filtra por conteúdo — `filaVisivelPara` sabe de posse e exclusão, não de Comentário Interno. O match em conversa do time é vazamento por existência, e precisa ser resolvido no `WHERE` |
-| 3.5 | Nada. Depende da busca da 3.4 e da decisão de escopo acima |
+| ~~3.4~~ | ✅ `done` (PR #70) — `alcanceDaBusca` no domínio, `pg_trgm` + GIN, `numero_legado` criada vazia, e o recorte de Comentário Interno dentro do `EXISTS` |
+| 3.5 | A busca já existe (3.4): `condicaoDeBusca` e `alcanceDaBusca` são reusáveis. O que falta é **decidir o conflito com o AD-8** — quem abre Chamado costuma ser o Solicitante, e sugerir "parecidos" a ele ou devolve quase nada útil (só os dele), ou vaza Chamado de terceiro. Note que a sugestão é **conselho, não gate**: a AC diz que ela não bloqueia a abertura, então falha ao sugerir não pode derrubar `abrir_chamado` |
 | 3.6 | Nenhum Resource, nenhum Prompt. O SDK tem `registerResource(name, uriOrTemplate, config, cb)` e `registerPrompt(name, config, cb)` (`@modelcontextprotocol/server@2.0.0`) — e o Resource "chamado" precisa passar pela **mesma** query e pelo **mesmo** `visivelPara` de `ver_chamado`, senão nasce uma segunda porta de leitura sem autorização |
 
 #### O formato que a 3.1 fixou — herde, não reabra
@@ -377,6 +377,33 @@ uma diferença que merece registro: o limite conta **chamadas**, não custo. Uma
 tool de fila é ordens de magnitude mais cara que um `ver_chamado`. Se você achar
 que isso importa, registre como dívida; **não** invente um segundo mecanismo de
 limite nesta story.
+
+#### O que a 3.4 mediu
+
+- **Vazamento por EXISTÊNCIA: o que casa a busca também é informação.** Um
+  Comentário Interno com "escalar para o jurídico" fazia o Chamado **da própria
+  Solicitante** casar numa busca dela por "jurídico" — o gargalo deixa passar
+  (o Chamado é dela), o conteúdo não aparece, e mesmo assim o resultado já
+  contou do que a conversa do time trata. Sempre que uma story fizer um
+  **conteúdo restrito decidir se uma linha aparece**, o recorte tem de ir para
+  o `WHERE`.
+- **O gargalo mascarou pela TERCEIRA vez** (3.1 com o escopo, 3.2 com o recorte,
+  3.4 com o texto). Já não é surpresa: **escreva desde o início o teste que
+  chama o repositório direto e abre com um Agente**, em vez de esperar a mutação
+  sobreviver para descobrir que falta.
+- **Índice de texto só se prova com texto de verdade.** Com 5.000 linhas de
+  `'Chamado ' || i` o planejador varre — e acerta. Só com **20.000 linhas de
+  título realista** o `Bitmap Index Scan` no GIN aparece. Quando um `EXPLAIN`
+  reprovar, pergunte se o **dado** é representativo antes de mexer na consulta.
+- **Coluna que a story seguinte vai preencher pode nascer agora.**
+  `numero_legado` veio vazia aqui para que o import do Epic 4 não tivesse de
+  voltar e mexer na busca — que é onde mora o vazamento delicado. Custou uma
+  coluna nula e um índice parcial.
+- **Identificador casa por igualdade, texto casa por trigrama.** Buscar "123"
+  não pode trazer o Chamado legado "1234".
+- **Terceira story seguida com a mesma mutação inócua**: `veComentarioInterno` e
+  `veChamadoDeTerceiro` são a mesma lista (`['agente']`). Não force teste
+  artificial — registre e siga.
 
 #### O que a 3.3 mediu
 
@@ -577,10 +604,15 @@ escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/acao-irreversivel.test.ts` (2.6) |
 | Migration com índice | `0006_soft_delete.sql` (índice parcial, com o porquê escrito) |
 
-**Estado do código em 2026-08-18:** 738 testes, cobertura 98%, 11 migrations
-aplicadas, Epics 0, 1 e 2 completos e as Stories 3.1 a 3.3 `done`. O Chamado
+**Estado do código em 2026-08-19:** 758 testes, cobertura 98%, **12 migrations**
+aplicadas, Epics 0, 1 e 2 completos e as Stories 3.1 a 3.4 `done`. O Chamado
 nasce, muda, é resolvido e encerrado; a Fila se enxerga — filtrada, com recortes,
-paginada e ordenada — e o resumo diz a carga por Status, Categoria e Dono.
+paginada e ordenada —, o resumo diz a carga, e a busca acha por texto em Título,
+Descrição, Comentários e número do sistema anterior.
+
+**Dependência de deploy nova (3.4):** a extensão `pg_trgm` precisa existir no
+banco. `CREATE EXTENSION` exige privilégio elevado — some junto com a topologia
+`Deferred`.
 
 **Gate ativo:** nove required checks na `main` — `lint`, `typecheck`, `test`,
 `arch`, `traceability`, `security-deps`, `security-secrets`, `sonar`,
