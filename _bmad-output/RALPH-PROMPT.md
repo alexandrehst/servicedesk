@@ -1,4 +1,35 @@
-# Prompt do loop — Epic 3
+# Prompt do loop — Epic 3 (ENCERRADO em 2026-08-19)
+
+> **PARE ANTES DE COMEÇAR.** O Epic 3 fechou com as seis stories `done` (PRs
+> #63, #65, #68, #70, #72 e #74) e `epic-3: done` no `sprint-status.yaml`. Este
+> arquivo continua aqui como registro do que o épico mediu — **não** como
+> tarefa. Se o loop foi ligado com ele, confirme o estado, diga que o épico está
+> fechado e encerre.
+>
+> **Para o Epic 4, este prompt precisa ser REESCRITO.** A seção 6 inteira é
+> sobre leitura em conjunto — escopo, gargalo, índices, vazamento por
+> existência. O Epic 4 é **portabilidade e migração**: export CSV (4.1), import
+> CSV da base antiga (4.2), soft-delete completo (4.3) e o corte de baseline com
+> validação de paridade (4.4).
+>
+> **O risco muda pela terceira vez.** No Epic 2, errar corrompia **um** Chamado;
+> no Epic 3, vazava **numa lista**; no Epic 4, um import errado **corrompe a
+> base inteira de uma vez** — e o dado vem de **fora**, sem passar pelas
+> validações que o domínio aplica na abertura. As perguntas de partida:
+>
+> - o **export** respeita o escopo de quem exporta? Um CSV é a forma mais fácil
+>   de vazar tudo, e ele não tem `filaVisivelPara` para corrigir depois;
+> - o **import** valida cada linha pelo domínio (`abrirTicket`, `ehCategoria`,
+>   `PRIORIDADES`) ou confia no arquivo?
+> - o que acontece com a linha 5.000 quando a 4.999 falha — transação inteira,
+>   linha a linha, ou relatório de rejeitadas?
+> - `numero_legado` **já existe** (criada vazia na 3.4, indexada, e a busca já a
+>   cobre): foi feita exatamente para o import preencher.
+>
+> O que sobrevive sem mudança: as seções 2 a 5 (o ciclo, as regras
+> não-negociáveis, o ambiente e quando bloquear) e as lições transversais da
+> seção 6 — em especial **as sondas** (o campo que atravessa sem ser recalculado)
+> e **o teste que chama o repositório direto**.
 
 Este arquivo é realimentado **inteiro** a cada iteração do `ralph-loop`. Você
 não lembra das voltas anteriores: descubra o estado lendo os arquivos e o
@@ -20,9 +51,8 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 6 stories do Epic 3 `done` | Encerre o épico (ver seção 7) |
 
-**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). No Epic 3, **3.1 a 3.5 estão `done`**
-(PRs #63, #65, #68, #70 e #72). A próxima é a **3.6** — e ela **fecha o épico**
-(ver seção 7).
+**Os Epics 0, 1 e 2 estão completos** (PRs #46 a #61). **As seis stories do Epic 3 estão `done`** (PRs #63, #65, #68, #70, #72 e #74),
+e `epic-3: done`. Não há próxima story neste épico.
 
 Confira também `git status` e `gh pr list`: pode haver trabalho pendente de uma
 volta interrompida. **PR de story aberto com checks verdes é a prioridade
@@ -343,7 +373,7 @@ novo**:
 | ~~3.3~~ | ✅ `done` (PR #68) — três `GROUP BY`, `STATUS_ENCERRADOS` no domínio, e o `ResumoBruto` que carrega o escopo aplicado para o domínio conferir |
 | ~~3.4~~ | ✅ `done` (PR #70) — `alcanceDaBusca` no domínio, `pg_trgm` + GIN, `numero_legado` criada vazia, e o recorte de Comentário Interno dentro do `EXISTS` |
 | ~~3.5~~ | ✅ `done` (PR #72) — `similarity()` com limiar no domínio, escopo respeitado, Comentário fora do match |
-| 3.6 | Nenhum Resource, nenhum Prompt. O SDK tem `registerResource(name, uriOrTemplate, config, cb)` e `registerPrompt(name, config, cb)` (`@modelcontextprotocol/server@2.0.0`) — e o Resource "chamado" precisa passar pela **mesma** query e pelo **mesmo** `visivelPara` de `ver_chamado`, senão nasce uma segunda porta de leitura sem autorização |
+| ~~3.6~~ | ✅ `done` (PR #74) — Resources `chamado` e `fila` como casca sobre as queries, `criarLeitor`, e o Prompt de triagem com teste que o cruza com a lista real de tools |
 
 #### O formato que a 3.1 fixou — herde, não reabra
 
@@ -378,6 +408,30 @@ uma diferença que merece registro: o limite conta **chamadas**, não custo. Uma
 tool de fila é ordens de magnitude mais cara que um `ver_chamado`. Se você achar
 que isso importa, registre como dívida; **não** invente um segundo mecanismo de
 limite nesta story.
+
+#### O que a 3.6 mediu
+
+- **Dado que entra por um caminho que o SDK não valida precisa do contrato
+  aplicado À MÃO.** O `numero` de `chamado://{numero}` chega como texto da URI, e
+  `ResourceTemplate` **não** aceita schema para variáveis — o SDK só valida
+  argumentos de **tool**. Sem o `parse` explícito, `chamado://abc` virava `NaN` e
+  `chamado://-5` seguia para o `WHERE`. Vale para URI, header, variável de rota:
+  **o AD-6 não se aplica sozinho fora das tools.**
+- **Afirmação no Dev Agent Record não substitui teste.** Eu tinha escrito, em
+  "Não provado", que "o contrato Zod recusa" — e não recusava. O `claude-review`
+  rastreou o código e mostrou. **Se você escrever que algo é recusado, exercite
+  a recusa.**
+- **Casca é a forma de não criar porta nova.** Os Resources chamam as mesmas
+  queries das tools, e o teste que fixa isso **compara os dois**: mesmo
+  Chamado, mesma pessoa, mesmo objeto. Quando uma story adicionar um ponto de
+  entrada, esse é o teste que impede a divergência.
+- **Duble que ignora entrada esconde mutação** (quinta vez no projeto). "O
+  Resource de Fila ignora os defaults" sobreviveu porque o duble devolvia a
+  mesma lista para qualquer parâmetro. Ou o duble respeita a entrada, ou o teste
+  afirma **o que foi pedido**.
+- **Template que cita ferramenta precisa de teste que cruze com a lista real.**
+  O Prompt de triagem extrai os nomes citados e confirma que o servidor os
+  registra — sem isso, renomear uma tool deixa o texto mentindo em silêncio.
 
 #### O que a 3.5 mediu — e a volta que custou uma rodada inteira
 
@@ -602,10 +656,10 @@ valendo, e o **resumo do job** agora publica turnos, negações e duração. Ain
 assim, conte com as mutações: no #50 quem pegou o problema real foi o **Sonar**,
 olhando forma, e não ele.
 
-### 7. Fim do épico
+### 7. Fim do épico — FEITO em 2026-08-19
 
-Quando as **seis** stories do Epic 3 estiverem `done` no `sprint-status.yaml`,
-com PRs mergeados:
+O Epic 3 fechou: seis stories `done`, `epic-3: done`, `RESUME.md` atualizado e
+este aviso no topo. O que a seção pedia, para referência da próxima vez:
 
 1. Marque `epic-3: done` e atualize o `RESUME.md`, num PR `docs:`.
 2. Deixe no topo deste arquivo o aviso de épico encerrado — como o Epic 2 fez —
@@ -637,8 +691,8 @@ escapar de um bloqueio: bloqueio se resolve com a seção 5.
 | Teste de integração com Postgres real | `persistence/acao-irreversivel.test.ts` (2.6) |
 | Migration com índice | `0006_soft_delete.sql` (índice parcial, com o porquê escrito) |
 
-**Estado do código em 2026-08-19:** 785 testes, cobertura 97,8%, 12 migrations
-aplicadas, Epics 0, 1 e 2 completos e as Stories 3.1 a 3.5 `done`. O Chamado
+**Estado do código em 2026-08-19:** 798 testes, cobertura 97,7%, 12 migrations
+aplicadas, **Epics 0, 1, 2 e 3 completos**. O Chamado
 nasce, muda, é resolvido e encerrado; a Fila se enxerga — filtrada, com recortes,
 paginada e ordenada —, o resumo diz a carga, e a busca acha por texto em Título,
 Descrição, Comentários e número do sistema anterior — e a sugestão de parecidos

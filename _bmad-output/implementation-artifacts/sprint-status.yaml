@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-08
-last_updated: 2026-08-19 (Epic 3: 3.1 a 3.5 done; 3.6 em review)
+last_updated: 2026-08-19 (Epic 3 COMPLETO — 6/6; proximo e o Epic 4)
 project: ServiceDesk
 project_key: NOKEY
 tracking_system: file-system
@@ -91,13 +91,13 @@ development_status:
   # ---------------------------------------------------------------
   # Epic 3: Fila, triagem e busca
   # ---------------------------------------------------------------
-  epic-3: in-progress
+  epic-3: done
   3-1-filtrar-a-fila: done
   3-2-recortes-meus-e-sem-dono: done
   3-3-resumo-da-fila: done
   3-4-busca-simples: done
   3-5-sugerir-chamados-parecidos: done
-  3-6-mcp-resources-e-prompt-de-triagem: review
+  3-6-mcp-resources-e-prompt-de-triagem: done
   epic-3-retrospective: optional
 
   # ---------------------------------------------------------------
