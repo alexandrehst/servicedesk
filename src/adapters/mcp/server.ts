@@ -4,6 +4,7 @@ import { abrirChamado } from '../../application/commands/abrir-chamado.js'
 import { acaoIrreversivel, type Confirmacao } from '../../application/commands/acao-irreversivel.js'
 import { atribuirChamado } from '../../application/commands/atribuir-chamado.js'
 import { comentarChamado } from '../../application/commands/comentar-chamado.js'
+import { importarCsv } from '../../application/commands/importar-csv.js'
 import { mudarPrioridade } from '../../application/commands/mudar-prioridade.js'
 import { mudarStatus } from '../../application/commands/mudar-status.js'
 import {
@@ -39,6 +40,10 @@ import {
   exportarCsvOutputSchema,
   LIMITE_PADRAO_EXPORT,
 } from '../../application/contracts/exportar-csv.js'
+import {
+  importarCsvInputSchema,
+  importarCsvOutputSchema,
+} from '../../application/contracts/importar-csv.js'
 import {
   mudarPrioridadeInputSchema,
   mudarPrioridadeOutputSchema,
@@ -368,6 +373,24 @@ export const criarHandlerExportarCsv = (deps: McpDeps) => {
   )
 }
 
+/**
+ * Handler do import (Story 4.2).
+ *
+ * O texto resume o relatorio: quem migra precisa ver de relance se o arquivo
+ * entrou, e quantas linhas ficaram de fora — o detalhe esta no
+ * `structuredContent`.
+ */
+export const criarHandlerImportarCsv = (deps: McpDeps) =>
+  criarHandler(
+    deps,
+    importarCsv({ repositorio: deps.repositorio }),
+    (saida) =>
+      `${saida.aceitas.length} importado(s), ${saida.repetidas.length} ja existia(m), ${saida.rejeitadas.length} rejeitada(s)` +
+      (saida.semDataOriginal > 0
+        ? ` — ${saida.semDataOriginal} sem data de abertura no arquivo, gravado(s) com a data de hoje.`
+        : '.'),
+  )
+
 /** Handler da tool de leitura, extraido para ser testavel sem transporte. */
 export const criarHandlerVerChamado = (deps: McpDeps) =>
   criarHandler(
@@ -598,6 +621,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: exportarCsvOutputSchema,
     },
     criarHandlerExportarCsv(deps),
+  )
+
+  servidor.registerTool(
+    'importar_csv',
+    {
+      title: 'Importar CSV de migracao',
+      description:
+        'Importa Chamados do sistema anterior. Cada linha vira um Chamado com Numero NOVO deste sistema; o numero antigo fica como referencia. Linha invalida nao aborta o lote: volta no relatorio com o motivo. Reimportar o mesmo arquivo nao duplica.',
+      inputSchema: importarCsvInputSchema,
+      outputSchema: importarCsvOutputSchema,
+    },
+    criarHandlerImportarCsv(deps),
   )
 
   servidor.registerTool(

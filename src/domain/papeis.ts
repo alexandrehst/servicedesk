@@ -29,6 +29,7 @@ export type Capacidade =
   | 'mudaPrioridade'
   | 'fechaOuCancela'
   | 'reabre'
+  | 'importa'
 
 /**
  * Quem pode o quê. `Record<Capacidade, ...>` é deliberado: o TypeScript exige
@@ -94,6 +95,12 @@ const QUEM_PODE: Record<Capacidade, readonly Papel[]> = {
   // coincidencia, e a capacidade errada so apareceria como Chamado encerrado
   // por quem nao devia.
   reabre: ['agente'],
+  // Story 4.2: importar cria Chamados EM NOME DE TERCEIROS — o `requester` vem
+  // do arquivo, nao de quem chama. Sem esta capacidade, um Solicitante montaria
+  // um CSV e abriria Chamados no nome de quem quisesse, com uma tool so. E a
+  // unica escrita do sistema em que o autor e o dono do registro sao
+  // deliberadamente pessoas diferentes (AD-9), e por isso ela e a mais restrita.
+  importa: ['agente'],
 }
 
 export const pode = (papel: Papel, capacidade: Capacidade): boolean => {

@@ -1,0 +1,55 @@
+OK O Numero passa a vir do arquivo (AD-4 contornado): 12 teste(s)
+OK O numero_legado nao e gravado (nao ha como ligar ao sistema antigo): 5 teste(s)
+OK Violacao de unicidade vira ERRO (o lote inteiro cai no reimport): 1 teste(s)
+OK Repetida e contada como aceita: 1 teste(s)
+OK Linha invalida e ignorada em silencio (some do relatorio): 2 teste(s)
+OK O motivo da rejeicao vira generico: 1 teste(s)
+OK O numero da linha ignora o cabecalho (aponta para a linha errada): 3 teste(s)
+OK Linha invalida ABORTA o lote (a AC #2 deixa de valer): 3 teste(s)
+OK O aviso de 'sem data original' some do relatorio: 1 teste(s)
+OK numero_legado vazio passa (o reimport duplicaria): 1 teste(s)
+OK Titulo vazio passa: 2 teste(s)
+OK Solicitante vazio passa (Chamado sem dono conhecido): 1 teste(s)
+OK Categoria desconhecida cai no default (a informacao some): 2 teste(s)
+OK Status desconhecido vira 'aberto' (Chamado fechado volta a fila): 2 teste(s)
+OK Prioridade desconhecida vira a padrao: 1 teste(s)
+OK Data invalida vira 'agora' (historico errado, e ninguem descobre): 1 teste(s)
+OK A data do arquivo e ignorada (todo Chamado nasce hoje): 1 teste(s)
+OK O status do arquivo e ignorado (tudo entra como aberto): 2 teste(s)
+OK A abertura do importado nao vai para o Log: 2 teste(s)
+OK O Log registra o solicitante em vez de quem importou: 1 teste(s)
+OK O requester passa a ser quem importou (o Chamado troca de dono): 1 teste(s)
+OK REMOVER a checagem de permissao (qualquer um importa): 1 teste(s)
+OK Solicitante ganha a capacidade de importar: 1 teste(s)
+OK Campo entre aspas perde o tratamento (virgula quebra a linha): 5 teste(s)
+OK Aspas dobradas deixam de virar uma so: 3 teste(s)
+
+| Mutacao aplicada | Reprovou |
+| --- | --- |
+| O Numero passa a vir do arquivo (AD-4 contornado) | 12 teste(s) |
+| O numero_legado nao e gravado (nao ha como ligar ao sistema antigo) | 5 teste(s) |
+| Violacao de unicidade vira ERRO (o lote inteiro cai no reimport) | 1 teste(s) |
+| Repetida e contada como aceita | 1 teste(s) |
+| Linha invalida e ignorada em silencio (some do relatorio) | 2 teste(s) |
+| O motivo da rejeicao vira generico | 1 teste(s) |
+| O numero da linha ignora o cabecalho (aponta para a linha errada) | 3 teste(s) |
+| Linha invalida ABORTA o lote (a AC #2 deixa de valer) | 3 teste(s) |
+| O aviso de 'sem data original' some do relatorio | 1 teste(s) |
+| numero_legado vazio passa (o reimport duplicaria) | 1 teste(s) |
+| Titulo vazio passa | 2 teste(s) |
+| Solicitante vazio passa (Chamado sem dono conhecido) | 1 teste(s) |
+| Categoria desconhecida cai no default (a informacao some) | 2 teste(s) |
+| Status desconhecido vira 'aberto' (Chamado fechado volta a fila) | 2 teste(s) |
+| Prioridade desconhecida vira a padrao | 1 teste(s) |
+| Data invalida vira 'agora' (historico errado, e ninguem descobre) | 1 teste(s) |
+| A data do arquivo e ignorada (todo Chamado nasce hoje) | 1 teste(s) |
+| O status do arquivo e ignorado (tudo entra como aberto) | 2 teste(s) |
+| A abertura do importado nao vai para o Log | 2 teste(s) |
+| O Log registra o solicitante em vez de quem importou | 1 teste(s) |
+| O requester passa a ser quem importou (o Chamado troca de dono) | 1 teste(s) |
+| REMOVER a checagem de permissao (qualquer um importa) | 1 teste(s) |
+| Solicitante ganha a capacidade de importar | 1 teste(s) |
+| Campo entre aspas perde o tratamento (virgula quebra a linha) | 5 teste(s) |
+| Aspas dobradas deixam de virar uma so | 3 teste(s) |
+
+Todas as mutacoes foram reprovadas.

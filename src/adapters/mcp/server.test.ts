@@ -52,6 +52,9 @@ const repositorio: TicketRepository = {
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
   },
+  async importarComAuditoria() {
+    throw new Error('esta suite nao importa')
+  },
   async buscarParaExportarBruto() {
     throw new Error('esta suite nao exporta')
   },
@@ -129,11 +132,11 @@ it('registra a tool abrir_chamado com o schema do contrato (AD-6)', () => {
 /**
  * O alvo muda a cada story que cria a tool anterior: era `fechar_chamado` ate a
  * 2.6, virou `buscar_chamados` ate a 3.1. A garantia e sempre a mesma — o
- * servidor nao expoe tool que nenhuma story especificou — e o alvo agora e o
- * import da Story 4.2.
+ * servidor nao expoe tool que nenhuma story especificou — e o alvo agora e a
+ * exclusao de Comentario da Story 4.3.
  */
 it('nao registra tool que a story nao especifica', () => {
-  expect(criarServidorMcp(deps).toolInputSchemaJson('importar_csv')).toBeUndefined()
+  expect(criarServidorMcp(deps).toolInputSchemaJson('excluir_comentario')).toBeUndefined()
 })
 
 it('retorna o Numero do Chamado aberto', async () => {
@@ -183,6 +186,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     },
     async executarAcaoIrreversivelComAuditoria() {
       throw new Error('esta suite nao executa Acao irreversivel')
+    },
+    async importarComAuditoria() {
+      throw new Error('esta suite nao importa')
     },
     async buscarParaExportarBruto() {
       throw new Error('esta suite nao exporta')
@@ -266,6 +272,9 @@ const repoLeitura: TicketRepository = {
   },
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
+  },
+  async importarComAuditoria() {
+    throw new Error('esta suite nao importa')
   },
   async buscarParaExportarBruto() {
     throw new Error('esta suite nao exporta')
@@ -444,6 +453,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     },
     async executarAcaoIrreversivelComAuditoria() {
       throw new Error('esta suite nao executa Acao irreversivel')
+    },
+    async importarComAuditoria() {
+      throw new Error('esta suite nao importa')
     },
     async buscarParaExportarBruto() {
       throw new Error('esta suite nao exporta')
