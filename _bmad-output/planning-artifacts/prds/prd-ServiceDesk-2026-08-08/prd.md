@@ -288,6 +288,14 @@ O servidor MCP expõe Resources de leitura ("chamado", "fila") para contexto bar
 **Consequências (testáveis):**
 - Resource "chamado" retorna o mesmo conteúdo de `ver_chamado` respeitando autorização.
 
+**Decidido em 2026-08-19 (Story 3.6):**
+
+- **Os Resources são CASCA sobre as queries existentes.** `chamado://{numero}` chama a mesma `verChamado` da tool; `fila://atual` chama a mesma `buscarChamados`. Uma consulta própria aqui seria uma **segunda porta de leitura**, com uma segunda chance de divergir do AD-8 — que é o que o Epic 3 inteiro existe para impedir. O teste que fixa isso compara Resource com tool: os dois têm de devolver **o mesmo objeto**.
+- **Resource autentica e passa por rate limit**, na mesma ordem das tools (FR-21): sem identidade não há escopo de leitura, e contar depois de executar não limitaria nada numa IA em loop.
+- **A única divergência entre os dois esqueletos é o ERRO, e ela é do protocolo, não da regra.** Tool devolve `isError: true` no envelope; leitura de Resource não tem envelope e o SDK espera que ela **lance**. Chamado alheio dá `TicketNaoEncontrado` nos dois — o que muda é como o erro viaja.
+- **`fila://atual` não tem parâmetros.** Resource é contexto barato; quem quer recortar tem `buscar_chamados`. Os limites são os defaults do contrato.
+- **O Prompt de triagem cita apenas tools que existem**, com os nomes exatos, e um teste **cruza o texto com a lista real de tools do servidor** — um template que cita tool inexistente ensina a IA a tentar o que o servidor não faz, e envelhece sozinho quando algo é renomeado. Ele lembra as duas regras que a IA erra por conta própria: a `versao` vem de `ver_chamado` e é obrigatória em toda mutação, e **fechar/cancelar/reabrir não são triagem** — exigem confirmação humana (FR-15/FR-17), e um Prompt não confirma nada.
+
 #### FR-17: Confirmação humana em ações irreversíveis via IA
 Toda Ação irreversível disparada por IA passa por human-in-the-loop.
 **Consequências (testáveis):**

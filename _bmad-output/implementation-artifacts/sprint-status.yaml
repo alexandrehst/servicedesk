@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-08
-last_updated: 2026-08-19 (Epic 3: 3.1 a 3.5 done; falta so a 3.6)
+last_updated: 2026-08-19 (Epic 3: 3.1 a 3.5 done; 3.6 em review)
 project: ServiceDesk
 project_key: NOKEY
 tracking_system: file-system
@@ -97,7 +97,7 @@ development_status:
   3-3-resumo-da-fila: done
   3-4-busca-simples: done
   3-5-sugerir-chamados-parecidos: done
-  3-6-mcp-resources-e-prompt-de-triagem: backlog
+  3-6-mcp-resources-e-prompt-de-triagem: review
   epic-3-retrospective: optional
 
   # ---------------------------------------------------------------
