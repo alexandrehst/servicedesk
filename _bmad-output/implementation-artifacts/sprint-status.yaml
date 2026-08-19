@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-08
-last_updated: 2026-08-19 (Epic 4: 4.1 em review)
+last_updated: 2026-08-19 (Epic 4: 4.1 done; proxima e a 4.2)
 project: ServiceDesk
 project_key: NOKEY
 tracking_system: file-system
@@ -106,7 +106,7 @@ development_status:
   # em ordem numerica. Ver relatorio de sprint planning 2026-08-08.
   # ---------------------------------------------------------------
   epic-4: in-progress
-  4-1-export-csv: review
+  4-1-export-csv: done
   4-2-import-csv-de-migracao: backlog
   4-3-soft-delete-completo: backlog
   4-4-corte-baseline-validacao-de-paridade: backlog

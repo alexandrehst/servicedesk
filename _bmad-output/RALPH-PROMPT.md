@@ -20,8 +20,8 @@ Leia `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 | Todas `done`, exceto `backlog` | Pegue a **primeira** `backlog` na ordem do arquivo |
 | Todas as 4 stories do Epic 4 `done` | Encerre o épico (ver seção 7) |
 
-**Os Epics 0, 1, 2 e 3 estão completos** (PRs #1 a #75). Nenhuma story do Epic 4
-começou: a primeira é a **4.1**.
+**Os Epics 0, 1, 2 e 3 estão completos** e a **Story 4.1 está `done`** (PR #77).
+A próxima é a **4.2** — a mais perigosa do épico.
 
 **Atenção à ordem:** o `epics.md` apresenta a **4.4 antes da 4.3**; o
 `sprint-status.yaml` está em ordem numérica, e **é ele que manda** (a nota está
@@ -273,6 +273,33 @@ Solicitante que exporte recebe os dele. E decida explicitamente: **Comentário
 Interno entra no CSV?** Se entrar, o arquivo carrega conversa do time para fora
 do sistema — e um export do Agente vira o vazamento que a 3.4 evitou no `LIKE`.
 
+#### O que a 4.1 mediu
+
+- **Onde há um executor no fim do caminho, o dado precisa ser tratado ali.** O
+  Título vem do Solicitante e vira **fórmula** no Excel se começar com `=`, `+`,
+  `-`, `@`, tab ou CR. O campo atravessa o sistema inteiro sem que ninguém o
+  trate — o domínio não sabe o que é CSV, e o CSV não sabe de onde veio o campo.
+  **Vale para o import também:** o que sai de um CSV também vem de fora.
+- **Uma story pode ter DUAS seguranças independentes.** A do formato (o arquivo
+  mente sobre as colunas, ou executa) e a do conteúdo (o arquivo carrega o que a
+  pessoa não podia ver). Um CSV perfeitamente escapado pode vazar a base
+  inteira. **Pergunte quantas são, antes de achar que testou.**
+- **Duplicação some quando alguém aponta; a garantia contra divergência futura
+  só existe com a extração.** O `claude-review` (PR #77) pegou a tradução
+  escopo→SQL copiada entre Fila e export — no mesmo PR em que eu generalizava o
+  gargalo no domínio. Depois de extrair `condicoesDaFila`, as mutações de escopo
+  passaram a reprovar **o dobro** de testes, porque atingem os dois de uma vez.
+  **A FR-24 exige que o export cubra os filtros da Fila: isso tem de valer por
+  construção, não por disciplina.**
+- **As duas sondas do Epic 3 continuam valendo, e eu de novo as escrevi depois
+  do fato** (sexta e sétima ocorrência): `temMais` vem do SQL e o domínio não o
+  recalcula; a asserção sobre **o que a query pediu** pega o escopo que o
+  gargalo corrigiria. **Escreva as duas antes de rodar mutação.**
+- **O limite que importa nem sempre é o do contrato.** O teto do export é 5.000,
+  mas o limite real é o **contexto da IA** — o CSV volta como texto na resposta
+  da tool. Registrado como não provado, junto com o fato de que exportar a base
+  inteira pede um canal que não existe.
+
 #### Story 4.2 — o import é o inverso, e mais perigoso
 
 **a) Cada linha passa pelo DOMÍNIO, não pelo SQL.** `abrirTicket` valida e
@@ -434,18 +461,19 @@ desligados) e a **topologia de deploy**, que segue `Deferred` na spine.
 | Escrita que valida no domínio | `commands/abrir-chamado.ts` (1.1) — o import **precisa** passar por `abrirTicket` |
 | Escrita em lote com auditoria | não existe: a 4.2 é a primeira |
 
-**Estado do código em 2026-08-19:** 798 testes, cobertura 97,7%, 12 migrations
-aplicadas, **Epics 0, 1, 2 e 3 completos**. O Chamado
+**Estado do código em 2026-08-19:** 846 testes, cobertura 97,6%, 12 migrations
+aplicadas, **Epics 0 a 3 completos** e a Story 4.1 `done`. O Chamado
 nasce, muda, é resolvido e encerrado; a Fila se enxerga — filtrada, com recortes,
 paginada e ordenada —, o resumo diz a carga, e a busca acha por texto em Título,
 Descrição, Comentários e número do sistema anterior; a sugestão de parecidos
 evita duplicado na abertura; e o MCP expõe Resources e um Prompt de triagem.
 
-**O que o Epic 4 encontra pronto:** `numero_legado` (coluna vazia, indexada),
-`escopoDeLeitura` para o export, `abrirTicket` para o import validar, e
-`pg_trgm` instalado. **O que não encontra:** nenhuma biblioteca de CSV, nenhuma
-escrita em lote, `users` sem `deleted_at` e nenhum comando que exclua Comentário
-ou Usuário.
+**O que a 4.2 encontra pronto:** `platform/csv/csv.ts` (geração — a **leitura**
+ainda não existe), `numero_legado` (coluna vazia, indexada), `abrirTicket` para
+validar cada linha, `condicoesDaFila` compartilhada, e `criarComAuditoria` para
+escrever com auditoria na mesma transação. **O que não encontra:** parser de
+CSV, escrita em lote, `users` sem `deleted_at` e nenhum comando que exclua
+Comentário ou Usuário.
 
 **Dependência de deploy nova (3.4):** a extensão `pg_trgm` precisa existir no
 banco. `CREATE EXTENSION` exige privilégio elevado — some junto com a topologia
