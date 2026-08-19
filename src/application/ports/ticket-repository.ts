@@ -8,6 +8,7 @@ import type { Categoria, NovoTicket, Prioridade, Status, Ticket } from '../../do
 import type {
   ChamadoBruto,
   EscopoDeLeitura,
+  ExportacaoBruta,
   FilaBruta,
   HistoricoBruto,
   ResumoBruto,
@@ -220,6 +221,29 @@ export type TicketRepository = {
       readonly ordem: 'asc' | 'desc'
     },
   ): Promise<FilaBruta>
+
+  /**
+   * A leitura do EXPORT (Story 4.1, FR-24).
+   *
+   * Separada de `buscarFilaBruta` porque devolve CAMPOS que a Fila
+   * deliberadamente nao traz — `descricao` e `numero_legado`. A 3.1 decidiu que
+   * a linha da Fila e resumo para nao pagar I/O que ninguem le; um export sem
+   * Descricao, por outro lado, nao e backup.
+   *
+   * Os FILTROS sao os mesmos da Fila (FR-24: "cobre os filtros aplicados"), e o
+   * escopo tambem — mas os LIMITES sao outros: exportar 100 linhas nao migra
+   * nada.
+   */
+  buscarParaExportarBruto(
+    escopo: EscopoDeLeitura,
+    filtros: {
+      readonly status?: Status
+      readonly dono: FiltroDeDono
+      readonly categoria?: Categoria
+      readonly busca?: AlcanceDaBusca
+    },
+    pagina: { readonly limite: number; readonly deslocamento: number },
+  ): Promise<ExportacaoBruta>
 
   /**
    * Chamados PARECIDOS com um texto de abertura (Story 3.5, FR-12).

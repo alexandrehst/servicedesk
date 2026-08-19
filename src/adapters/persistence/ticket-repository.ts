@@ -435,6 +435,68 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
     })
   },
 
+  /**
+   * A consulta do export (Story 4.1, FR-24).
+   *
+   * As MESMAS condicoes da Fila — escopo, excluidos, filtros, busca — porque a
+   * FR-24 diz "cobre os filtros aplicados". O que muda sao as colunas
+   * (`descricao` e `numero_legado` entram) e os limites.
+   *
+   * `ORDER BY number`: o export nao e uma fila de trabalho, e sim um arquivo.
+   * Ordenar por Numero torna o resultado estavel entre paginas e conferivel a
+   * olho — e o Numero e unico, entao nao ha desempate a inventar.
+   */
+  async buscarParaExportarBruto(escopo: EscopoDeLeitura, filtros, pagina) {
+    const condicoes = [
+      isNull(tickets.deletedAt),
+      ...(escopo.tipo === 'apenasDe' ? [eq(tickets.requester, escopo.requester)] : []),
+      ...(filtros.status === undefined ? [] : [eq(tickets.status, filtros.status)]),
+      ...(filtros.dono.tipo === 'ninguem' ? [isNull(tickets.assignee)] : []),
+      ...(filtros.dono.tipo === 'identidade' ? [eq(tickets.assignee, filtros.dono.identity)] : []),
+      ...(filtros.categoria === undefined ? [] : [eq(tickets.categoria, filtros.categoria)]),
+      ...(filtros.busca === undefined ? [] : [condicaoDeBusca(filtros.busca)]),
+    ]
+
+    const linhas = await db
+      .select({
+        number: tickets.number,
+        titulo: tickets.titulo,
+        descricao: tickets.descricao,
+        categoria: tickets.categoria,
+        status: tickets.status,
+        priority: tickets.priority,
+        requester: tickets.requester,
+        assignee: tickets.assignee,
+        criadoEm: tickets.criadoEm,
+        numeroLegado: tickets.numeroLegado,
+        deletedAt: tickets.deletedAt,
+      })
+      .from(tickets)
+      .where(and(...condicoes))
+      .orderBy(asc(tickets.number))
+      .limit(pagina.limite + 1)
+      .offset(pagina.deslocamento)
+
+    const temMais = linhas.length > pagina.limite
+
+    return embrulharBruto({
+      itens: linhas.slice(0, pagina.limite).map((linha) => ({
+        number: linha.number,
+        titulo: linha.titulo,
+        descricao: linha.descricao,
+        categoria: linha.categoria as Categoria,
+        status: linha.status as Status,
+        prioridade: linha.priority as Prioridade,
+        requester: linha.requester,
+        assignee: linha.assignee,
+        criadoEm: linha.criadoEm,
+        numeroLegado: linha.numeroLegado,
+        excluidoEm: linha.deletedAt,
+      })),
+      temMais,
+    })
+  },
+
   async buscarResumoBruto(escopo: EscopoDeLeitura) {
     const base = [
       // As mesmas duas condicoes de toda leitura de lista, mais a de CARGA:

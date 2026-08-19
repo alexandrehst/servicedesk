@@ -184,7 +184,67 @@ export const visivelPara = (quem: QuemPergunta, bruto: ChamadoBruto): ChamadoVis
 export const filaVisivelPara = (quem: QuemPergunta, bruta: FilaBruta): FilaVisivel => {
   const { itens, temMais } = bruta[conteudo]
 
-  return { itens: itens.filter((item) => podeVerTicket(quem, item)), temMais }
+  return { itens: visiveisPara(quem, itens), temMais }
+}
+
+/**
+ * O gargalo, para QUALQUER coleção de coisas identificáveis (Story 4.1).
+ *
+ * Generalizado quando o export precisou do mesmo filtro sobre um item com mais
+ * campos que o da Fila. Escrever um segundo `filter` daria duas cópias da regra
+ * — e a regra e uma so: `podeVerTicket`.
+ */
+export const visiveisPara = <T extends Identificavel>(
+  quem: QuemPergunta,
+  itens: readonly T[],
+): readonly T[] => itens.filter((item) => podeVerTicket(quem, item))
+
+/**
+ * Uma linha do EXPORT (Story 4.1, FR-24).
+ *
+ * Carrega mais que o resumo da Fila — `descricao` e `numeroLegado` — porque um
+ * backup sem a Descricao nao e backup. Comentarios ficam de fora: uma thread
+ * nao cabe numa linha de CSV, e representa-la exigiria um segundo arquivo, onde
+ * o recorte de Comentario Interno voltaria a ser obrigatorio (3.4).
+ */
+export type ItemDeExportacaoBruto = {
+  readonly number: number
+  readonly titulo: string
+  readonly descricao: string
+  readonly categoria: Categoria
+  readonly status: Status
+  readonly prioridade: Prioridade
+  readonly requester: string
+  readonly assignee: string | null
+  readonly criadoEm: Date
+  readonly numeroLegado: string | null
+  readonly excluidoEm: Date | null
+}
+
+export type ExportacaoBruta = Bruto<{
+  readonly itens: readonly ItemDeExportacaoBruto[]
+  readonly temMais: boolean
+}>
+
+export type ExportacaoVisivel = {
+  readonly itens: readonly ItemDeExportacaoBruto[]
+  readonly temMais: boolean
+}
+
+/**
+ * O gargalo do export.
+ *
+ * Mesma regra da Fila, e a diferenca esta no que acontece se ela falhar: um
+ * vazamento na Fila aparece numa tela e some; num CSV, ele vira ARQUIVO — e
+ * arquivo e encaminhado.
+ */
+export const exportacaoVisivelPara = (
+  quem: QuemPergunta,
+  bruta: ExportacaoBruta,
+): ExportacaoVisivel => {
+  const { itens, temMais } = bruta[conteudo]
+
+  return { itens: visiveisPara(quem, itens), temMais }
 }
 
 /**
