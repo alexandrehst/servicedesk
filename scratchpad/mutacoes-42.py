@@ -95,7 +95,7 @@ MUTACOES = [
     (
         "O aviso de 'sem data original' some do relatorio",
         COMMAND,
-        "      if (resultado.novo.criadoEm === undefined) {",
+        "        if (novo.criadoEm === undefined) {",
         "      if (false) {",
     ),
     # ---- A validacao do dominio ----
@@ -184,6 +184,31 @@ MUTACOES = [
         PAPEIS,
         "  importa: ['agente'],",
         "  importa: ['agente', 'solicitante'],",
+    ),
+    # ---- O que o LOTE PARALELO introduziu (achado do claude-review, PR #79) ----
+    (
+        "O relatorio sai na ordem em que o banco respondeu, nao na do arquivo",
+        COMMAND,
+        "      aceitas: porLinha(aceitas),\n      repetidas: porLinha(repetidas),\n      rejeitadas: porLinha(rejeitadas),",
+        "      aceitas,\n      repetidas,\n      rejeitadas,",
+    ),
+    (
+        "Duplicata dentro do arquivo vai ao banco e o vencedor vira sorteio",
+        COMMAND,
+        "      if (jaNoLote.has(resultado.novo.numeroLegado)) {",
+        "      if (false) {",
+    ),
+    (
+        "O lote pula a ultima fatia (arquivo maior que LINHAS_POR_LOTE)",
+        COMMAND,
+        "    for (let inicio = 0; inicio < pendentes.length; inicio += LINHAS_POR_LOTE) {",
+        "    for (let inicio = 0; inicio + LINHAS_POR_LOTE <= pendentes.length; inicio += LINHAS_POR_LOTE) {",
+    ),
+    (
+        "O lote reprocessa a primeira fatia (avanco errado)",
+        COMMAND,
+        "      const lote = pendentes.slice(inicio, inicio + LINHAS_POR_LOTE)",
+        "      const lote = pendentes.slice(0, LINHAS_POR_LOTE)",
     ),
     # ---- O parser: o dado vem de FORA ----
     (

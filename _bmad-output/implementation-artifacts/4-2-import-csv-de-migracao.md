@@ -229,9 +229,10 @@ claude-opus-5 (Claude Code, loop Ralph)
 
 ### Debug Log References
 
-- `scratchpad/mutacoes-42.py` — **25 mutações, 25 reprovadas** (saída em `scratchpad/mutacoes-42.out`)
-- `pnpm test` — 889 testes verdes; `pnpm typecheck`, `pnpm lint`, `pnpm arch` limpos
+- `scratchpad/mutacoes-42.py` — **29 mutações, 29 reprovadas** (saída em `scratchpad/mutacoes-42.out`). Uma sobreviveu na rodada final por **alvo evaporado** — `resultado.novo.criadoEm` virou `novo.criadoEm` quando o `for` virou lote —, foi corrigida e reexecutada isolada. Terceira vez que isso acontece no projeto; das outras duas a causa foi o formatador, desta vez foi a minha própria refatoração
+- `pnpm test` — 895 testes verdes; `pnpm typecheck`, `pnpm lint`, `pnpm arch` limpos
 - `src/adapters/persistence/import-csv.test.ts` — 16 testes contra o Postgres real
+- `src/application/commands/importar-csv.test.ts` — 6 testes do lote paralelo, com duble
 
 ### Completion Notes List
 
@@ -261,6 +262,33 @@ Ela não muda nada observável (o `catch` produz o mesmo relatório); o que ela
 evita é ruído no log do servidor. Uma mutação assim sobreviveria por **ausência
 de efeito**, e sobrevivente desse tipo é sintoma de teste inventado, não de
 teste faltando. Fica registrada no cabeçalho do script, com o porquê.
+
+**O achado do `claude-review` (PR #79), e o que ele não viu.** O `for`
+sequencial fazia 5 viagens ao Postgres por linha, uma esperando a outra — num
+arquivo de 5.000 linhas (o tamanho que a própria AC #2 usa de referência), 25
+mil viagens em fila dentro de uma chamada da tool. O achado é real; a correção
+são lotes concorrentes de 8 (`LINHAS_POR_LOTE`), conservador porque quem monta
+o servidor escolhe o pool, e lote maior que o pool só troca espera pelo banco
+por espera por conexão.
+
+O que o comentário **não** menciona é que paralelizar cria dois riscos que o
+`for` não tinha, e os dois são invisíveis no teste de integração:
+
+1. **Duas linhas com o mesmo `numero_legado` no mesmo lote** disputam o índice,
+   e quem vence passa a depender de qual transação comita primeiro. Quem migra
+   espera que a **primeira ocorrência no arquivo** seja a que entra. A
+   deduplicação passou a acontecer antes do banco — e a sonda que prova isso é
+   a **contagem de chamadas ao repositório**, porque contar aceitas não
+   distingue "o banco recusou a segunda" de "a segunda nunca foi enviada".
+2. **A ordem do relatório.** Aqui a primeira mutação que escrevi
+   (`porLinha` removido) **sobreviveu**: `Promise.all` preserva a ordem do
+   array e os lotes são sequenciais, então quase tudo já sai ordenado. Quase:
+   `repetidas` é preenchida em **duas fases** — duplicata interna na leitura,
+   repetida de banco depois do lote —, e sem ordenar uma repetida da linha 5
+   aparece antes de uma da linha 2. O teste foi reescrito para esse caso, que é
+   o único em que a ordem quebra de verdade. Sem ele, a ordenação seria código
+   não exercitado, que este projeto já registrou (em `transicoes.ts`) como
+   sintoma de guarda que não guarda nada.
 
 **A autorização que a story não pedia.** Nenhuma AC mencionava quem pode
 importar, e o command nasceu sem checagem. Importar é a **única escrita do
@@ -301,6 +329,7 @@ duas listas, e o trabalho é um mapeador, não um import novo.
 - `src/domain/importacao.ts`
 - `src/domain/importacao.test.ts`
 - `src/adapters/persistence/import-csv.test.ts`
+- `src/application/commands/importar-csv.test.ts`
 - `drizzle/migrations/0013_import.sql`
 - `scratchpad/mutacoes-42.py`
 
