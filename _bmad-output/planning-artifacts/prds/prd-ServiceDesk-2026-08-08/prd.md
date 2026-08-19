@@ -245,6 +245,15 @@ Na abertura, o sistema pode sugerir Chamados parecidos ao texto informado. Reali
 **Consequências (testáveis):**
 - Sugestão baseada em busca textual simples; não bloqueia a abertura.
 
+**Decidido em 2026-08-19 (Story 3.5):**
+
+- **A sugestão respeita o `escopoDeLeitura`, e isso a torna modesta.** Quem abre Chamado costuma ser o Solicitante, que só enxerga os próprios (FR-2). Para o **Agente** a sugestão funciona como esta FR imagina; para o **Solicitante**, ela responde "você já abriu isso" em vez de "a empresa já resolveu isso" — menos, mas verdadeiro. **O valor pleno da FR-12 depende de o Agente ser quem consulta.**
+- **A alternativa recusada:** devolver ao Solicitante uma forma "sem conteúdo" (só Número e Título de Chamados de terceiros). **Título é conteúdo** — "Acesso negado ao sistema da folha para o financeiro" já entrega o que a pessoa não podia ver. Não existe versão anônima útil de um Título. Sugestão cruzada exigiria decidir **o que** dela pode ser mostrado, e isso é decisão de produto nova.
+- **`similarity()` (trigramas), não `ILIKE`.** A busca da FR-11 procura substring a partir de uma palavra; aqui a entrada é o **texto de abertura inteiro**, e nenhum Chamado o contém como substring. O limiar é **0,3**, no domínio, com o porquê: abaixo disso "semelhança" é coincidência de trigramas comuns, e **lista vazia é resposta melhor que palpite** — sugestão errada na abertura empurra quem abre a "achar" que já existe Chamado.
+- **Comentário fica fora do match.** A sugestão compara texto de abertura com texto de abertura; conversa posterior não descreve o problema original. Efeito colateral bem-vindo: nenhum Comentário Interno pode influenciar a existência de um resultado (o vazamento que a FR-11 teve de resolver).
+- **Encerrados entram; excluídos não.** "Já resolvemos isso em outubro" é a resposta mais útil que a sugestão pode dar — e é literalmente o que evita o duplicado.
+- **Tool própria (`chamados_parecidos`), não um modo de `buscar_chamados`:** o nome é o que a IA lê para decidir, e a saída difere (poucos itens, sem paginação, ordenados por semelhança). **É conselho, não gate** — a abertura não a consulta, e um dia que consultar, a falha dela não pode propagar.
+
 ### 4.4 Superfície MCP *(o contrato público do produto)*
 
 **Descrição:** O núcleo do produto. As capacidades acima são expostas como Tools MCP, classificadas por risco, mais Resources e Prompts. Este é o contrato que a IA consome. Realiza UJ-1, UJ-2, UJ-3.

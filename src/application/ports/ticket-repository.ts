@@ -222,6 +222,30 @@ export type TicketRepository = {
   ): Promise<FilaBruta>
 
   /**
+   * Chamados PARECIDOS com um texto de abertura (Story 3.5, FR-12).
+   *
+   * Separado de `buscarFilaBruta` porque a pergunta e outra: nao ha filtro nem
+   * paginacao, a ordem e por SEMELHANCA (nao por data), e a comparacao e por
+   * trigramas (`similarity`) em vez de substring — a entrada e uma frase
+   * inteira, e nenhum Chamado a contem como substring.
+   *
+   * O `escopo` chega pronto do dominio, como em toda leitura de conjunto: a
+   * sugestao respeita o AD-8, e para o Solicitante isso significa sugerir
+   * apenas entre os Chamados dele.
+   *
+   * Comentario NAO entra no match: a sugestao compara texto de abertura com
+   * texto de abertura. Conversa posterior nao descreve o problema original — e,
+   * de quebra, nao ha como um Comentario Interno influenciar a existencia de um
+   * resultado (o vazamento que a 3.4 teve de resolver).
+   */
+  buscarParecidosBruto(entrada: {
+    readonly escopo: EscopoDeLeitura
+    readonly texto: string
+    readonly limiar: number
+    readonly limite: number
+  }): Promise<FilaBruta>
+
+  /**
    * O resumo da Fila (Story 3.3, FR-10): contadores por Status, Categoria e
    * Dono, sem trazer Chamado nenhum.
    *

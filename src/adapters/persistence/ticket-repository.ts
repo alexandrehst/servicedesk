@@ -374,6 +374,67 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
    * O `escopo` volta junto dos numeros porque o dominio nao tem itens para
    * filtrar: e a pergunta que ele confere (`resumoVisivelPara`).
    */
+  /**
+   * Chamados parecidos (Story 3.5, FR-12).
+   *
+   * DUAS condicoes de semelhanca, e as duas sao necessarias:
+   *
+   * - `%` e o operador de similaridade do `pg_trgm`, e e o unico que USA o
+   *   indice GIN criado na 0012;
+   * - `similarity(...) >= limiar` e o limiar EXPLICITO, porque o `%` filtra
+   *   pelo `pg_trgm.similarity_threshold`, que e configuracao de SESSAO e nao
+   *   esta sob controle deste codigo. Sem ele, o resultado dependeria de qual
+   *   conexao o pool entregasse.
+   *
+   * `ORDER BY similarity DESC, number` — desempate explicito, como em toda
+   * ordenacao do epico: dois Chamados igualmente parecidos sairiam na ordem
+   * fisica, e o teste passaria por acaso ate parar de passar (licao da 1.2).
+   */
+  async buscarParecidosBruto({ escopo, texto, limiar, limite }) {
+    const semelhanca = sql<number>`similarity(${tickets.titulo}, ${texto})`
+
+    const linhas = await db
+      .select({
+        number: tickets.number,
+        titulo: tickets.titulo,
+        status: tickets.status,
+        priority: tickets.priority,
+        requester: tickets.requester,
+        assignee: tickets.assignee,
+        criadoEm: tickets.criadoEm,
+        deletedAt: tickets.deletedAt,
+      })
+      .from(tickets)
+      .where(
+        and(
+          // Excluido fora; encerrado DENTRO — "ja resolvemos isso" e a resposta
+          // mais util que a sugestao pode dar (ao contrario do resumo, 3.3).
+          isNull(tickets.deletedAt),
+          ...(escopo.tipo === 'apenasDe' ? [eq(tickets.requester, escopo.requester)] : []),
+          sql`${tickets.titulo} % ${texto}`,
+          sql`${semelhanca} >= ${limiar}`,
+        ),
+      )
+      .orderBy(sql`${semelhanca} DESC`, asc(tickets.number))
+      .limit(limite)
+
+    return embrulharBruto({
+      itens: linhas.map((linha) => ({
+        number: linha.number,
+        titulo: linha.titulo,
+        status: linha.status as Status,
+        prioridade: linha.priority as Prioridade,
+        requester: linha.requester,
+        assignee: linha.assignee,
+        criadoEm: linha.criadoEm,
+        excluidoEm: linha.deletedAt,
+      })),
+      // Sugestao nao pagina: ou os parecidos cabem no limite, ou os que ficaram
+      // de fora sao menos parecidos que os piores mostrados.
+      temMais: false,
+    })
+  },
+
   async buscarResumoBruto(escopo: EscopoDeLeitura) {
     const base = [
       // As mesmas duas condicoes de toda leitura de lista, mais a de CARGA:
