@@ -1,5 +1,6 @@
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio'
 import { criarServidorMcp } from '../adapters/mcp/server.js'
+import { criarLogger } from '../platform/logging/logger.js'
 import { criarAplicacao } from './aplicacao.js'
 import { ConfigInvalida, lerConfig } from './config.js'
 import { montar } from './montar.js'
@@ -33,14 +34,26 @@ const principal = async (): Promise<void> => {
 }
 
 principal().catch((erro: unknown) => {
-  // Config invalida e erro de OPERADOR, nao defeito: a mensagem basta, e o
-  // stack rastrearia codigo que esta certo. Qualquer outra coisa leva o stack,
-  // porque ai o defeito e nosso.
-  if (erro instanceof ConfigInvalida) {
-    process.stderr.write(`${erro.message}\n`)
-  } else {
-    process.stderr.write(`${erro instanceof Error ? (erro.stack ?? erro.message) : String(erro)}\n`)
-  }
+  // Pelo LOGGER ESTRUTURADO, e nao por `stderr.write` cru — achado do
+  // `claude-review` no PR #85, e ele estava certo: escrever stack solto aqui
+  // contradizia o racional que este mesmo PR aplicou em `aplicacao.ts`. O log
+  // e o UNICO canal onde o resto do sistema aparece, e uma falha de boot e
+  // justamente a que alguem vai procurar la.
+  //
+  // Instancia nova em vez de reaproveitar a de `montar`: `criarLogger` nao tem
+  // estado — e a falha pode ter acontecido ANTES de haver montagem, que e
+  // exatamente o caso da config invalida.
+  const logger = criarLogger()
+
+  // Config invalida e erro de OPERADOR, nao defeito nosso: o `stack`
+  // rastrearia codigo que esta certo, e polui o campo sem informar nada. A
+  // `causa` continua legivel dentro do JSON de uma linha.
+  logger.erro('falha_ao_subir', {
+    causa: erro instanceof Error ? erro.message : String(erro),
+    ...(erro instanceof ConfigInvalida
+      ? { tipo: 'configuracao' }
+      : { tipo: 'defeito', stack: erro instanceof Error ? (erro.stack ?? '') : '' }),
+  })
 
   process.exit(1)
 })
