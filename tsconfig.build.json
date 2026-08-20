@@ -1,0 +1,23 @@
+{
+  // Story 5.1 — o build de PRODUCAO.
+  //
+  // O `tsconfig.json` tem `noEmit: true` porque o projeto so precisava de
+  // verificacao de tipos: os testes rodam pelo Vitest, que transpila em memoria.
+  // Este arquivo existe para o unico caso em que ha saida de verdade — o
+  // servidor que roda.
+  //
+  // Nao ha dependencia nova: `tsc` ja estava aqui. Um runner como o `tsx` seria
+  // mais direto em desenvolvimento, mas dependencia nova exige aprovacao neste
+  // projeto, e compilar antes de rodar tem uma vantagem propria em producao —
+  // erro de tipo aparece no build, nao na primeira chamada de tool.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": "dist",
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false
+  },
+  "include": ["src/**/*.ts", "drizzle/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
+}

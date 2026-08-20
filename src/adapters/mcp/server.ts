@@ -10,6 +10,7 @@ import { excluirUsuario } from '../../application/commands/excluir-usuario.js'
 import { importarCsv } from '../../application/commands/importar-csv.js'
 import { mudarPrioridade } from '../../application/commands/mudar-prioridade.js'
 import { mudarStatus } from '../../application/commands/mudar-status.js'
+import type { CanalDeNotificacao } from '../../application/commands/notificacao-de-chamado.js'
 import {
   abrirChamadoInputSchema,
   abrirChamadoOutputSchema,
@@ -144,6 +145,19 @@ export type McpDeps = {
    * de responder, o log e o unico rastro de por que uma linha nao entrou.
    */
   readonly logger: Logger
+  /**
+   * Story 5.1 — o canal de notificacao do FR-18, OPCIONAL.
+   *
+   * Ele existia desde a 1.6 e nunca foi ligado: `criarHandlerAbrirChamado` e
+   * `criarHandlerMudarStatus` montavam os commands sem ele, entao nenhum
+   * e-mail disparava. A causa nao era um bug — era a falta de uma raiz de
+   * composicao, que so agora existe.
+   *
+   * Continua opcional pelo mesmo motivo que e opcional nos commands: o sistema
+   * funciona sem SMTP, e torna-lo obrigatorio viraria acoplamento. Quem monta
+   * o servidor REGISTRA o que ficou desligado (ver `bootstrap/config.ts`).
+   */
+  readonly notificacao?: CanalDeNotificacao & { readonly agora: () => Date }
   /**
    * Story 2.6: emitir e consumir a confirmacao das Acoes irreversiveis (AD-7).
    *
@@ -314,7 +328,11 @@ export const TEXTO_DA_TRIAGEM = (numero: number): string =>
 export const criarHandlerAbrirChamado = (deps: McpDeps) =>
   criarHandler(
     deps,
-    abrirChamado({ repositorio: deps.repositorio }),
+    abrirChamado(
+      deps.notificacao === undefined
+        ? { repositorio: deps.repositorio }
+        : { repositorio: deps.repositorio, notificacao: deps.notificacao },
+    ),
     (saida) => `Chamado #${saida.number} aberto (${saida.status}).`,
   )
 
@@ -520,7 +538,11 @@ export const criarHandlerComentarChamado = (deps: McpDeps) => {
 export const criarHandlerMudarStatus = (deps: McpDeps) =>
   criarHandler(
     deps,
-    mudarStatus({ repositorio: deps.repositorio }),
+    mudarStatus(
+      deps.notificacao === undefined
+        ? { repositorio: deps.repositorio }
+        : { repositorio: deps.repositorio, notificacao: deps.notificacao },
+    ),
     // A versao NOVA vai no texto: quem for mudar de novo precisa dela, e sem
     // isso a IA teria que reler o Chamado a cada mutacao.
     (saida) => `Chamado #${saida.numero}: ${saida.de} -> ${saida.para} (versao ${saida.versao}).`,
