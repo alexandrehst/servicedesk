@@ -1,65 +1,35 @@
 import { StdioServerTransport } from '@modelcontextprotocol/server/stdio'
-import { conectarPorImap, criarCaixaImap } from '../adapters/email/imap.js'
-import { criarVarredura } from '../adapters/email/varredura.js'
 import { criarServidorMcp } from '../adapters/mcp/server.js'
-import { abrirChamado } from '../application/commands/abrir-chamado.js'
-import { abrirChamadoPorEmail } from '../application/commands/abrir-chamado-por-email.js'
-import { iniciarAgendador } from './agendador.js'
+import { criarAplicacao } from './aplicacao.js'
 import { ConfigInvalida, lerConfig } from './config.js'
 import { montar } from './montar.js'
 
 /**
  * O entrypoint (Story 5.1).
  *
- * Ate aqui o projeto tinha 973 testes verdes e nenhum jeito de rodar. Este
- * arquivo e o que faltava — e ele nao faz nada alem de: ler config, montar,
- * ligar o que estiver configurado, conectar o transporte e encerrar limpo.
+ * Ate esta story o projeto tinha 973 testes verdes e nenhum jeito de rodar.
  *
- * **stdout e do PROTOCOLO.** Nada aqui escreve nele; o logger vai para
+ * Este arquivo e SO o fio com o sistema operacional — sinais, codigo de saida e
+ * transporte. Toda decisao testavel (se o intake sobe, o que avisar, a ordem do
+ * encerramento) vive em `aplicacao.ts`, e e por isso que aqui nao ha `if`
+ * nenhum.
+ *
+ * **`stdout` e do PROTOCOLO.** Nada aqui escreve nele; o logger vai para
  * `stderr` desde a Story 1.6, decidido exatamente por causa disto.
  */
 const principal = async (): Promise<void> => {
   const config = lerConfig(process.env)
-  const { deps, logger, fechar } = montar(config)
+  const montagem = montar(config)
+  const { encerrar } = criarAplicacao(config, montagem)
 
-  // O que ficou desligado vai ao log ANTES de o servidor subir. Desligado e
-  // quebrado se parecem de fora — a Story 1.9 registrou isso ao criar `aviso`.
-  for (const recurso of config.recursosDesligados) {
-    logger.aviso('recurso_desligado', { recurso })
+  const sair = (sinal: string) => {
+    void encerrar(sinal).then((codigo) => process.exit(codigo))
   }
 
-  const agendador =
-    config.imap === null
-      ? null
-      : iniciarAgendador({
-          varrer: criarVarredura({
-            caixa: criarCaixaImap(config.imap.caixa, conectarPorImap(config.imap)),
-            processar: abrirChamadoPorEmail({
-              identidades: deps.identidades,
-              repositorio: deps.repositorio,
-              abrir: abrirChamado(
-                deps.notificacao === undefined
-                  ? { repositorio: deps.repositorio }
-                  : { repositorio: deps.repositorio, notificacao: deps.notificacao },
-              ),
-              logger,
-            }),
-            logger,
-          }),
-          intervaloMs: config.intakeIntervaloMs,
-          logger,
-        })
+  process.on('SIGINT', () => sair('SIGINT'))
+  process.on('SIGTERM', () => sair('SIGTERM'))
 
-  const encerrar = async () => {
-    agendador?.parar()
-    await fechar()
-    process.exit(0)
-  }
-
-  process.on('SIGINT', () => void encerrar())
-  process.on('SIGTERM', () => void encerrar())
-
-  await criarServidorMcp(deps).connect(new StdioServerTransport())
+  await criarServidorMcp(montagem.deps).connect(new StdioServerTransport())
 }
 
 principal().catch((erro: unknown) => {
