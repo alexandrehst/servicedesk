@@ -95,6 +95,12 @@ MUTACOES = [
         "        ? new Date(ate.getTime() - DIAS_PADRAO_DO_RELATORIO * MS_POR_DIA)",
         "        ? new Date(0)",
     ),
+    (
+        "A busca por resolucoes ganha limite SUPERIOR (o que resolve depois some)",
+        REPO,
+        "           AND a.registrado_em >= ${inicio}::timestamptz\n           -- SEM limite superior",
+        "           AND a.registrado_em >= ${inicio}::timestamptz AND a.registrado_em < ${fim}::timestamptz\n           -- SEM limite superior",
+    ),
     # ---- A regra da reabertura: o defeito que MELHORA o numero ----
     (
         "Reabertura usa o PRIMEIRO resolvido (a metrica melhora quando o atendimento piora)",

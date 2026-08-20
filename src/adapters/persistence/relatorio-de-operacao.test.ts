@@ -185,6 +185,35 @@ describe('o periodo corta de verdade (AC #1)', () => {
     expect(saida.periodo.de).toBe('2026-08-15T00:00:00.000Z')
   })
 
+  /**
+   * A decisao que o achado do review (PR #83) expos, e que o comentario dele
+   * nao mencionava.
+   *
+   * Ao colocar o limite INFERIOR na busca por resolucoes, a pergunta seguinte e
+   * se deve haver um SUPERIOR. Nao deve — e este teste fixa isso.
+   *
+   * Um Chamado aberto dentro do periodo e resolvido DEPOIS dele levou um tempo
+   * real, e esse tempo e a resposta de "quanto demorou para resolver o que
+   * entrou em julho?". Cortar em `fim` transformaria esses Chamados em "sem
+   * resolucao" e faria a media do periodo parecer MELHOR do que foi —
+   * exatamente o defeito da reabertura contada pelo primeiro `resolvido`:
+   * melhorar o numero descartando o caso ruim.
+   */
+  it('resolvido DEPOIS do fim do periodo continua contando', async () => {
+    // Aberto no dia 19, resolvido no dia 25 — o periodo termina no dia 20.
+    await chamado(1000, '2026-08-19T10:00:00Z', ['2026-08-25T10:00:00Z'])
+
+    const saida = await relatorio(
+      { de: '2026-08-18T00:00:00Z', ate: '2026-08-20T00:00:00Z' },
+      bruno,
+    )
+
+    expect(saida.resolucao.resolvidos).toBe(1)
+    expect(saida.resolucao.semResolucao).toBe(0)
+    // 6 dias = 144h. O tempo real, nao o truncado no fim do periodo.
+    expect(saida.resolucao.mediaHoras).toBeCloseTo(144, 5)
+  })
+
   it('periodo invertido e RECUSADO, nao devolve vazio', async () => {
     await expect(
       relatorio({ de: '2026-08-20T00:00:00Z', ate: '2026-08-10T00:00:00Z' }, bruno),

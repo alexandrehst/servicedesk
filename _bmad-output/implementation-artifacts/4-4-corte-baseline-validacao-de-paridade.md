@@ -206,8 +206,8 @@ claude-opus-5 (Claude Code, loop Ralph)
 
 ### Debug Log References
 
-- `scratchpad/mutacoes-44.py` — **13 mutações, 13 reprovadas** (saída em `scratchpad/mutacoes-44.out`)
-- `pnpm test` — 972 testes verdes; `typecheck`, `lint` e `arch` limpos
+- `scratchpad/mutacoes-44.py` — **14 mutações, 14 reprovadas** (saída em `scratchpad/mutacoes-44.out`)
+- `pnpm test` — 973 testes verdes; `typecheck`, `lint` e `arch` limpos
 - `src/adapters/persistence/relatorio-de-operacao.test.ts` — 12 testes contra o
   Postgres real
 
@@ -338,6 +338,43 @@ feita, `INSERT` manual) e prova que ela fica fora. Sem a guarda, a média virari
 `(4 + -6) / 2 = -1`: **plausível o bastante para alguém decidir com ele, e
 negativo o bastante para ninguém olhar.**
 
+### O achado do `claude-review` (PR #83), medido antes de aceitar
+
+A CTE `resolucoes` era a única das seis subconsultas sem filtro de período: ela
+agregava sobre `audit_entries` **inteira** a cada chamada. E `audit_entries` é
+append-only (FR-22) — nunca encolhe. O custo do relatório crescia com o
+**histórico total** em vez de com o período pedido, e pioraria a cada semana do
+mês de validação, quando ele mais roda.
+
+**Medido com dois anos de histórico (40 mil resoluções, 1.661 no período):**
+
+| | Buffers | Tempo |
+| --- | --- | --- |
+| Antes (`Seq Scan`) | 534 | 16,2 ms |
+| Depois (`Index Scan`) | 33 | 0,73 ms |
+
+16× menos leitura — e a diferença **cresce** com o histórico, que é o ponto.
+
+Entraram dois índices (migration `0016`): um por `registrado_em` e um **parcial**
+por `para = 'resolvido'` composto com `ticket_number`. O parcial é pequeno
+porque as resoluções são fração do Log, e responde o `GROUP BY` sem voltar à
+tabela.
+
+### A decisão que a correção expôs, e que o achado não mencionava
+
+Se há limite **inferior**, deve haver **superior**? **Não** — e agora tem teste.
+
+Um Chamado aberto dentro do período e resolvido **depois** dele levou um tempo
+real, e esse tempo é a resposta de "quanto demorou para resolver o que entrou em
+julho?". Cortar no fim do período transformaria esses Chamados em "sem
+resolução" e faria a média parecer **melhor do que foi** — exatamente o defeito
+da reabertura contada pelo primeiro `resolvido`: **melhorar o número descartando
+o caso ruim.**
+
+É a terceira vez nesta story que a mesma armadilha aparece com roupa diferente.
+Vale a regra: **numa métrica de decisão, desconfie de toda mudança que melhora o
+número.** Ela quase sempre está descartando o caso que mais importa.
+
 ### File List
 
 **Novos**
@@ -345,6 +382,7 @@ negativo o bastante para ninguém olhar.**
 - `src/application/queries/relatorio-de-operacao.ts`
 - `src/adapters/persistence/relatorio-de-operacao.test.ts`
 - `_bmad-output/planning-artifacts/checklist-de-paridade.md`
+- `drizzle/migrations/0016_indice_do_relatorio.sql`
 - `scratchpad/mutacoes-44.py`
 
 **Alterados**

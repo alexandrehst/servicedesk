@@ -735,6 +735,22 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         SELECT a.ticket_number, max(a.registrado_em) AS resolucao
           FROM audit_entries a
          WHERE a.para = 'resolvido'
+           -- Limite INFERIOR so. audit_entries e append-only e cresce para
+           -- sempre; sem ele, esta CTE varria a tabela inteira a cada chamada,
+           -- e o custo do relatorio passava a crescer com o HISTORICO em vez
+           -- de com o periodo pedido — pior justamente durante o mes de
+           -- validacao, quando ele mais roda. Nao muda resultado: a resolucao
+           -- nunca vem antes da abertura, e a abertura ja esta limitada ao
+           -- mesmo inicio.
+           AND a.registrado_em >= ${inicio}::timestamptz
+           -- SEM limite superior, e isso e DELIBERADO. Um Chamado aberto
+           -- dentro do periodo e resolvido depois dele levou um tempo real
+           -- para ser resolvido, e esse tempo e a resposta da pergunta "quanto
+           -- demorou para resolver o que entrou em julho?". Cortar no fim do
+           -- periodo transformaria esses Chamados em "sem resolucao" e faria a
+           -- media parecer melhor do que foi — o mesmo defeito da reabertura
+           -- contada pelo primeiro resolvido: melhorar o numero descartando o
+           -- caso ruim.
          GROUP BY a.ticket_number
       ),
       tempos AS (
