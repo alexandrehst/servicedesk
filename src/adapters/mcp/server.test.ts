@@ -52,6 +52,9 @@ const repositorio: TicketRepository = {
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
   },
+  async importarComAuditoria() {
+    throw new Error('esta suite nao importa')
+  },
   async buscarParaExportarBruto() {
     throw new Error('esta suite nao exporta')
   },
@@ -115,7 +118,17 @@ const confirmacao = {
   },
 }
 
-const deps = { repositorio, identidades, confirmacao, autenticar, limitarChamadas: semLimite }
+/** O import (4.2) registra falha de banco; nenhum teste deste arquivo a exercita. */
+const semLog = { erro: () => {}, aviso: () => {} }
+
+const deps = {
+  repositorio,
+  identidades,
+  confirmacao,
+  autenticar,
+  limitarChamadas: semLimite,
+  logger: semLog,
+}
 
 const input = { titulo: 'VPN fora do ar', descricao: 'Nao conecta.', categoria: 'rede' } as const
 
@@ -129,11 +142,11 @@ it('registra a tool abrir_chamado com o schema do contrato (AD-6)', () => {
 /**
  * O alvo muda a cada story que cria a tool anterior: era `fechar_chamado` ate a
  * 2.6, virou `buscar_chamados` ate a 3.1. A garantia e sempre a mesma — o
- * servidor nao expoe tool que nenhuma story especificou — e o alvo agora e o
- * import da Story 4.2.
+ * servidor nao expoe tool que nenhuma story especificou — e o alvo agora e a
+ * exclusao de Comentario da Story 4.3.
  */
 it('nao registra tool que a story nao especifica', () => {
-  expect(criarServidorMcp(deps).toolInputSchemaJson('importar_csv')).toBeUndefined()
+  expect(criarServidorMcp(deps).toolInputSchemaJson('excluir_comentario')).toBeUndefined()
 })
 
 it('retorna o Numero do Chamado aberto', async () => {
@@ -184,6 +197,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     async executarAcaoIrreversivelComAuditoria() {
       throw new Error('esta suite nao executa Acao irreversivel')
     },
+    async importarComAuditoria() {
+      throw new Error('esta suite nao importa')
+    },
     async buscarParaExportarBruto() {
       throw new Error('esta suite nao exporta')
     },
@@ -207,6 +223,7 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
       confirmacao,
       autenticar,
       limitarChamadas: semLimite,
+      logger: semLog,
     })(input),
   ).rejects.toThrowError('conexao perdida')
 })
@@ -267,6 +284,9 @@ const repoLeitura: TicketRepository = {
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
   },
+  async importarComAuditoria() {
+    throw new Error('esta suite nao importa')
+  },
   async buscarParaExportarBruto() {
     throw new Error('esta suite nao exporta')
   },
@@ -290,6 +310,7 @@ const depsLeitura = {
   confirmacao,
   autenticar,
   limitarChamadas: semLimite,
+  logger: semLog,
 }
 
 it('registra a tool ver_chamado com o schema do contrato (AD-6)', () => {
@@ -336,6 +357,7 @@ it('entrega ao dominio a identidade de quem pergunta, nao uma fixa', async () =>
     confirmacao,
     autenticar: async () => ({ identity: 'marina@empresa.com', role: 'solicitante' }) as const,
     limitarChamadas: semLimite,
+    logger: semLog,
   })({ numero: 1042 })
 
   const comoTerceiro = await criarHandlerVerChamado({
@@ -344,6 +366,7 @@ it('entrega ao dominio a identidade de quem pergunta, nao uma fixa', async () =>
     confirmacao,
     autenticar: async () => ({ identity: 'carlos@empresa.com', role: 'solicitante' }) as const,
     limitarChamadas: semLimite,
+    logger: semLog,
   })({ numero: 1042 })
 
   expect(comoDona.isError).toBeUndefined()
@@ -366,6 +389,7 @@ it('recusa a escrita quando a credencial nao resolve, sem tocar no repositorio',
     confirmacao,
     autenticar: credencialRuim,
     limitarChamadas: semLimite,
+    logger: semLog,
   })(input)
 
   expect(resultado.isError).toBe(true)
@@ -382,6 +406,7 @@ it('recusa a leitura quando a credencial nao resolve', async () => {
     confirmacao,
     autenticar: credencialRuim,
     limitarChamadas: semLimite,
+    logger: semLog,
   })({ numero: 1042 })
 
   expect(resultado.isError).toBe(true)
@@ -405,6 +430,7 @@ it('resolve a credencial a CADA chamada, nao uma vez na montagem', async () => {
     confirmacao,
     autenticar: expiraNaSegunda,
     limitarChamadas: semLimite,
+    logger: semLog,
   })
 
   const primeira = await handler({ numero: 1042 })
@@ -445,6 +471,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     async executarAcaoIrreversivelComAuditoria() {
       throw new Error('esta suite nao executa Acao irreversivel')
     },
+    async importarComAuditoria() {
+      throw new Error('esta suite nao importa')
+    },
     async buscarParaExportarBruto() {
       throw new Error('esta suite nao exporta')
     },
@@ -468,6 +497,7 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
       confirmacao,
       autenticar,
       limitarChamadas: semLimite,
+      logger: semLog,
     })({
       numero: 1042,
     }),
@@ -492,6 +522,7 @@ it('recusa a escrita quando o limite estourou, sem tocar no repositorio', async 
     confirmacao,
     autenticar,
     limitarChamadas: estourado,
+    logger: semLog,
   })(input)
 
   expect(resultado.isError).toBe(true)
@@ -508,6 +539,7 @@ it('recusa a leitura quando o limite estourou', async () => {
     confirmacao,
     autenticar,
     limitarChamadas: estourado,
+    logger: semLog,
   })({ numero: 1042 })
 
   expect(resultado.isError).toBe(true)
@@ -522,6 +554,7 @@ it('o erro de limite diz quando tentar de novo, e nao se confunde com credencial
     confirmacao,
     autenticar,
     limitarChamadas: estourado,
+    logger: semLog,
   })({ numero: 1042 })
 
   const texto = resultado.content[0]?.text ?? ''
@@ -538,6 +571,7 @@ it('conta pela IDENTIDADE autenticada, nao pelo nome da tool (FR-21, AD-9)', asy
     confirmacao,
     autenticar,
     limitarChamadas: limitadosPor(contados),
+    logger: semLog,
   })({ numero: 1042 })
 
   expect(contados).toEqual(['bruno@empresa.com'])
@@ -553,6 +587,7 @@ it('credencial invalida nao consome quota', async () => {
     confirmacao,
     autenticar: credencialRuim,
     limitarChamadas: limitadosPor(contados),
+    logger: semLog,
   })({ numero: 1042 })
 
   // Consequencia de limitar por identidade: sem identidade, nao ha o que
@@ -597,6 +632,7 @@ const depsComentario = {
   confirmacao,
   autenticar,
   limitarChamadas: semLimite,
+  logger: semLog,
 }
 
 it('registra a tool comentar_chamado com o schema do contrato (AD-6)', () => {
@@ -664,6 +700,7 @@ it('recusa a escrita quando o limite estourou, sem tocar no repositorio', async 
     confirmacao,
     autenticar,
     limitarChamadas: estourado,
+    logger: semLog,
   })({ numero: 1042, texto: 'x' })
 
   expect(resultado.isError).toBe(true)
@@ -680,6 +717,7 @@ it('conta o Comentario pela identidade autenticada (FR-21)', async () => {
     confirmacao,
     autenticar,
     limitarChamadas: limitadosPor(contados),
+    logger: semLog,
   })({ numero: 1042, texto: 'x' })
 
   expect(contados).toEqual(['bruno@empresa.com'])
@@ -705,6 +743,7 @@ it('erro nao-tipado do repositorio sobe em vez de virar erro de tool', async () 
       confirmacao,
       autenticar,
       limitarChamadas: semLimite,
+      logger: semLog,
     })({
       numero: 1042,
       texto: 'x',
@@ -748,6 +787,7 @@ const depsStatus = {
   confirmacao,
   autenticar,
   limitarChamadas: semLimite,
+  logger: semLog,
 }
 
 it('registra a tool mudar_status com o schema do contrato (AD-6)', () => {
@@ -829,6 +869,7 @@ it('recusa a mudanca quando o limite estourou, sem tocar no repositorio', async 
     confirmacao,
     autenticar,
     limitarChamadas: estourado,
+    logger: semLog,
   })({ numero: 1042, novoStatus: 'em_andamento', versao: 1 })
 
   expect(resultado.isError).toBe(true)
@@ -851,6 +892,7 @@ it('carimba origin mcp na mudanca de Status (AD-9)', async () => {
     confirmacao,
     autenticar,
     limitarChamadas: semLimite,
+    logger: semLog,
   })({ numero: 1042, novoStatus: 'em_andamento', versao: 1 })
 
   expect(autores).toEqual(['mcp'])
@@ -871,6 +913,7 @@ it('erro nao-tipado sobe em vez de virar erro de tool', async () => {
       confirmacao,
       autenticar,
       limitarChamadas: semLimite,
+      logger: semLog,
     })({
       numero: 1042,
       novoStatus: 'em_andamento',
@@ -915,6 +958,7 @@ const depsAtribuicao = {
   confirmacao,
   autenticar,
   limitarChamadas: semLimite,
+  logger: semLog,
 }
 
 it('registra a tool atribuir_chamado com o schema do contrato (AD-6)', () => {
@@ -972,6 +1016,7 @@ it('recusa a atribuicao quando o limite estourou, sem tocar no repositorio', asy
     confirmacao,
     autenticar,
     limitarChamadas: estourado,
+    logger: semLog,
   })({ numero: 1042, versao: 1, agente: 'ana@empresa.com' })
 
   expect(resultado.isError).toBe(true)
@@ -994,6 +1039,7 @@ it('erro nao-tipado sobe em vez de virar erro de tool', async () => {
       confirmacao,
       autenticar,
       limitarChamadas: semLimite,
+      logger: semLog,
     })({ numero: 1042, versao: 1, agente: 'ana@empresa.com' }),
   ).rejects.toThrow('conexao com o banco caiu')
 })
@@ -1034,6 +1080,7 @@ const depsPrioridade = {
   confirmacao,
   autenticar,
   limitarChamadas: semLimite,
+  logger: semLog,
 }
 
 it('registra a tool mudar_prioridade com o schema do contrato (AD-6)', () => {
@@ -1082,6 +1129,7 @@ it('recusa a mudanca de prioridade quando o limite estourou', async () => {
     confirmacao,
     autenticar,
     limitarChamadas: estourado,
+    logger: semLog,
   })({ numero: 1042, prioridade: 'alta', versao: 1 })
 
   expect(resultado.isError).toBe(true)

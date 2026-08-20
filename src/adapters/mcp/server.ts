@@ -4,6 +4,7 @@ import { abrirChamado } from '../../application/commands/abrir-chamado.js'
 import { acaoIrreversivel, type Confirmacao } from '../../application/commands/acao-irreversivel.js'
 import { atribuirChamado } from '../../application/commands/atribuir-chamado.js'
 import { comentarChamado } from '../../application/commands/comentar-chamado.js'
+import { importarCsv } from '../../application/commands/importar-csv.js'
 import { mudarPrioridade } from '../../application/commands/mudar-prioridade.js'
 import { mudarStatus } from '../../application/commands/mudar-status.js'
 import {
@@ -40,6 +41,10 @@ import {
   LIMITE_PADRAO_EXPORT,
 } from '../../application/contracts/exportar-csv.js'
 import {
+  importarCsvInputSchema,
+  importarCsvOutputSchema,
+} from '../../application/contracts/importar-csv.js'
+import {
   mudarPrioridadeInputSchema,
   mudarPrioridadeOutputSchema,
 } from '../../application/contracts/mudar-prioridade.js'
@@ -57,6 +62,7 @@ import {
   verChamadoOutputSchema,
 } from '../../application/contracts/ver-chamado.js'
 import type { IdentityRepository } from '../../application/ports/identity-repository.js'
+import type { Logger } from '../../application/ports/logger.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
 import { buscarChamados } from '../../application/queries/buscar-chamados.js'
 import { chamadosParecidos } from '../../application/queries/chamados-parecidos.js'
@@ -109,6 +115,14 @@ export type McpDeps = {
    * `buscarUsuarioPorEmail` — o adapter MCP nao cria sessao nem emite token.
    */
   readonly identidades: Pick<IdentityRepository, 'buscarUsuarioPorEmail'>
+  /**
+   * Story 4.2: o import registra cada linha que o banco recusou.
+   *
+   * O relatorio da tool e sincrono — existe uma vez, na resposta daquela
+   * chamada. Se o cliente truncar a saida estruturada, ou o processo cair antes
+   * de responder, o log e o unico rastro de por que uma linha nao entrou.
+   */
+  readonly logger: Logger
   /**
    * Story 2.6: emitir e consumir a confirmacao das Acoes irreversiveis (AD-7).
    *
@@ -368,6 +382,27 @@ export const criarHandlerExportarCsv = (deps: McpDeps) => {
   )
 }
 
+/**
+ * Handler do import (Story 4.2).
+ *
+ * O texto resume o relatorio: quem migra precisa ver de relance se o arquivo
+ * entrou, e quantas linhas ficaram de fora — o detalhe esta no
+ * `structuredContent`.
+ */
+export const criarHandlerImportarCsv = (deps: McpDeps) =>
+  criarHandler(
+    deps,
+    importarCsv({ repositorio: deps.repositorio, logger: deps.logger }),
+    (saida) =>
+      `${saida.aceitas.length} importado(s), ${saida.repetidas.length} ja existia(m), ${saida.rejeitadas.length} rejeitada(s)` +
+      (saida.falhas.length > 0
+        ? ` — ATENCAO: ${saida.falhas.length} linha(s) valida(s) que o banco nao gravou; rode o mesmo arquivo de novo para retoma-las.`
+        : '') +
+      (saida.semDataOriginal > 0
+        ? ` — ${saida.semDataOriginal} sem data de abertura no arquivo, gravado(s) com a data de hoje.`
+        : '.'),
+  )
+
 /** Handler da tool de leitura, extraido para ser testavel sem transporte. */
 export const criarHandlerVerChamado = (deps: McpDeps) =>
   criarHandler(
@@ -598,6 +633,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: exportarCsvOutputSchema,
     },
     criarHandlerExportarCsv(deps),
+  )
+
+  servidor.registerTool(
+    'importar_csv',
+    {
+      title: 'Importar CSV de migracao',
+      description:
+        'Importa Chamados do sistema anterior. Cada linha vira um Chamado com Numero NOVO deste sistema; o numero antigo fica como referencia. Linha invalida nao aborta o lote: volta no relatorio com o motivo. Reimportar o mesmo arquivo nao duplica.',
+      inputSchema: importarCsvInputSchema,
+      outputSchema: importarCsvOutputSchema,
+    },
+    criarHandlerImportarCsv(deps),
   )
 
   servidor.registerTool(

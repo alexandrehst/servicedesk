@@ -2,6 +2,7 @@ import type { AcaoIrreversivel } from '../../domain/acoes-irreversiveis.js'
 import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { AlcanceDaBusca } from '../../domain/busca.js'
 import type { NovoComentario } from '../../domain/comentario.js'
+import type { ChamadoImportado } from '../../domain/importacao.js'
 import type { Origem } from '../../domain/origem.js'
 import type { FiltroDeDono } from '../../domain/recorte-da-fila.js'
 import type { Categoria, NovoTicket, Prioridade, Status, Ticket } from '../../domain/ticket.js'
@@ -50,6 +51,30 @@ export type TicketRepository = {
    * Opcional: MCP e API abrem Chamado sem mensagem nenhuma por tras.
    */
   criarComAuditoria(novo: NovoTicket, autor: Principal, intake?: RegistroDeIntake): Promise<Ticket>
+
+  /**
+   * Grava um Chamado vindo da MIGRACAO (Story 4.2, FR-25).
+   *
+   * Separado de `criarComAuditoria` por tres diferencas que nao cabem naquele
+   * metodo:
+   *
+   * - o **Status** vem do arquivo (um Chamado ja fechado entra fechado), e nao
+   *   e sempre `aberto`;
+   * - o **`criado_em`** e preservado do sistema antigo, em vez do `now()`;
+   * - o **`numero_legado`** e gravado, e e ele que torna o reimport seguro.
+   *
+   * O que NAO muda: o Numero e da sequence (AD-4 — o numero antigo e
+   * REFERENCIA, nao identidade) e a auditoria sai na MESMA transacao (AD-3),
+   * com o autor sendo quem RODOU o import.
+   *
+   * Devolve `null` quando o `numero_legado` ja existe: o UNIQUE parcial da
+   * migration 0013 e quem garante, porque entre consultar e inserir cabe outra
+   * execucao do mesmo arquivo.
+   */
+  importarComAuditoria(
+    novo: ChamadoImportado,
+    autor: Principal,
+  ): Promise<{ readonly number: number } | null>
 
   /**
    * O Numero do Chamado que aquela mensagem ja gerou, ou `null` se e a

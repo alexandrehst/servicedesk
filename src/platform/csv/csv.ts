@@ -68,3 +68,96 @@ export const paraCsv = <const C extends readonly string[]>(
 
   return (opcoes.cabecalho === false ? corpo : [colunas.join(','), ...corpo]).join('\n')
 }
+
+/**
+ * Leitura de CSV (Story 4.2, FR-25).
+ *
+ * Parser PROPRIO, e nao dependencia nova: o subconjunto necessario e pequeno, e
+ * ele e exatamente o que o `paraCsv` acima PRODUZ — o teste que fecha o ciclo
+ * (exportar e reimportar dando o mesmo dado) e o que sustenta os dois.
+ *
+ * O que ele aceita:
+ *
+ * - separador **virgula**;
+ * - campo entre aspas duplas quando contem `,`, `"` ou quebra de linha;
+ * - aspas internas **dobradas** (`""`);
+ * - fim de linha `\n` ou `\r\n`.
+ *
+ * O que ele NAO aceita, e que vira lacuna quando o arquivo real do fornecedor
+ * chegar: separador configuravel (`;` e comum em CSV pt-BR exportado do Excel),
+ * encoding diferente de UTF-8, e BOM no inicio do arquivo.
+ *
+ * Ele tambem NAO desfaz a neutralizacao de formula do `paraCsv`: um campo que
+ * volta como `'=1+1` fica assim. Desfazer exigiria adivinhar se o apostrofo era
+ * do dado ou da protecao — e errar isso reintroduz a formula.
+ */
+export const deCsv = (texto: string): Record<string, string>[] => {
+  const linhas = separarLinhas(texto)
+  const [cabecalho, ...corpo] = linhas
+
+  if (cabecalho === undefined) {
+    return []
+  }
+
+  return corpo.map((campos) =>
+    Object.fromEntries(cabecalho.map((coluna, i) => [coluna, campos[i] ?? ''])),
+  )
+}
+
+/**
+ * Percorre caractere a caractere porque `split(',')` e `split('\n')` quebram
+ * exatamente nos casos que as aspas existem para proteger: virgula e quebra de
+ * linha DENTRO do campo.
+ */
+const separarLinhas = (texto: string): string[][] => {
+  const linhas: string[][] = []
+  let campos: string[] = []
+  let atual = ''
+  let dentroDeAspas = false
+
+  for (let i = 0; i < texto.length; i += 1) {
+    const c = texto[i]
+
+    if (dentroDeAspas) {
+      if (c === '"') {
+        // Aspas dobradas: uma aspa literal, e seguimos dentro do campo.
+        if (texto[i + 1] === '"') {
+          atual += '"'
+          i += 1
+        } else {
+          dentroDeAspas = false
+        }
+      } else {
+        atual += c
+      }
+      continue
+    }
+
+    if (c === '"' && atual === '') {
+      dentroDeAspas = true
+    } else if (c === ',') {
+      campos.push(atual)
+      atual = ''
+    } else if (c === '\n' || c === '\r') {
+      // `\r\n` conta como UM fim de linha.
+      if (c === '\r' && texto[i + 1] === '\n') {
+        i += 1
+      }
+      campos.push(atual)
+      linhas.push(campos)
+      campos = []
+      atual = ''
+    } else {
+      atual += c
+    }
+  }
+
+  // A ultima linha so entra se houver conteudo: arquivo terminado em quebra de
+  // linha nao produz uma linha vazia a mais.
+  if (atual !== '' || campos.length > 0) {
+    campos.push(atual)
+    linhas.push(campos)
+  }
+
+  return linhas
+}

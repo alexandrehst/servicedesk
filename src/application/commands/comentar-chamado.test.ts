@@ -66,6 +66,9 @@ const repositorio: TicketRepository = {
   async executarAcaoIrreversivelComAuditoria() {
     throw new Error('esta suite nao executa Acao irreversivel')
   },
+  async importarComAuditoria() {
+    throw new Error('esta suite nao importa')
+  },
   async buscarParaExportarBruto() {
     throw new Error('esta suite nao exporta')
   },

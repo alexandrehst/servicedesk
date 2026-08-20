@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { paraCsv } from './csv.js'
+import { deCsv, paraCsv } from './csv.js'
 
 /**
  * CSV e formato hostil, e este arquivo e teste de SEGURANCA — nao de
@@ -94,5 +94,71 @@ describe('a forma do arquivo', () => {
     const csv = paraCsv(colunas, [{ b: 'segundo', a: 'primeiro', c: 'ignorado' }])
 
     expect(csv).toBe('a,b\nprimeiro,segundo')
+  })
+})
+
+describe('deCsv (Story 4.2)', () => {
+  it('le cabecalho e linhas', () => {
+    expect(deCsv('a,b\nx,y')).toEqual([{ a: 'x', b: 'y' }])
+  })
+
+  it('le campo entre aspas com virgula', () => {
+    expect(deCsv('a,b\n"x,y",z')).toEqual([{ a: 'x,y', b: 'z' }])
+  })
+
+  it('le aspas escapadas', () => {
+    expect(deCsv('a,b\n"diz ""oi""",z')).toEqual([{ a: 'diz "oi"', b: 'z' }])
+  })
+
+  it('le quebra de linha DENTRO do campo', () => {
+    expect(deCsv('a,b\n"linha1\nlinha2",z')).toEqual([{ a: 'linha1\nlinha2', b: 'z' }])
+  })
+
+  it('aceita CRLF', () => {
+    expect(deCsv('a,b\r\nx,y\r\nw,v')).toEqual([
+      { a: 'x', b: 'y' },
+      { a: 'w', b: 'v' },
+    ])
+  })
+
+  it('campo vazio vira string vazia, nao undefined', () => {
+    expect(deCsv('a,b\n,y')).toEqual([{ a: '', b: 'y' }])
+  })
+
+  it('ignora linha em branco no fim do arquivo', () => {
+    expect(deCsv('a,b\nx,y\n')).toEqual([{ a: 'x', b: 'y' }])
+  })
+
+  it('so cabecalho devolve lista vazia', () => {
+    expect(deCsv('a,b')).toEqual([])
+  })
+
+  it('arquivo vazio devolve lista vazia', () => {
+    expect(deCsv('')).toEqual([])
+  })
+
+  /**
+   * A garantia que fecha o ciclo, e que vale por dez: o que o `paraCsv`
+   * ESCREVE, o `deCsv` LE de volta igual — inclusive com os casos hostis. Sem
+   * ela, exportar e reimportar poderia perder ou corromper dado em silencio.
+   */
+  it('o que paraCsv escreve, deCsv le de volta igual', () => {
+    const originais = [
+      { a: 'simples', b: 'x' },
+      { a: 'com,virgula', b: 'com "aspas"' },
+      { a: 'com\nquebra', b: '' },
+      { a: 'acentuacao: manutencao', b: 'fim' },
+    ]
+
+    expect(deCsv(paraCsv(['a', 'b'], originais))).toEqual(originais)
+  })
+
+  /**
+   * O campo neutralizado (Story 4.1) volta COM o apostrofo: o `deCsv` nao
+   * desfaz a neutralizacao, e isso e deliberado — desfazer exigiria adivinhar
+   * se o apostrofo era do dado ou da protecao.
+   */
+  it('nao desfaz a neutralizacao de formula, e o registro diz por que', () => {
+    expect(deCsv(paraCsv(['a'], [{ a: '=1+1' }]))).toEqual([{ a: "'=1+1" }])
   })
 })

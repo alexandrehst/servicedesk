@@ -725,6 +725,71 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
     })
   },
 
+  async importarComAuditoria(novo, autor) {
+    return db
+      .transaction(async (tx) => {
+        // A consulta previa e o `catch` de unicidade fazem a MESMA pergunta, de
+        // proposito. Ela resolve o caso comum — um reimport inteiro sem sujar o
+        // log do Postgres com um erro por linha — e o UNIQUE resolve a corrida,
+        // porque entre consultar e inserir cabe outra execucao do arquivo.
+        const [jaExiste] = await tx
+          .select({ number: tickets.number })
+          .from(tickets)
+          .where(eq(tickets.numeroLegado, novo.numeroLegado))
+          .limit(1)
+
+        if (jaExiste !== undefined) {
+          return null
+        }
+
+        const [linha] = await tx
+          .insert(tickets)
+          .values({
+            titulo: novo.titulo,
+            descricao: novo.descricao,
+            categoria: novo.categoria,
+            // Do ARQUIVO, e nao 'aberto': o Chamado nao aconteceu aqui, e
+            // forcar as transicoes inventaria Log de eventos que nao ocorreram.
+            status: novo.status,
+            priority: novo.prioridade,
+            requester: novo.requester,
+            assignee: novo.assignee,
+            numeroLegado: novo.numeroLegado,
+            // O AD-4 intacto: o Numero vem da sequence, e o antigo e so
+            // referencia.
+            number: sql`nextval('ticket_number_seq')`,
+            // Ausente no arquivo -> o DEFAULT do banco (agora), e o relatorio
+            // do import avisa.
+            ...(novo.criadoEm === undefined ? {} : { criadoEm: novo.criadoEm }),
+          })
+          .returning({ number: tickets.number })
+
+        if (linha === undefined) {
+          throw new Error('INSERT do Chamado importado nao retornou linha.')
+        }
+
+        await tx.insert(auditEntries).values({
+          ticketNumber: linha.number,
+          acao: 'abrir_chamado',
+          // AD-9: quem RODOU o import responde por ele. O `requester` guarda de
+          // quem o Chamado e; este campo, quem o trouxe.
+          autor: autor.identity,
+          origin: autor.origin,
+        })
+
+        return { number: linha.number }
+      })
+      .catch((erro: unknown) => {
+        // 23505 = unique_violation no `numero_legado` (migration 0013): o
+        // arquivo esta sendo importado de novo. Nao e falha — e a garantia
+        // funcionando, e quem chama a traduz para "repetida" no relatorio.
+        if (ehViolacaoDeUnicidade(erro)) {
+          return null
+        }
+        throw erro
+      })
+  },
+
   async buscarIntakePorMessageId(messageId: string): Promise<number | null> {
     const [linha] = await db
       .select({ ticketNumber: emailIntake.ticketNumber })
