@@ -4,7 +4,7 @@ baseline_commit: 8b4f81c
 
 # Story 4.4: Corte — baseline & validação de paridade
 
-Status: review
+Status: done (entrega parcial — ver Dev Agent Record)
 
 ## Story
 

@@ -105,9 +105,9 @@ development_status:
   # NOTA: no epics.md a Story 4.4 aparece antes da 4.3; aqui estao
   # em ordem numerica. Ver relatorio de sprint planning 2026-08-08.
   # ---------------------------------------------------------------
-  epic-4: in-progress
+  epic-4: done
   4-1-export-csv: done
   4-2-import-csv-de-migracao: done
   4-3-soft-delete-completo: done
-  4-4-corte-baseline-validacao-de-paridade: review
+  4-4-corte-baseline-validacao-de-paridade: done
   epic-4-retrospective: optional
