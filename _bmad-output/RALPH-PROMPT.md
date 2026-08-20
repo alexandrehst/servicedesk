@@ -187,6 +187,13 @@ rodada passou em **35 s** sem comentar; o re-run levou **4m20s** e revisou de
 verdade. No #46 o re-run depois do silêncio virou **achado real**. Sempre
 confira e, no silêncio, re-execute:
 
+> **Desde a correção do PR #66, ele fala — e fala muito.** A 4.2 levou **quatro
+> achados em rodadas sucessivas**, todos reais, cada um no código escrito para
+> corrigir o anterior. Isso muda o planejamento da volta: **conte com várias
+> rodadas de review**, não com uma. E leia cada achado até o fim antes de
+> corrigir — o quarto deles apontava um teste que existia, passava, e não
+> provava nada.
+
 ```bash
 gh api repos/alexandrehst/servicedesk/pulls/NN/comments --jq 'length'
 gh run rerun <run-id> --job <job-id>
@@ -300,55 +307,113 @@ do sistema — e um export do Agente vira o vazamento que a 3.4 evitou no `LIKE`
   da tool. Registrado como não provado, junto com o fato de que exportar a base
   inteira pede um canal que não existe.
 
-#### Story 4.2 — o import é o inverso, e mais perigoso
+#### O que a 4.2 mediu — quatro achados do `claude-review` numa story só
 
-**a) Cada linha passa pelo DOMÍNIO, não pelo SQL.** `abrirTicket` valida e
-normaliza; `ehCategoria` recusa categoria inventada; `PRIORIDADES` é lista
-fechada. Um import que faça `INSERT` direto contorna tudo isso — e a 2.4 já
-registrou o que acontece quando uma coluna nasce com valor que o domínio não
-conhece.
+Nunca houve tantos num PR deste projeto, e nenhum foi ruído. Vale entender o
+padrão: **os quatro apareceram no código que eu escrevi para corrigir o
+anterior.** Corrigir cria superfície nova, e a superfície nova não tinha teste.
 
-**b) O Número é da sequence; o número antigo vai para `numero_legado`.** O AD-4
-é explícito: o Numero é gerado pela persistência, **nunca** pelo chamador.
-`numero_legado` **já existe** (criada vazia na 3.4, `text`, indexada, e a busca
-já a cobre — foi feita exatamente para isto). Preservar o número antigo como
-**referência**, não como identidade.
+**a) O laço caro.** O `for` sequencial fazia 5 viagens ao Postgres por linha,
+uma esperando a outra — 25 mil viagens em fila num arquivo de 5.000 linhas,
+dentro de uma chamada da tool. Lotes concorrentes resolvem; o tamanho é
+conservador porque **lote maior que o pool de conexões não acelera**, só troca
+espera pelo banco por espera por conexão.
 
-**c) A AC pede relatório de erros SEM abortar o lote.** Isso conflita com
-"transação única": ou tudo entra, ou nada. **Decida e registre** — o caminho
-provável é transação **por linha**, com um relatório do que foi rejeitado e por
-quê. E responda: o que acontece com a linha 5.000 quando a 4.999 falha?
+**b) Paralelizar quebra o que a ordem garantia.** Duas linhas com a mesma chave
+no mesmo lote disputam o índice, e quem vence passa a depender de qual transação
+comita primeiro — quando quem migra espera que a **primeira ocorrência do
+arquivo** seja a que entra. E o relatório: `Promise.all` preserva a ordem, então
+quase tudo já sai ordenado — a exceção é a lista preenchida em **duas fases**,
+onde a linha 5 aparecia antes da linha 2. **A primeira mutação que escrevi para
+a ordenação sobreviveu**, e a saída não foi remover a guarda: foi achar o caso
+em que ela guarda.
 
-**d) Quem é o AUTOR de um Chamado importado?** O AD-3 exige autor e origem em
-toda escrita, e `audit_entries.autor` é obrigatório. O Chamado veio de um
-sistema que não tem identidade aqui. **Decida**: uma identidade de import
-(`import@sistema`), o Solicitante do CSV se ele existir no cadastro, ou os dois
-— e o que fazer quando o e-mail do CSV não estiver em `users`.
+**c) `Promise.all` reintroduz o "tudo ou nada" pela porta dos fundos.** Ele
+rejeita na primeira falha: um timeout no meio derruba a função inteira, os lotes
+seguintes nunca rodam, e quem chamou recebe erro **sem relatório nenhum**. Pior,
+ele não cancela as irmãs — as chamadas em voo continuam e podem **comitar depois
+do erro**, com escrita real e auditada que não aparece em relatório algum.
+`allSettled`, e a falha vira uma categoria própria: **falha ≠ rejeitada**, porque
+a ação que cada uma pede é diferente (corrija o arquivo × rode de novo).
 
-**e) Rodar duas vezes duplica tudo?** `numero_legado` **não é UNIQUE** hoje. Um
-import repetido cria a base inteira de novo. **Decida**: índice único, checagem
-prévia, ou aceitar e registrar — mas não descubra isso em produção.
+**d) O erro do driver carrega os PARÂMETROS.** Medido contra o Postgres real:
+`DrizzleQueryError.message` traz `Failed query: ... params: <Título>,<Descrição>,
+...,<e-mail>`. Repassar `erro.message` para log ou resposta vaza dado do
+Solicitante (AD-9). **Só o SQLSTATE atravessa**, traduzido por tabela nossa —
+filtrar texto por padrão seria perder por construção, porque a lista de
+mensagens que vazam não é enumerável.
 
-**f) Não há biblioteca de CSV no projeto.** Escrever o parser à mão é onde as
-armadilhas da 4.1 aparecem de novo, agora na leitura (aspas escapadas, campo com
-quebra de linha). **Dependência nova exige aprovação** (seção 5 do fluxo de
-dev): se for o caminho, pare e pergunte. Se for parser próprio, **documente o
-subconjunto de CSV que ele aceita** e teste os casos hostis.
+#### As três lições da 4.2 que atravessam para as próximas stories
 
-**g) O formato real do fornecedor é desconhecido** — a AC diz isso. Não invente
-um formato "provável" e o chame de pronto: defina o **contrato de entrada** que
-você aceita (colunas, tipos, obrigatórias), e registre que o mapeamento do CSV
-real virá quando o arquivo existir.
+**1. "Afirmação não é teste" ganhou uma camada — e é a mais perigosa.** Já
+tínhamos o caso do Dev Agent Record (3.6) e ganhamos o do comentário no código
+("nenhuma rejeição escapa", ao lado do `Promise.all` que a contradizia). Mas o
+quarto achado é pior: **o teste existia e passava.** Ele usava um duble que
+lançava `new Error('timeout')`, string sintética que nunca teria o formato real.
+
+> **Um duble prova o contrato que você imaginou; só o caminho real prova o
+> contrato que existe.** Onde a garantia é sobre o **formato de um dado que vem
+> de fora do nosso código** — mensagem de erro de driver, resposta de API,
+> arquivo de terceiro —, o duble é a própria ilusão. Use integração.
+
+**2. Toda mudança no código é mudança nos alvos de mutação.** O alvo evaporou em
+**três rodadas seguidas** desta story (quatro ocorrências), todas pela minha
+própria refatoração — não pelo formatador, como nas duas vezes anteriores do
+projeto. Na terceira parei de consertar o sintoma: **`mutacoes-NN.py` agora
+confere todos os alvos ANTES de rodar** e se recusa a começar, separando
+"SCRIPT DESATUALIZADO" de "MUTAÇÃO SOBREVIVENTE" — que eram problemas diferentes
+reportados do mesmo jeito. Copie essa conferência para o script da sua story: o
+erro passa a aparecer em um segundo em vez de quarenta minutos.
+
+**3. Script de mutação interrompido DEIXA O REPOSITÓRIO MUTADO.** Aconteceu
+aqui: a mutação do AD-4 — `nextval` trocado pelo número do arquivo — ficou
+aplicada em `ticket-repository.ts` depois de o processo ser morto. O `finally`
+restaura, mas `finally` não roda quando o processo morre. **Confira `git status`
+depois de rodar mutação**: é a única coisa entre isso e um commit que inverte a
+espinha da arquitetura.
+
+#### O que a 4.2 deixou pronto para a 4.3
+
+- **`Logger` chega ao adapter MCP.** `McpDeps` ganhou `logger`, então qualquer
+  command novo pode registrar sem mudar a montagem.
+- **A distinção `erro` × `aviso` do port tem precedente concreto**: linha
+  rejeitada num import é o caso normal e **não** vira erro de log, porque isso
+  treinaria quem monitora a ignorar erro.
+- **Capacidade `importa`** em `papeis.ts` — a mais restrita do sistema, e o
+  exemplo de que **a story pode precisar de autorização que nenhuma AC pediu**:
+  importar é a única escrita em que o autor e o dono do registro são pessoas
+  diferentes de propósito. A 4.3 tem o mesmo cheiro (excluir Usuário).
 
 #### Story 4.3 — soft-delete completo, e o que falta é concreto
 
-Verificado no código em 2026-08-19:
+Verificado no código em 2026-08-19, depois da 4.2:
 
 - `tickets.deleted_at` ✅ (1.7) e `comments.deleted_at` ✅ (existe no schema
   desde a 1.2, e `filtrarComentarios` já o respeita);
 - **`users` NÃO tem `deleted_at`** — é o buraco da FR-23;
 - **não existe comando para excluir Comentário nem Usuário**: só
-  `excluir-chamado.ts`. A coluna de Comentário existe e nada a escreve.
+  `excluir-chamado.ts`. A coluna de Comentário existe e nada a escreve;
+- **`excluir_chamado` não tem tool MCP registrada.** O command existe, a ação
+  está no vocabulário do Log, há testes — e nenhuma porta de entrada. A 1.7
+  decidiu isso de propósito e escreveu que **"a Story 4.3 decide se e como ela
+  aparece"**;
+- **excluir Usuário tem um gargalo único que já existe**: `buscarUsuarioPorEmail`
+  é consultado pelos quatro caminhos que importam (pedir login, consumir link,
+  intake de e-mail, atribuir), e `buscarSessaoPorHash` faz `innerJoin` com
+  `users` — foi escrito assim na 1.3 para que "rebaixamento e remoção valham
+  imediatamente em vez de esperar a sessão expirar". Filtrar `deleted_at` ali
+  fecha os cinco de uma vez. **Confira se é verdade antes de confiar** — e, se
+  for, escreva o teste que desliga cada camada separadamente, porque a
+  redundância que protege também esconde.
+
+**A dívida com prazo de validade que a 1.7 deixou nominalmente para esta
+story:** *"a exclusão é irreversível na prática enquanto não houver restauração.
+No dia em que a 4.3 expuser a exclusão por alguma superfície, o AD-7 passa a
+valer — está anotado aqui para que essa decisão não seja tomada por omissão."*
+Ou seja: **tool de exclusão sem confirmação é violação do AD-7**, e a 2.6 já
+construiu o mecanismo inteiro (`confirmacoes`, escopo por ação/chamado/
+identidade, uso único). A 1.7 também registrou que **não há restauração** e
+**não há política de retenção** — as duas são desta story decidir ou registrar.
 
 Excluir Usuário toca coisas que as outras exclusões não tocam: login (1.3),
 atribuição (2.3 — o Dono de um Chamado aberto), o escopo de leitura (3.1) e o

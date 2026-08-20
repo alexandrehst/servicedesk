@@ -4,7 +4,7 @@ baseline_commit: a2438fb
 
 # Story 4.2: Import CSV de migração
 
-Status: review
+Status: done
 
 ## Story
 
