@@ -120,6 +120,30 @@ const blocoOpcional = <T>(
   return resultado.data
 }
 
+/**
+ * Os campos que a falha de BOOT leva ao log.
+ *
+ * Mora aqui, e nao no entrypoint, por um motivo que vale registrar: a exclusao
+ * de `servidor-mcp.ts` da cobertura foi justificada com o criterio "o arquivo
+ * nao pode conter decisao alguma". O `catch` de boot tinha duas — **e o review
+ * do PR #85 apontou que eu tinha violado a propria regra que acabara de
+ * escrever.**
+ *
+ * A correcao certa nao era apagar o ternario para caber na justificativa: seria
+ * fazer o codigo servir ao texto. Era mover a decisao para onde ela e testavel,
+ * que e o que a exclusao pressupunha desde o inicio.
+ *
+ * A distincao que ela faz: `configuracao` e erro de OPERADOR — o `stack`
+ * rastrearia codigo que esta certo e mandaria quem monitora investigar o lugar
+ * errado. `defeito` leva o stack, porque ai o problema e nosso.
+ */
+export const dadosDaFalhaDeBoot = (erro: unknown): Record<string, string | number> => ({
+  causa: erro instanceof Error ? erro.message : String(erro),
+  ...(erro instanceof ConfigInvalida
+    ? { tipo: 'configuracao' }
+    : { tipo: 'defeito', stack: erro instanceof Error ? (erro.stack ?? '') : '' }),
+})
+
 export const lerConfig = (ambiente: Record<string, string | undefined>): Config => {
   const obrigatorias = z
     .object({ DATABASE_URL: naoVazio, SERVICEDESK_MCP_TOKEN: naoVazio })

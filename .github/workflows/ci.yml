@@ -58,6 +58,23 @@ jobs:
 
       - run: pnpm typecheck
 
+      # O BUILD tambem, e no mesmo job de proposito (Story 5.1).
+      #
+      # `pnpm typecheck` roda com `tsconfig.json`, que tem `noEmit: true` e
+      # inclui os testes. O `build` usa `tsconfig.build.json`, que EMITE e
+      # exclui os testes — sao configuracoes diferentes, e um erro que so
+      # aparece na emissao (import circular em runtime, `verbatimModuleSyntax`
+      # num arquivo que o outro tsconfig nao via) passaria batido.
+      #
+      # O que torna isso mais que zelo: o build produz `dist/`, que e o que o
+      # `pnpm start` executa. Um build quebrado significa um servidor que nao
+      # sobe — e ate esta story ninguem descobriria antes de tentar rodar.
+      #
+      # No job `typecheck` e nao num job novo porque acrescentar job muda a
+      # lista de required checks na branch protection, e a Story 0.7 registrou
+      # que renomear ou criar job quebra o gate em silencio.
+      - run: pnpm build
+
   test:
     name: test
     runs-on: ubuntu-latest

@@ -2,7 +2,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/server/stdio'
 import { criarServidorMcp } from '../adapters/mcp/server.js'
 import { criarLogger } from '../platform/logging/logger.js'
 import { criarAplicacao } from './aplicacao.js'
-import { ConfigInvalida, lerConfig } from './config.js'
+import { dadosDaFalhaDeBoot, lerConfig } from './config.js'
 import { montar } from './montar.js'
 
 /**
@@ -34,26 +34,17 @@ const principal = async (): Promise<void> => {
 }
 
 principal().catch((erro: unknown) => {
-  // Pelo LOGGER ESTRUTURADO, e nao por `stderr.write` cru — achado do
-  // `claude-review` no PR #85, e ele estava certo: escrever stack solto aqui
-  // contradizia o racional que este mesmo PR aplicou em `aplicacao.ts`. O log
-  // e o UNICO canal onde o resto do sistema aparece, e uma falha de boot e
-  // justamente a que alguem vai procurar la.
+  // Pelo LOGGER ESTRUTURADO, e nao por `stderr.write` cru: o log e o unico
+  // canal onde o resto do sistema aparece, e uma falha de boot e justamente a
+  // que alguem vai procurar la.
   //
   // Instancia nova em vez de reaproveitar a de `montar`: `criarLogger` nao tem
   // estado — e a falha pode ter acontecido ANTES de haver montagem, que e
   // exatamente o caso da config invalida.
-  const logger = criarLogger()
-
-  // Config invalida e erro de OPERADOR, nao defeito nosso: o `stack`
-  // rastrearia codigo que esta certo, e polui o campo sem informar nada. A
-  // `causa` continua legivel dentro do JSON de uma linha.
-  logger.erro('falha_ao_subir', {
-    causa: erro instanceof Error ? erro.message : String(erro),
-    ...(erro instanceof ConfigInvalida
-      ? { tipo: 'configuracao' }
-      : { tipo: 'defeito', stack: erro instanceof Error ? (erro.stack ?? '') : '' }),
-  })
-
+  //
+  // A DECISAO de o que registrar vive em `dadosDaFalhaDeBoot`, e nao aqui:
+  // este arquivo esta fora da cobertura porque nao contem decisao alguma, e
+  // manter um ternario aqui contradiria a propria justificativa da exclusao.
+  criarLogger().erro('falha_ao_subir', dadosDaFalhaDeBoot(erro))
   process.exit(1)
 })

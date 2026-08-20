@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { ConfigInvalida, INTAKE_INTERVALO_PADRAO_MS, lerConfig } from './config.js'
+import {
+  ConfigInvalida,
+  dadosDaFalhaDeBoot,
+  INTAKE_INTERVALO_PADRAO_MS,
+  lerConfig,
+} from './config.js'
 
 /**
  * A config e a borda (Story 5.1).
@@ -135,5 +140,42 @@ describe('o intervalo do intake', () => {
     expect(() => lerConfig({ ...MINIMO, INTAKE_INTERVALO_MS: 'ontem' })).toThrow(ConfigInvalida)
     // E a mensagem diz o que fazer, nao so que falhou.
     expect(() => lerConfig({ ...MINIMO, INTAKE_INTERVALO_MS: 'ontem' })).toThrow(/milissegundos/i)
+  })
+})
+
+describe('o que a falha de BOOT leva ao log', () => {
+  /**
+   * Esta funcao mora em `config.ts`, e nao no entrypoint, por uma razao que o
+   * review do PR #85 tornou concreta: `servidor-mcp.ts` esta fora da cobertura
+   * com a justificativa "nao contem decisao alguma" — e eu tinha deixado duas
+   * ali, violando a regra que acabara de escrever.
+   *
+   * A correcao nao foi apagar o ternario para caber no texto (seria fazer o
+   * codigo servir a justificativa), e sim trazer a decisao para onde ela e
+   * testavel. Estes testes sao o que a exclusao pressupunha desde o inicio.
+   */
+  it('config invalida e erro de OPERADOR: sem stack', () => {
+    const dados = dadosDaFalhaDeBoot(new ConfigInvalida('faltou DATABASE_URL'))
+
+    expect(dados.tipo).toBe('configuracao')
+    expect(dados.causa).toBe('faltou DATABASE_URL')
+    // O stack rastrearia codigo que esta CERTO, e mandaria quem monitora
+    // investigar o lugar errado.
+    expect('stack' in dados).toBe(false)
+  })
+
+  it('qualquer outro erro e DEFEITO nosso: leva o stack', () => {
+    const dados = dadosDaFalhaDeBoot(new Error('conexao recusada'))
+
+    expect(dados.tipo).toBe('defeito')
+    expect(dados.causa).toBe('conexao recusada')
+    expect(String(dados.stack)).toContain('Error')
+  })
+
+  it('o que nao e Error tambem vira registro, sem quebrar', () => {
+    const dados = dadosDaFalhaDeBoot('algo estranho')
+
+    expect(dados.tipo).toBe('defeito')
+    expect(dados.causa).toBe('algo estranho')
   })
 })

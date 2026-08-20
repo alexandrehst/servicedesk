@@ -28,8 +28,12 @@ export type Aplicacao = {
    * Encerra na ordem: para o agendador, depois fecha o pool. O inverso deixaria
    * uma varredura em voo tentando falar com um banco ja fechado.
    *
-   * Devolve o codigo de saida: `0` no encerramento limpo, `1` quando o pool
-   * falhou ao fechar — sair com `0` mentiria sobre isso.
+   * Devolve o codigo de saida: `0` limpo, `1` se QUALQUER uma das duas etapas
+   * falhou. E **o pool e sempre fechado**, mesmo que parar o agendador falhe —
+   * na primeira versao uma falha em `parar()` pulava o `fechar()` e ainda assim
+   * devolvia `1`, com o contrato dizendo "o pool falhou ao fechar". O codigo de
+   * saida estava certo por acaso e a mensagem estava errada; pior, o pool
+   * ficava aberto. (Achado do review no PR #85.)
    */
   readonly encerrar: (sinal: string) => Promise<number>
 }
@@ -94,20 +98,37 @@ export const criarAplicacao = (
      * exercitado (licao da Story 4.3).
      */
     encerrar: async (sinal: string) => {
-      try {
-        // Parar o agendador ANTES de fechar o pool: o inverso deixaria uma
-        // varredura em voo falando com um banco ja fechado, e o erro apareceria
-        // como falha de intake — escondendo a causa.
-        agendador?.parar()
-        await fechar()
-        return 0
-      } catch (erro: unknown) {
+      const registrar = (etapa: string, erro: unknown) => {
         logger.erro('falha_ao_encerrar', {
           sinal,
+          // QUAL etapa falhou. Sem isto, "falha ao encerrar" mandaria quem
+          // investiga olhar o pool quando o problema era o timer, e vice-versa.
+          etapa,
           causa: erro instanceof Error ? erro.message : String(erro),
         })
-        return 1
       }
+
+      // As duas etapas sao independentes, e por isso tem `try` proprio:
+      // parar o agendador ANTES de fechar o pool evita uma varredura em voo
+      // falando com um banco fechado — mas se parar FALHAR, o pool ainda
+      // precisa ser fechado. Um pool aberto sobrevive ao processo.
+      let houveFalha = false
+
+      try {
+        agendador?.parar()
+      } catch (erro: unknown) {
+        registrar('parar_agendador', erro)
+        houveFalha = true
+      }
+
+      try {
+        await fechar()
+      } catch (erro: unknown) {
+        registrar('fechar_pool', erro)
+        houveFalha = true
+      }
+
+      return houveFalha ? 1 : 0
     },
   }
 }

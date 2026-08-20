@@ -219,6 +219,44 @@ describe('o encerramento (AC #1)', () => {
    *
    * O contrato agora e: **`encerrar` NUNCA rejeita.**
    */
+  /**
+   * Achado do review no PR #85: o contrato dizia que o codigo `1` significava
+   * "o pool falhou ao fechar", mas uma falha em `parar()` pulava o `fechar()` e
+   * devolvia `1` do mesmo jeito. O codigo estava certo por acaso, a mensagem
+   * estava errada — e, pior, **o pool ficava aberto**. Um pool aberto sobrevive
+   * ao processo.
+   */
+  it('mesmo se PARAR falhar, o pool ainda e fechado', async () => {
+    const config = lerConfig({ ...base, ...IMAP, INTAKE_INTERVALO_MS: '999999' })
+    const montagem = montagemDeTeste()
+    const erros: { evento: string; dados: Record<string, string | number> }[] = []
+    montagem.logger.erro = (evento, dados) => {
+      erros.push({ evento, dados })
+    }
+
+    let fechou = false
+    const fecharDeVerdade = montagem.fechar
+    Object.assign(montagem, {
+      fechar: async () => {
+        fechou = true
+        await fecharDeVerdade()
+      },
+    })
+
+    const app = criarAplicacao(config, montagem, { criarCaixa: caixaVazia })
+    Object.assign(app.agendador ?? {}, {
+      parar: () => {
+        throw new Error('clearInterval explodiu')
+      },
+    })
+
+    expect(await app.encerrar('SIGTERM')).toBe(1)
+    // A garantia que faltava.
+    expect(fechou).toBe(true)
+    // E o log diz QUAL etapa falhou — sem isso, quem investiga olharia o pool.
+    expect(erros[0]?.dados.etapa).toBe('parar_agendador')
+  })
+
   it('falha ao PARAR o agendador tambem vai para o log, sem rejeitar', async () => {
     const config = lerConfig({ ...base, ...IMAP, INTAKE_INTERVALO_MS: '999999' })
     const montagem = montagemDeTeste()
