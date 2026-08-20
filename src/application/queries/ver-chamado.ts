@@ -50,6 +50,10 @@ export const verChamado =
       // Ja filtrados por `visivelPara`: filtrar de novo aqui seria a mesma
       // regra em dois lugares, e dois lugares divergem.
       comentarios: comentarios.map((c) => ({
+        // Story 4.3: e por aqui que quem vai excluir um Comentario descobre
+        // qual e ele. `ver_chamado` continua sendo o UNICO caminho — nao ha
+        // leitura por id.
+        id: c.id,
         autor: c.autor,
         corpo: c.corpo,
         internal: c.internal,

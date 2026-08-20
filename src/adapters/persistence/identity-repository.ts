@@ -1,6 +1,6 @@
 import { and, eq, isNull, sql } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
-import { loginLinks, mcpTokens, sessions, users } from '../../../drizzle/schema.js'
+import { auditEntries, loginLinks, mcpTokens, sessions, users } from '../../../drizzle/schema.js'
 import { papelSchema } from '../../application/contracts/principal.js'
 import type { IdentityRepository } from '../../application/ports/identity-repository.js'
 
@@ -14,8 +14,52 @@ import type { IdentityRepository } from '../../application/ports/identity-reposi
  * Nenhum metodo aqui recebe ou devolve token cru: so hash.
  */
 export const criarIdentityRepository = (db: PostgresJsDatabase): IdentityRepository => ({
+  async excluirUsuarioComAuditoria(email, autor) {
+    return db.transaction(async (tx) => {
+      const [linha] = await tx
+        .update(users)
+        .set({ deletedAt: sql`now()` })
+        .where(and(eq(users.email, email), isNull(users.deletedAt)))
+        .returning({ email: users.email })
+
+      if (linha === undefined) {
+        // Nao havia o que excluir. Sem linha de auditoria, pelo mesmo motivo da
+        // exclusao de Chamado (1.7): exclusao que nao aconteceu nao vira Log.
+        return false
+      }
+
+      await tx.insert(auditEntries).values({
+        // NULO: esta acao nao e sobre um Chamado (migration 0014). Inventar um
+        // numero aqui faria o historico de algum Chamado mostrar uma exclusao
+        // de pessoa que nao tem nada a ver com ele.
+        ticketNumber: null,
+        acao: 'excluir_usuario',
+        // AD-9: quem excluiu.
+        autor: autor.identity,
+        origin: autor.origin,
+        // Quem FOI excluido. Vai em `para` porque o Log ja tem o par de/para
+        // para "o que mudou" (2.2), e aqui o que mudou e o estado desta
+        // pessoa. Sem isto, o registro diria que alguem excluiu alguem, sem
+        // dizer quem — inutil para auditoria.
+        de: email,
+        para: 'excluido',
+      })
+
+      return true
+    })
+  },
+
   async buscarUsuarioPorEmail(email) {
-    const [linha] = await db.select().from(users).where(eq(users.email, email)).limit(1)
+    const [linha] = await db
+      .select()
+      .from(users)
+      // Story 4.3: o Usuario excluido e indistinguivel de inexistente, e por
+      // isso o filtro esta AQUI e nao em quem chama. Sao quatro caminhos que
+      // passam por este metodo — pedir link de login, consumir link, validar
+      // destinatario de atribuicao (2.3) e reconhecer remetente no intake
+      // (1.9) —, e filtrar em cada um seria a mesma regra em quatro lugares.
+      .where(and(eq(users.email, email), isNull(users.deletedAt)))
+      .limit(1)
 
     if (linha === undefined) {
       return null
@@ -82,7 +126,11 @@ export const criarIdentityRepository = (db: PostgresJsDatabase): IdentityReposit
         revogadoEm: mcpTokens.revogadoEm,
       })
       .from(mcpTokens)
-      .innerJoin(users, eq(users.email, mcpTokens.identity))
+      // Story 4.3: o `innerJoin` ja existia para ler o papel; a condicao de
+      // vivo entra AQUI, no proprio join, e nao num `if` depois — o agente
+      // autonomo age sozinho, e uma checagem que alguem possa esquecer de
+      // chamar e pior que nenhuma.
+      .innerJoin(users, and(eq(users.email, mcpTokens.identity), isNull(users.deletedAt)))
       .where(eq(mcpTokens.tokenHash, tokenHash))
       .limit(1)
 
@@ -102,7 +150,12 @@ export const criarIdentityRepository = (db: PostgresJsDatabase): IdentityReposit
     const [linha] = await db
       .select({ email: sessions.email, papel: users.papel, expiraEm: sessions.expiraEm })
       .from(sessions)
-      .innerJoin(users, eq(users.email, sessions.email))
+      // Story 4.3: e por causa desta linha que a exclusao vale IMEDIATAMENTE.
+      // A Story 1.3 guardou o papel em `users` e nao em `sessions` exatamente
+      // para isso — "para que rebaixamento e remocao valham imediatamente em
+      // vez de esperar a sessao expirar". Sem a condicao de vivo, um Agente
+      // desligado seguiria operando por ate 8 horas.
+      .innerJoin(users, and(eq(users.email, sessions.email), isNull(users.deletedAt)))
       .where(eq(sessions.tokenHash, tokenHash))
       .limit(1)
 

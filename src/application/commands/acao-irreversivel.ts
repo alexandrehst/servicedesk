@@ -3,6 +3,7 @@ import {
   type AcaoIrreversivel,
   motivoValido,
 } from '../../domain/acoes-irreversiveis.js'
+import { type AlvoDeConfirmacao, alvoDoChamado } from '../../domain/alvo-de-confirmacao.js'
 import { DomainError } from '../../domain/errors.js'
 import { pode } from '../../domain/papeis.js'
 import type { Status } from '../../domain/ticket.js'
@@ -13,6 +14,7 @@ import type {
   AcaoIrreversivelOutput,
 } from '../contracts/acao-irreversivel.js'
 import type { Principal } from '../contracts/principal.js'
+import type { AcaoDeConfirmacao } from '../ports/confirmacao-repository.js'
 import type { TicketRepository } from '../ports/ticket-repository.js'
 import { conflitoOuSumico } from './mutacao-versionada.js'
 
@@ -28,21 +30,28 @@ import { conflitoOuSumico } from './mutacao-versionada.js'
  * AD-7: a exigencia de confirmacao vive AQUI, no caso de uso, e nao no adapter
  * MCP. Um adapter HTTP futuro e a UI da Fase 1.5 a herdam sem poder pula-la.
  */
+/**
+ * Story 4.3: o escopo do token deixou de ser "um Chamado" e passou a ser "um
+ * OBJETO" (`AlvoDeConfirmacao`), porque as exclusoes de Comentario e Usuario
+ * tambem exigem confirmacao e nenhuma delas e sobre um Chamado. Este command
+ * continua montando o alvo pelo dominio (`alvoDoChamado`), nunca a mao.
+ */
 export type Confirmacao = {
   /** Emite o token e registra o PEDIDO no Log, na mesma transacao. */
   readonly emitir: (pedido: {
-    readonly ticketNumber: number
-    readonly acao: AcaoIrreversivel
+    readonly alvo: AlvoDeConfirmacao
+    readonly ticketNumber: number | null
+    readonly acao: AcaoDeConfirmacao
     readonly autor: Principal
-    readonly de: Status
-    readonly para: Status
+    readonly de: Status | null
+    readonly para: Status | null
   }) => Promise<string>
   /** Consome; `false` para nao existe, escopo errado, expirado ou ja usado. */
   readonly consumir: (
     token: string,
     escopo: {
-      readonly ticketNumber: number
-      readonly acao: AcaoIrreversivel
+      readonly alvo: AlvoDeConfirmacao
+      readonly acao: AcaoDeConfirmacao
       readonly identity: string
     },
   ) => Promise<boolean>
@@ -125,6 +134,7 @@ export const acaoIrreversivel =
 
     if (input.confirmacao === undefined) {
       const token = await confirmacao.emitir({
+        alvo: alvoDoChamado(input.numero),
         ticketNumber: input.numero,
         acao,
         autor,
@@ -140,7 +150,7 @@ export const acaoIrreversivel =
     // "fechar o Chamado na versao N", e a versao mudou — reaproveitar o aval
     // seria executa-lo sobre um Chamado que ja nao e o que ele viu.
     const valeu = await confirmacao.consumir(input.confirmacao, {
-      ticketNumber: input.numero,
+      alvo: alvoDoChamado(input.numero),
       acao,
       identity: autor.identity,
     })

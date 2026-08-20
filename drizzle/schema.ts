@@ -49,7 +49,14 @@ export const tickets = pgTable('tickets', {
  */
 export const auditEntries = pgTable('audit_entries', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
-  ticketNumber: integer('ticket_number').notNull(),
+  /**
+   * Story 4.3 — NULO quando a acao nao e sobre um Chamado.
+   *
+   * Excluir um Usuario nao tem numero a informar. O Log continua sendo UM
+   * (FR-22): uma segunda tabela faria toda leitura futura ter de consultar as
+   * duas, e a esquecida viraria o buraco.
+   */
+  ticketNumber: integer('ticket_number'),
   acao: text('acao').notNull(),
   autor: text('autor').notNull(),
   origin: text('origin').notNull(),
@@ -99,6 +106,15 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   papel: text('papel').notNull(),
   criadoEm: timestamp('criado_em', { withTimezone: true }).notNull().defaultNow(),
+  /**
+   * Story 4.3 — o buraco que a FR-23 tinha desde o inicio. `null` = ativo.
+   *
+   * Quem le esta coluna sao os TRES metodos do `identity-repository`, e e por
+   * isso que ela vale imediatamente: o papel foi guardado aqui, e nao em
+   * `sessions`, justamente "para que rebaixamento e remocao valham
+   * imediatamente em vez de esperar a sessao expirar" (1.3).
+   */
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
 })
 
 export const loginLinks = pgTable('login_links', {
@@ -158,7 +174,15 @@ export const rateLimit = pgTable(
  */
 export const confirmacoes = pgTable('confirmacoes', {
   id: bigserial('id', { mode: 'number' }).primaryKey(),
-  ticketNumber: integer('ticket_number').notNull(),
+  /**
+   * Story 4.3 — o OBJETO exato que este token autoriza.
+   *
+   * Era `ticket_number` (2.6). Virou texto porque esta story passou a exigir
+   * confirmacao para excluir Comentario e Usuario, e nenhum dos dois e um
+   * Chamado. O formato e `tipo:identificador` — `chamado:1042`,
+   * `comentario:1042/7`, `usuario:x@empresa.com`.
+   */
+  alvo: text('alvo').notNull(),
   acao: text('acao').notNull(),
   identity: text('identity').notNull(),
   tokenHash: text('token_hash').notNull().unique(),

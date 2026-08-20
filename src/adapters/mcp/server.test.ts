@@ -18,6 +18,12 @@ import {
 const registradas: Principal[] = []
 
 const repositorio: TicketRepository = {
+  async contarChamadosAbertosDe() {
+    return 0
+  },
+  async excluirComentarioComAuditoria() {
+    return false
+  },
   async criarComAuditoria(novo, autor): Promise<Ticket> {
     registradas.push(autor)
     return {
@@ -86,6 +92,9 @@ const autenticar = async () => principal
  * permite exercitar a recusa de destinatario sem subir banco.
  */
 const identidades = {
+  async excluirUsuarioComAuditoria() {
+    return false
+  },
   async buscarUsuarioPorEmail(email: string) {
     const cadastro: Record<string, 'agente' | 'solicitante'> = {
       'bruno@empresa.com': 'agente',
@@ -141,12 +150,30 @@ it('registra a tool abrir_chamado com o schema do contrato (AD-6)', () => {
 
 /**
  * O alvo muda a cada story que cria a tool anterior: era `fechar_chamado` ate a
- * 2.6, virou `buscar_chamados` ate a 3.1. A garantia e sempre a mesma — o
- * servidor nao expoe tool que nenhuma story especificou — e o alvo agora e a
- * exclusao de Comentario da Story 4.3.
+ * 2.6, virou `buscar_chamados` ate a 3.1, depois a exclusao de Comentario ate a
+ * 4.3. A garantia e sempre a mesma — o servidor nao expoe tool que nenhuma
+ * story especificou.
+ *
+ * O alvo agora e `restaurar_chamado`, e a escolha nao e arbitraria: a Story 1.7
+ * registrou que "nao ha restauracao", e a 4.3 decidiu deliberadamente NAO a
+ * criar — restaurar e capacidade de produto nova, com pergunta propria ("quem
+ * pode, e o que acontece se o Chamado mudou desde entao?"). E justamente por
+ * nao existir restauracao que as exclusoes exigem confirmacao (AD-7). Se algum
+ * dia esta tool aparecer sem uma story que a decida, este teste reprova.
  */
 it('nao registra tool que a story nao especifica', () => {
-  expect(criarServidorMcp(deps).toolInputSchemaJson('excluir_comentario')).toBeUndefined()
+  expect(criarServidorMcp(deps).toolInputSchemaJson('restaurar_chamado')).toBeUndefined()
+})
+
+/** As tres exclusoes da Story 4.3 EXISTEM, e as tres pedem confirmacao. */
+it('as tres tools de exclusao aceitam confirmacao (AD-7)', () => {
+  const servidor = criarServidorMcp(deps)
+
+  for (const tool of ['excluir_chamado', 'excluir_comentario', 'excluir_usuario']) {
+    const schema = JSON.stringify(servidor.toolInputSchemaJson(tool))
+    expect(schema).toBeDefined()
+    expect(schema).toContain('confirmacao')
+  }
 })
 
 it('retorna o Numero do Chamado aberto', async () => {
@@ -200,6 +227,12 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     async importarComAuditoria() {
       throw new Error('esta suite nao importa')
     },
+    async contarChamadosAbertosDe() {
+      return 0
+    },
+    async excluirComentarioComAuditoria() {
+      return false
+    },
     async buscarParaExportarBruto() {
       throw new Error('esta suite nao exporta')
     },
@@ -246,6 +279,7 @@ const chamado: Ticket = {
 
 const thread: readonly Comentario[] = [
   {
+    id: 1,
     autor: 'marina@empresa.com',
     corpo: 'Parou hoje.',
     internal: false,
@@ -256,6 +290,12 @@ const thread: readonly Comentario[] = [
 
 const repoLeitura: TicketRepository = {
   async criarComAuditoria(): Promise<Ticket> {
+    throw new Error('a tool de leitura nao deve escrever')
+  },
+  async contarChamadosAbertosDe() {
+    return 0
+  },
+  async excluirComentarioComAuditoria() {
     throw new Error('a tool de leitura nao deve escrever')
   },
   async buscarPorNumero(numero) {
@@ -473,6 +513,12 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     },
     async importarComAuditoria() {
       throw new Error('esta suite nao importa')
+    },
+    async contarChamadosAbertosDe() {
+      return 0
+    },
+    async excluirComentarioComAuditoria() {
+      return false
     },
     async buscarParaExportarBruto() {
       throw new Error('esta suite nao exporta')

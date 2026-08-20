@@ -18,6 +18,22 @@ export type QuemPergunta = {
 }
 
 export type Comentario = {
+  /**
+   * Story 4.3 — a identidade PUBLICA do Comentario.
+   *
+   * Ate aqui o Comentario nao tinha como ser referenciado: `ver_chamado`
+   * devolvia autor, corpo e data, e nada mais. Excluir um exige dizer QUAL, e
+   * essa era a primeira coisa que faltava.
+   *
+   * Um ordinal ("o 3o comentario") seria pior, e vale saber por que: ele MUDA
+   * quando alguem exclui outro Comentario, entao "exclua o 3o" apagaria o
+   * errado numa corrida.
+   *
+   * Nao contradiz o AD-4. Quem gera continua sendo a persistencia; o que muda e
+   * que o valor passa a ser legivel, como o `number` do Chamado ja era.
+   * `NovoComentario` continua SEM `id`, pelo mesmo motivo de sempre.
+   */
+  readonly id: number
   readonly autor: string
   readonly corpo: string
   readonly internal: boolean

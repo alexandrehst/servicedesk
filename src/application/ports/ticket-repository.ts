@@ -206,6 +206,31 @@ export type TicketRepository = {
   excluirComAuditoria(numero: number, autor: Principal): Promise<boolean>
 
   /**
+   * Story 4.3 — exclusao logica do Comentario (FR-23).
+   *
+   * Recebe `numero` E `id` de proposito. O `id` sozinho bastaria para achar a
+   * linha, e e justamente por isso que ele nao basta: quem chama informou um
+   * Chamado, o dominio autorizou sobre AQUELE Chamado, e um `UPDATE` que
+   * ignorasse o `numero` excluiria o Comentario de outro Chamado — um id de
+   * comentario alheio passaria pelo gargalo de visibilidade do Chamado proprio.
+   *
+   * `false` quando nao havia o que excluir (id inexistente, de outro Chamado,
+   * ou ja excluido). Quem chama traduz — o adapter nao decide o que isso
+   * significa.
+   */
+  /**
+   * Story 4.3 — quantos Chamados NAO encerrados tem esta pessoa como Dono.
+   *
+   * Existe para o RELATORIO da exclusao de Usuario, nao para uma decisao: nada
+   * e redistribuido automaticamente (ver `ExcluirUsuarioOutput`). Conta so os
+   * abertos porque Chamado fechado com Dono que saiu e historico, nao trabalho
+   * parado.
+   */
+  contarChamadosAbertosDe(email: string): Promise<number>
+
+  excluirComentarioComAuditoria(numero: number, id: number, autor: Principal): Promise<boolean>
+
+  /**
    * A Fila (Story 3.1, FR-8). Leitura em CONJUNTO — a primeira do projeto.
    *
    * `escopo` chega PRONTO do dominio (`escopoDeLeitura`): o adapter o traduz

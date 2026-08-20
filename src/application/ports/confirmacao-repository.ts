@@ -1,4 +1,5 @@
 import type { AcaoIrreversivel } from '../../domain/acoes-irreversiveis.js'
+import type { AlvoDeConfirmacao } from '../../domain/alvo-de-confirmacao.js'
 import type { Status } from '../../domain/ticket.js'
 import type { Principal } from '../contracts/principal.js'
 
@@ -15,8 +16,18 @@ import type { Principal } from '../contracts/principal.js'
  * `WHERE` para que o consumo seja atomico.
  */
 export type NovaConfirmacao = {
-  readonly ticketNumber: number
-  readonly acao: AcaoIrreversivel
+  /**
+   * Story 4.3 — o OBJETO que este token autoriza. Montado no dominio
+   * (`alvoDoChamado`, `alvoDoComentario`, `alvoDoUsuario`), nunca a mao.
+   */
+  readonly alvo: AlvoDeConfirmacao
+  /**
+   * O Chamado, para o Log do PEDIDO. **Nulo quando a acao nao e sobre um
+   * Chamado** (excluir Usuario) — o alvo continua identificando o objeto; este
+   * campo existe so porque o historico de um Chamado e lido por numero.
+   */
+  readonly ticketNumber: number | null
+  readonly acao: AcaoDeConfirmacao
   /**
    * Quem pediu. A identidade vira o escopo do token (nao e transferivel) E o
    * autor do registro de auditoria (AD-9) — sao o mesmo fato, e separa-los
@@ -25,9 +36,14 @@ export type NovaConfirmacao = {
   readonly autor: Principal
   readonly tokenHash: string
   readonly expiraEm: Date
-  /** O estado atual e o pretendido, para o par de/para do Log (2.2). */
-  readonly de: Status
-  readonly para: Status
+  /**
+   * O estado atual e o pretendido, para o par de/para do Log (2.2).
+   * **Nulos nas exclusoes (4.3)**: excluir nao muda Status de nada, e inventar
+   * um par seria registrar um evento falso — a mesma regra que deixou `de`/
+   * `para` nulos em `abrir_chamado`.
+   */
+  readonly de: Status | null
+  readonly para: Status | null
 }
 
 export type ConsumoDeConfirmacao = {
@@ -37,11 +53,24 @@ export type ConsumoDeConfirmacao = {
    * comparacao em JavaScript depois de ler: sem eles, uma confirmacao de
    * "cancelar #1042" fecharia #1042, e a de um Agente serviria a outro.
    */
-  readonly ticketNumber: number
-  readonly acao: AcaoIrreversivel
+  readonly alvo: AlvoDeConfirmacao
+  readonly acao: AcaoDeConfirmacao
   readonly identity: string
   readonly agora: Date
 }
+
+/**
+ * O que pode exigir confirmacao (AD-7).
+ *
+ * As tres irreversiveis da 2.6 mais as tres exclusoes da 4.3. Uniao fechada
+ * pelo mesmo motivo de `ACOES`: acao nova exige uma linha aqui, e o compilador
+ * cobra.
+ */
+export type AcaoDeConfirmacao =
+  | AcaoIrreversivel
+  | 'excluir_chamado'
+  | 'excluir_comentario'
+  | 'excluir_usuario'
 
 export type ConfirmacaoRepository = {
   /**

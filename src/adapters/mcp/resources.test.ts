@@ -77,6 +77,9 @@ const deps = (quem: Principal, dono = 'marina@empresa.com'): McpDeps => {
       limitadas.push(identity)
     },
     identidades: {
+      async excluirUsuarioComAuditoria() {
+        return false
+      },
       async buscarUsuarioPorEmail() {
         return null
       },

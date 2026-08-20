@@ -1,6 +1,9 @@
 import type { Principal } from '../../application/contracts/principal.js'
-import type { ConfirmacaoRepository } from '../../application/ports/confirmacao-repository.js'
-import type { AcaoIrreversivel } from '../../domain/acoes-irreversiveis.js'
+import type {
+  AcaoDeConfirmacao,
+  ConfirmacaoRepository,
+} from '../../application/ports/confirmacao-repository.js'
+import type { AlvoDeConfirmacao } from '../../domain/alvo-de-confirmacao.js'
 import type { Status } from '../../domain/ticket.js'
 import { gerarToken, hashToken } from '../auth/token.js'
 
@@ -10,8 +13,10 @@ import { gerarToken, hashToken } from '../auth/token.js'
  * O mecanismo e o mesmo do magic link (1.3) — token de 256 bits, hash no banco,
  * consumo atomico — e o que muda sao duas decisoes:
  *
- * - **Escopo triplo.** O token vale para UM Chamado, UMA acao e UMA identidade.
+ * - **Escopo triplo.** O token vale para UM objeto, UMA acao e UMA identidade.
  *   O link de login vale para uma pessoa; este vale para uma INTENCAO.
+ *   (Story 4.3: o objeto era sempre um Chamado; virou `AlvoDeConfirmacao`,
+ *   porque excluir Comentario e Usuario tambem exigem confirmacao.)
  * - **Cinco minutos.** Nao os 15 do login nem os 7 dias do link de acesso. A
  *   pergunta que fixa o numero e "quanto tempo e razoavel entre a IA perguntar
  *   e o humano responder na mesma conversa?" — e uma janela longa transforma a
@@ -34,17 +39,20 @@ export type ConfirmacaoDeps = {
 }
 
 export type EscopoDaConfirmacao = {
-  readonly ticketNumber: number
-  readonly acao: AcaoIrreversivel
+  readonly alvo: AlvoDeConfirmacao
+  readonly acao: AcaoDeConfirmacao
   readonly identity: string
 }
 
 export type PedidoDeConfirmacao = {
-  readonly ticketNumber: number
-  readonly acao: AcaoIrreversivel
+  readonly alvo: AlvoDeConfirmacao
+  /** Nulo quando a acao nao e sobre um Chamado (4.3) — so para o Log. */
+  readonly ticketNumber: number | null
+  readonly acao: AcaoDeConfirmacao
   readonly autor: Principal
-  readonly de: Status
-  readonly para: Status
+  /** Nulos nas exclusoes: excluir nao muda Status de nada. */
+  readonly de: Status | null
+  readonly para: Status | null
 }
 
 /**

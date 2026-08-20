@@ -8,6 +8,7 @@ import { mudarPrioridade } from '../../application/commands/mudar-prioridade.js'
 import { mudarStatus } from '../../application/commands/mudar-status.js'
 import type { Principal } from '../../application/contracts/principal.js'
 import { verHistorico } from '../../application/queries/ver-historico.js'
+import { alvoDoChamado } from '../../domain/alvo-de-confirmacao.js'
 import { ehDomainError } from '../../domain/errors.js'
 import {
   consumirConfirmacao,
@@ -106,7 +107,7 @@ describe('o schema da confirmacao (AC #2, #3)', () => {
 
     const nomes = colunas.map((c) => c.column_name)
     expect(nomes).toEqual(
-      expect.arrayContaining(['ticket_number', 'acao', 'identity', 'token_hash', 'expira_em']),
+      expect.arrayContaining(['alvo', 'acao', 'identity', 'token_hash', 'expira_em']),
     )
 
     const unicos = await db.execute(sql`
@@ -444,7 +445,7 @@ describe('conflito de versao (AD-10)', () => {
 
     // O token foi consumido mesmo assim: o aval era para a versao antiga.
     const [linha] = await db.execute(
-      sql`SELECT usado_em FROM confirmacoes WHERE ticket_number = ${numero}`,
+      sql`SELECT usado_em FROM confirmacoes WHERE alvo = ${alvoDoChamado(numero)}`,
     )
     expect(linha?.usado_em).not.toBeNull()
 

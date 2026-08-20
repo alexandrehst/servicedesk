@@ -26,6 +26,7 @@ const ticket: Ticket = {
 
 const thread: readonly Comentario[] = [
   {
+    id: 1,
     autor: 'marina@empresa.com',
     corpo: 'Parou hoje.',
     internal: false,
@@ -33,6 +34,7 @@ const thread: readonly Comentario[] = [
     excluidoEm: null,
   },
   {
+    id: 2,
     autor: 'bruno@empresa.com',
     corpo: 'Fonte queimada.',
     internal: true,
@@ -93,6 +95,12 @@ const repo = (
   },
   async importarComAuditoria() {
     throw new Error('esta suite nao importa')
+  },
+  async contarChamadosAbertosDe() {
+    return 0
+  },
+  async excluirComentarioComAuditoria() {
+    return false
   },
   async buscarParaExportarBruto() {
     throw new Error('esta suite nao exporta')

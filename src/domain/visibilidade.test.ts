@@ -45,6 +45,7 @@ describe('podeVerTicket', () => {
 describe('filtrarComentarios', () => {
   const thread: readonly Comentario[] = [
     {
+      id: 1,
       autor: 'marina@empresa.com',
       corpo: 'Parou hoje.',
       internal: false,
@@ -52,6 +53,7 @@ describe('filtrarComentarios', () => {
       excluidoEm: null,
     },
     {
+      id: 2,
       autor: 'bruno@empresa.com',
       corpo: 'Fonte queimada.',
       internal: true,
@@ -59,6 +61,7 @@ describe('filtrarComentarios', () => {
       excluidoEm: null,
     },
     {
+      id: 3,
       autor: 'bruno@empresa.com',
       corpo: 'Peca pedida.',
       internal: false,
@@ -88,6 +91,7 @@ describe('filtrarComentarios', () => {
 describe('visivelPara — a unica saida do dado bruto (AC #4)', () => {
   const thread: readonly Comentario[] = [
     {
+      id: 4,
       autor: 'marina@empresa.com',
       corpo: 'Parou hoje.',
       internal: false,
@@ -95,6 +99,7 @@ describe('visivelPara — a unica saida do dado bruto (AC #4)', () => {
       excluidoEm: null,
     },
     {
+      id: 5,
       autor: 'bruno@empresa.com',
       corpo: 'Fonte queimada.',
       internal: true,

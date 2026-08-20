@@ -11,6 +11,20 @@ import { ehDomainError } from '../../domain/errors.js'
 import { criarTicketRepository } from './ticket-repository.js'
 
 /**
+ * Story 4.3: excluir passou a exigir confirmacao (AD-7). Este duble sempre
+ * aceita — os testes de confirmacao vivem em `excluir-usuario.test.ts` e no
+ * teste do command; aqui o que se mede e outra coisa.
+ */
+const confirmacaoQueSempreAceita = {
+  async emitir() {
+    return 'token'
+  },
+  async consumir() {
+    return true
+  },
+}
+
+/**
  * Integracao com Postgres REAL. O ponto inteiro desta story e o que sobra no
  * banco depois da exclusao — e isso so se ve olhando a tabela.
  */
@@ -41,7 +55,13 @@ const erroDe = async (promessa: Promise<unknown>): Promise<Error> => {
 
 const abrir = () => abrirChamado({ repositorio })(entrada, marina)
 const excluir = (numero: number, quem: Principal) =>
-  excluirChamado({ repositorio })({ numero }, quem)
+  excluirChamado({ repositorio, confirmacao: confirmacaoQueSempreAceita })(
+    // Story 4.3: excluir passou a exigir confirmacao (AD-7). O token entra aqui
+    // para que estes testes sigam medindo o que mediam; o AD-7 em si tem testes
+    // proprios em `excluir-chamado.test.ts`.
+    { numero, confirmacao: 'token' },
+    quem,
+  )
 const ver = (numero: number, quem: Principal) => verChamado({ repositorio })({ numero }, quem)
 
 beforeEach(async () => {
@@ -248,13 +268,18 @@ describe('o Log de auditoria nao ganha soft-delete (AC #7)', () => {
     expect(colunas).toHaveLength(0)
   })
 
-  it('tickets e comments TEM a coluna', async () => {
+  it('as tres entidades que o FR-23 cobre TEM a coluna', async () => {
     const colunas = await db.execute(
       sql`SELECT table_name FROM information_schema.columns
           WHERE column_name = 'deleted_at' ORDER BY table_name`,
     )
 
     // Sem esta metade, o teste acima passaria com a migration inteira ausente.
-    expect(colunas.map((c) => c.table_name)).toEqual(['comments', 'tickets'])
+    //
+    // `users` entrou na Story 4.3: ate ela, a FR-23 valia para Chamado e
+    // Comentario e tinha um buraco na terceira entidade. A lista e EXATA de
+    // proposito — tabela nova com `deleted_at` que ninguem decidiu reprova
+    // aqui, e e assim que se descobre um soft-delete inventado por engano.
+    expect(colunas.map((c) => c.table_name)).toEqual(['comments', 'tickets', 'users'])
   })
 })
