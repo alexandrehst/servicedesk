@@ -46,8 +46,8 @@ let executadas: {
   motivo?: string
 }[]
 let resultadoDoUpdate: { version: number } | null
-let emitidas: { ticketNumber: number; acao: AcaoIrreversivel; autor: string }[]
-let consumos: { token: string; acao: AcaoIrreversivel; identity: string }[]
+let emitidas: { alvo: string; ticketNumber: number | null; acao: string; autor: string }[]
+let consumos: { token: string; alvo: string; acao: string; identity: string }[]
 let confirmacaoVale: boolean
 
 const repositorio = {
@@ -70,19 +70,22 @@ const repositorio = {
 }
 
 const confirmacao = {
-  async emitir(pedido: { ticketNumber: number; acao: AcaoIrreversivel; autor: Principal }) {
+  async emitir(pedido: {
+    alvo: string
+    ticketNumber: number | null
+    acao: string
+    autor: Principal
+  }) {
     emitidas.push({
+      alvo: pedido.alvo,
       ticketNumber: pedido.ticketNumber,
       acao: pedido.acao,
       autor: pedido.autor.identity,
     })
     return 'token-emitido'
   },
-  async consumir(
-    token: string,
-    escopo: { ticketNumber: number; acao: AcaoIrreversivel; identity: string },
-  ) {
-    consumos.push({ token, acao: escopo.acao, identity: escopo.identity })
+  async consumir(token: string, escopo: { alvo: string; acao: string; identity: string }) {
+    consumos.push({ token, alvo: escopo.alvo, acao: escopo.acao, identity: escopo.identity })
     return confirmacaoVale
   },
 }
@@ -133,7 +136,12 @@ describe('sem confirmacao, nada muda (AC #1)', () => {
     await erroDe(executar('cancelar_chamado')({ numero: 1000, versao: 3 }, bruno))
 
     expect(emitidas).toEqual([
-      { ticketNumber: 1000, acao: 'cancelar_chamado', autor: 'bruno@empresa.com' },
+      {
+        alvo: 'chamado:1000',
+        ticketNumber: 1000,
+        acao: 'cancelar_chamado',
+        autor: 'bruno@empresa.com',
+      },
     ])
   })
 })
@@ -215,11 +223,21 @@ describe('confirmacao que nao serve (AC #3)', () => {
     expect(erro.message).not.toContain('token-emitido')
   })
 
-  it('o escopo do consumo carrega acao e identidade', async () => {
+  it('o escopo do consumo carrega o ALVO, a acao e a identidade', async () => {
     await executar('fechar_chamado')({ numero: 1000, versao: 3, confirmacao: 'tk' }, bruno)
 
+    // Story 4.3: o escopo era `ticketNumber`; virou `alvo`, porque a
+    // confirmacao passou a valer tambem para Comentario e Usuario. O alvo e
+    // montado NO DOMINIO (`alvoDoChamado`) — se este command o escrevesse a
+    // mao, um dia o adapter HTTP escreveria diferente e o token deixaria de
+    // valer la, ou passaria a valer para o objeto errado.
     expect(consumos).toEqual([
-      { token: 'tk', acao: 'fechar_chamado', identity: 'bruno@empresa.com' },
+      {
+        token: 'tk',
+        alvo: 'chamado:1000',
+        acao: 'fechar_chamado',
+        identity: 'bruno@empresa.com',
+      },
     ])
   })
 })

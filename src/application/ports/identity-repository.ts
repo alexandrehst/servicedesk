@@ -1,4 +1,4 @@
-import type { Papel } from '../contracts/principal.js'
+import type { Papel, Principal } from '../contracts/principal.js'
 
 /**
  * Port de saida da identidade (Story 1.3, FR-19).
@@ -45,6 +45,19 @@ export type TokenMcpEncontrado = {
 }
 
 export type IdentityRepository = {
+  /**
+   * Story 4.3 — exclusao logica do Usuario (FR-23, AD-3).
+   *
+   * A marcacao e o registro no Log saem na MESMA transacao, como toda escrita
+   * deste projeto. O registro vai com `ticket_number` NULO: excluir uma pessoa
+   * nao e sobre um Chamado, e inventar um numero seria registrar um evento
+   * falso.
+   *
+   * `false` quando nao havia o que excluir — e-mail que nao existe ou ja
+   * excluido. Quem chama traduz.
+   */
+  excluirUsuarioComAuditoria(email: string, autor: Principal): Promise<boolean>
+
   /** `null` quando o e-mail nao esta cadastrado. Quem decide o que fazer com isso e o servico. */
   buscarUsuarioPorEmail(email: string): Promise<UsuarioCadastrado | null>
 

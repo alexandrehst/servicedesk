@@ -1,0 +1,32 @@
+-- Story 4.3 (achado do review no PR #81) — o Log passa a dizer sobre QUE OBJETO
+-- a acao foi.
+--
+-- Ate a 4.3 toda acao era sobre um Chamado, e `ticket_number` bastava para
+-- identificar o objeto. A 4.3 trouxe acoes que nao sao sobre Chamado, e a perda
+-- de informacao virou um buraco em dois lugares:
+--
+-- 1. **O PEDIDO de confirmacao de `excluir_usuario`.** Ele grava
+--    `ticket_number`, `de` e `para` — e os tres sao NULOS nessa acao. Se alguem
+--    pede a exclusao de uma pessoa e nunca confirma (o token expira, ou quem
+--    decide diz nao), o Log fica com um `solicitar_confirmacao` que nao diz
+--    QUEM esteve perto de ser excluido. E justamente na acao mais destrutiva do
+--    sistema que o rastro da tentativa NAO concluida mais importa.
+--
+-- 2. **A EXECUCAO de `excluir_comentario`.** Ela grava o Chamado, mas nao o
+--    Comentario — o Log dizia que alguem apagou algo daquela thread, sem dizer
+--    o que. Este segundo buraco nao estava no achado; apareceu ao conferir o
+--    entorno dele.
+--
+-- A coluna guarda o `AlvoDeConfirmacao` do dominio (`chamado:1042`,
+-- `comentario:1042/7`, `usuario:ana@empresa.com`) — o mesmo formato que ja
+-- amarra o escopo do token, e nao um segundo vocabulario para a mesma ideia.
+--
+-- NULA nas acoes anteriores, e nas que continuam sendo puramente sobre um
+-- Chamado: `ticket_number` ja as identifica, e preencher `alvo` em todas seria
+-- guardar o mesmo dado duas vezes com duas chances de divergir.
+ALTER TABLE audit_entries ADD COLUMN IF NOT EXISTS alvo text;
+
+-- Sem indice: a coluna existe para ser LIDA junto da entrada, nao para filtrar.
+-- Quem procura o historico de um Chamado usa `ticket_number` (indexado desde a
+-- 0001); quem audita uma exclusao de Usuario le o Log inteiro do periodo. Um
+-- indice que ninguem usa e custo de escrita em toda acao registrada.

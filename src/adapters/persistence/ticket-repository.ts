@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, isNull, or, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, isNull, notInArray, or, sql } from 'drizzle-orm'
 import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { auditEntries, comments, emailIntake, tickets } from '../../../drizzle/schema.js'
 import type { Principal } from '../../application/contracts/principal.js'
@@ -6,6 +6,7 @@ import type {
   RegistroDeIntake,
   TicketRepository,
 } from '../../application/ports/ticket-repository.js'
+import { alvoDoChamado, alvoDoComentario } from '../../domain/alvo-de-confirmacao.js'
 import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { AlcanceDaBusca } from '../../domain/busca.js'
 import type { NovoComentario } from '../../domain/comentario.js'
@@ -311,6 +312,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
     }
 
     const comentarios: readonly Comentario[] = thread.map((c) => ({
+      id: c.id,
       autor: c.autor,
       corpo: c.corpo,
       internal: c.internal,
@@ -699,6 +701,63 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
     )
   },
 
+  async contarChamadosAbertosDe(email) {
+    const [linha] = await db
+      .select({ total: sql<number>`count(*)::int` })
+      .from(tickets)
+      .where(
+        and(
+          eq(tickets.assignee, email),
+          // Encerrado com Dono que saiu e historico, nao trabalho parado — a
+          // mesma distincao que o resumo da fila faz (3.3).
+          notInArray(tickets.status, [...STATUS_ENCERRADOS]),
+          isNull(tickets.deletedAt),
+        ),
+      )
+
+    return linha?.total ?? 0
+  },
+
+  async excluirComentarioComAuditoria(numero, id, autor) {
+    return db.transaction(async (tx) => {
+      const [linha] = await tx
+        .update(comments)
+        .set({ deletedAt: sql`now()` })
+        .where(
+          and(
+            eq(comments.id, id),
+            // O `numero` NAO e redundante: sem ele, um id de Comentario de
+            // outro Chamado passaria pelo gargalo de visibilidade do Chamado
+            // que quem chama informou.
+            eq(comments.ticketNumber, numero),
+            isNull(comments.deletedAt),
+          ),
+        )
+        .returning({ id: comments.id })
+
+      if (linha === undefined) {
+        // Nao havia o que excluir. Sem linha de auditoria, pelo mesmo motivo da
+        // exclusao de Chamado (1.7): exclusao que nao aconteceu nao vira Log.
+        return false
+      }
+
+      await tx.insert(auditEntries).values({
+        ticketNumber: numero,
+        acao: 'excluir_comentario',
+        // AD-9: quem excluiu, nunca o nome da tool.
+        autor: autor.identity,
+        origin: autor.origin,
+        // QUAL Comentario. Sem isto o Log dizia que alguem apagou algo daquela
+        // thread, sem dizer o que — e o corpo continua no banco justamente
+        // para que a exclusao seja auditavel (FR-23). Mesmo formato do alvo da
+        // confirmacao: um vocabulario so para "o objeto exato".
+        alvo: alvoDoComentario(numero, id),
+      })
+
+      return true
+    })
+  },
+
   async excluirComAuditoria(numero: number, autor: Principal): Promise<boolean> {
     return db.transaction(async (tx) => {
       const [linha] = await tx
@@ -716,6 +775,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       await tx.insert(auditEntries).values({
         ticketNumber: linha.number,
         acao: 'excluir_chamado',
+        alvo: alvoDoChamado(numero),
         // AD-9: a identidade de quem excluiu, nunca o nome da tool.
         autor: autor.identity,
         origin: autor.origin,

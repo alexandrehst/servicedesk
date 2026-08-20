@@ -209,3 +209,31 @@ describe('o gargalo protege a escrita (AC #4)', () => {
     expect(ehDomainError(erro) && erro.code).toBe('TicketNaoEncontrado')
   })
 })
+
+describe('o id do Comentario chega a quem le (Story 4.3)', () => {
+  /**
+   * Sem isto nao ha como dizer QUAL Comentario excluir — era a primeira coisa
+   * que faltava para a 4.3. O teste vai ao banco de proposito: o `id` e da
+   * persistencia, e um duble o inventaria.
+   */
+  it('cada Comentario da thread tem o id que o banco gerou', async () => {
+    await db.execute(sql`
+      INSERT INTO tickets (number, titulo, descricao, categoria, status, priority, requester)
+      VALUES (7000, 'VPN', 'nao conecta', 'rede', 'aberto', 'media', 'marina@empresa.com')
+    `)
+    await db.execute(sql`
+      INSERT INTO comments (ticket_number, autor, corpo, internal)
+      VALUES (7000, 'marina@empresa.com', 'primeiro', false),
+             (7000, 'bruno@empresa.com', 'segundo', false)
+    `)
+
+    const lido = await ler(7000, bruno)
+
+    const ids = lido.comentarios.map((c) => c.id)
+    expect(ids).toHaveLength(2)
+    // Sao os ids REAIS do banco: crescentes, positivos e diferentes entre si.
+    expect(new Set(ids).size).toBe(2)
+    expect(ids.every((id) => Number.isInteger(id) && id > 0)).toBe(true)
+    expect(ids[1]).toBeGreaterThan(ids[0] ?? 0)
+  })
+})

@@ -30,6 +30,8 @@ export type Capacidade =
   | 'fechaOuCancela'
   | 'reabre'
   | 'importa'
+  | 'excluiComentario'
+  | 'excluiUsuario'
 
 /**
  * Quem pode o quê. `Record<Capacidade, ...>` é deliberado: o TypeScript exige
@@ -101,6 +103,19 @@ const QUEM_PODE: Record<Capacidade, readonly Papel[]> = {
   // unica escrita do sistema em que o autor e o dono do registro sao
   // deliberadamente pessoas diferentes (AD-9), e por isso ela e a mais restrita.
   importa: ['agente'],
+  // Story 4.3: apagar Comentario e apagar CONVERSA — a do time, inclusive.
+  // SEPARADA de `excluiChamado` pelo mesmo motivo que separou `atribuiChamado`
+  // de `recebeAtribuicao` (2.3) e `fechaOuCancela` de `reabre` (2.6): hoje
+  // coincidem porque so ha um papel de atendimento, e a coincidencia esconde
+  // que sao decisoes diferentes.
+  //
+  // O AUTOR nao ganha o direito de apagar o proprio: um Comentario ja lido faz
+  // parte do registro do atendimento, e "quem escreveu pode desescrever" e
+  // decisao de produto que ninguem tomou.
+  excluiComentario: ['agente'],
+  // Story 4.3: a acao mais destrutiva do sistema, e a unica que TIRA O ACESSO
+  // de uma pessoa. Nada mais aqui faz isso.
+  excluiUsuario: ['agente'],
 }
 
 export const pode = (papel: Papel, capacidade: Capacidade): boolean => {

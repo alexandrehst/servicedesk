@@ -14,6 +14,8 @@ export const verChamadoInputSchema = z.object({
 export type VerChamadoInput = z.infer<typeof verChamadoInputSchema>
 
 export const comentarioSchema = z.object({
+  /** Story 4.3 — o que `excluir_comentario` recebe. */
+  id: z.number().int().positive(),
   autor: z.string(),
   corpo: z.string(),
   internal: z.boolean(),

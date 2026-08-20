@@ -27,6 +27,9 @@ export const ACOES = [
   'excluir_chamado',
   'comentar_chamado',
   'comentar_chamado_interno',
+  // Story 4.3 — a exclusao do Comentario. Separada de `excluir_chamado` porque
+  // sao objetos diferentes, e o Log precisa dizer O QUE sumiu da thread.
+  'excluir_comentario',
   'mudar_status',
   'atribuir_chamado',
   'mudar_prioridade',
@@ -41,6 +44,9 @@ export const ACOES = [
   // Sem ele, o Log mostraria so o encerramento, e nao haveria como distinguir
   // "o humano confirmou" de "a IA se auto-confirmou em 200ms".
   'solicitar_confirmacao',
+  // Story 4.3 — a primeira acao do Log que NAO e sobre um Chamado. E por causa
+  // dela que `audit_entries.ticket_number` passou a aceitar nulo (0014).
+  'excluir_usuario',
 ] as const
 
 export type AcaoDeAuditoria = (typeof ACOES)[number]

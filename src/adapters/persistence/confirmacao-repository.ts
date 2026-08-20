@@ -10,10 +10,19 @@ import type { ConfirmacaoRepository } from '../../application/ports/confirmacao-
  * `WHERE`, nao num `if` depois da leitura — e o que torna o consumo atomico.
  */
 export const criarConfirmacaoRepository = (db: PostgresJsDatabase): ConfirmacaoRepository => ({
-  async criarConfirmacaoComAuditoria({ ticketNumber, acao, autor, tokenHash, expiraEm, de, para }) {
+  async criarConfirmacaoComAuditoria({
+    alvo,
+    ticketNumber,
+    acao,
+    autor,
+    tokenHash,
+    expiraEm,
+    de,
+    para,
+  }) {
     await db.transaction(async (tx) => {
       await tx.insert(confirmacoes).values({
-        ticketNumber,
+        alvo,
         acao,
         identity: autor.identity,
         tokenHash,
@@ -23,29 +32,39 @@ export const criarConfirmacaoRepository = (db: PostgresJsDatabase): ConfirmacaoR
       // O PEDIDO vai ao Log com o par de/para: e por ele que se ve o intervalo
       // entre pedir e executar. O rotulo e estatico, decidido por qual operacao
       // foi chamada (achado do review no PR #46).
+      //
+      // Story 4.3: `ticketNumber` e nulo quando a acao nao e sobre um Chamado
+      // (excluir Usuario). O alvo esta na tabela de confirmacoes; aqui vale o
+      // numero, porque e por ele que o historico de um Chamado e lido.
       await tx.insert(auditEntries).values({
-        ticketNumber,
+        ticketNumber: ticketNumber ?? null,
         acao: 'solicitar_confirmacao',
         autor: autor.identity,
         origin: autor.origin,
         de,
         para,
+        // O ALVO, e nao so o Chamado. Sem ele, um pedido de excluir Usuario que
+        // nunca se confirma (o token expira, ou quem decide diz nao) fica no
+        // Log sem dizer QUEM esteve perto de ser excluido — `ticket_number`,
+        // `de` e `para` sao todos nulos nessa acao. E justamente na tentativa
+        // NAO concluida da acao mais destrutiva que o rastro mais importa.
+        alvo,
       })
     })
   },
 
-  async consumirConfirmacao({ tokenHash, ticketNumber, acao, identity, agora }) {
+  async consumirConfirmacao({ tokenHash, alvo, acao, identity, agora }) {
     const [linha] = await db
       .update(confirmacoes)
       .set({ usadoEm: sql`now()` })
       .where(
         and(
           eq(confirmacoes.tokenHash, tokenHash),
-          // O ESCOPO no WHERE: token de outra acao, de outro Chamado ou de
+          // O ESCOPO no WHERE: token de outra acao, de outro OBJETO ou de
           // outra identidade simplesmente nao casa. Comparar depois de ler
           // daria o mesmo resultado no caminho feliz e deixaria a janela em
           // que duas chamadas leem antes de qualquer uma marcar.
-          eq(confirmacoes.ticketNumber, ticketNumber),
+          eq(confirmacoes.alvo, alvo),
           eq(confirmacoes.acao, acao),
           eq(confirmacoes.identity, identity),
           // Uso unico e prazo, na mesma condicao.

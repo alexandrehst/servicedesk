@@ -12,6 +12,20 @@ import { ehDomainError } from '../../domain/errors.js'
 import { criarTicketRepository } from './ticket-repository.js'
 
 /**
+ * Story 4.3: excluir passou a exigir confirmacao (AD-7). Este duble sempre
+ * aceita — os testes de confirmacao vivem em `excluir-usuario.test.ts` e no
+ * teste do command; aqui o que se mede e outra coisa.
+ */
+const confirmacaoQueSempreAceita = {
+  async emitir() {
+    return 'token'
+  },
+  async consumir() {
+    return true
+  },
+}
+
+/**
  * Integracao com Postgres REAL: a ordem cronologica vem do `ORDER BY` e o
  * recorte por origem vem do `WHERE` — nenhum dos dois e verificavel com duble.
  */
@@ -75,7 +89,10 @@ describe('papel errado (AC #3, #4)', () => {
 
   it('Chamado excluido nao tem historico visivel, nem para o Agente', async () => {
     const { number } = await abrir()
-    await excluirChamado({ repositorio })({ numero: number }, bruno)
+    await excluirChamado({ repositorio, confirmacao: confirmacaoQueSempreAceita })(
+      { numero: number, confirmacao: 'token' },
+      bruno,
+    )
 
     const erro = await erroDe(historico(number, bruno))
 
@@ -127,7 +144,10 @@ describe('o Agente ve o historico (AC #1)', () => {
 
   it('a ordem e cronologica', async () => {
     const { number } = await abrir()
-    await excluirChamado({ repositorio })({ numero: number }, bruno)
+    await excluirChamado({ repositorio, confirmacao: confirmacaoQueSempreAceita })(
+      { numero: number, confirmacao: 'token' },
+      bruno,
+    )
 
     // Inseridas fora de ordem de proposito: uma acao antiga chega depois, como
     // aconteceria numa importacao ou correcao manual. Em ordem, o teste

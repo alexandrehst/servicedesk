@@ -70,6 +70,12 @@ const repositorio: TicketRepository = {
   async importarComAuditoria() {
     throw new Error('esta suite nao importa')
   },
+  async contarChamadosAbertosDe() {
+    return 0
+  },
+  async excluirComentarioComAuditoria() {
+    return false
+  },
   async buscarParaExportarBruto() {
     throw new Error('esta suite nao exporta')
   },

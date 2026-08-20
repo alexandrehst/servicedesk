@@ -58,6 +58,9 @@ type EstadoDoDuble = {
 let estado: EstadoDoDuble
 
 const repositorio: IdentityRepository = {
+  async excluirUsuarioComAuditoria() {
+    throw new Error('a autenticacao nao exclui Usuario')
+  },
   async buscarUsuarioPorEmail(email) {
     return estado.usuarios.find((u) => u.email === email) ?? null
   },

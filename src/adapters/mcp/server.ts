@@ -4,6 +4,9 @@ import { abrirChamado } from '../../application/commands/abrir-chamado.js'
 import { acaoIrreversivel, type Confirmacao } from '../../application/commands/acao-irreversivel.js'
 import { atribuirChamado } from '../../application/commands/atribuir-chamado.js'
 import { comentarChamado } from '../../application/commands/comentar-chamado.js'
+import { excluirChamado } from '../../application/commands/excluir-chamado.js'
+import { excluirComentario } from '../../application/commands/excluir-comentario.js'
+import { excluirUsuario } from '../../application/commands/excluir-usuario.js'
 import { importarCsv } from '../../application/commands/importar-csv.js'
 import { mudarPrioridade } from '../../application/commands/mudar-prioridade.js'
 import { mudarStatus } from '../../application/commands/mudar-status.js'
@@ -34,6 +37,14 @@ import {
   comentarChamadoInputSchema,
   comentarChamadoOutputSchema,
 } from '../../application/contracts/comentar-chamado.js'
+import {
+  excluirChamadoInputSchema,
+  excluirChamadoOutputSchema,
+  excluirComentarioInputSchema,
+  excluirComentarioOutputSchema,
+  excluirUsuarioInputSchema,
+  excluirUsuarioOutputSchema,
+} from '../../application/contracts/excluir.js'
 import type { ExportarCsvInput } from '../../application/contracts/exportar-csv.js'
 import {
   exportarCsvInputSchema,
@@ -114,7 +125,12 @@ export type McpDeps = {
    * Story 2.3: o cadastro, para validar o DESTINATARIO de uma atribuicao. So
    * `buscarUsuarioPorEmail` — o adapter MCP nao cria sessao nem emite token.
    */
-  readonly identidades: Pick<IdentityRepository, 'buscarUsuarioPorEmail'>
+  readonly identidades: Pick<
+    IdentityRepository,
+    // Story 4.3: `excluirUsuarioComAuditoria` entrou aqui. O `Pick` continua
+    // dizendo o que o adapter NAO faz — nao cria sessao, nao emite token.
+    'buscarUsuarioPorEmail' | 'excluirUsuarioComAuditoria'
+  >
   /**
    * Story 4.2: o import registra cada linha que o banco recusou.
    *
@@ -403,6 +419,47 @@ export const criarHandlerImportarCsv = (deps: McpDeps) =>
         : '.'),
   )
 
+/**
+ * Os handlers das tres exclusoes (Story 4.3, FR-23, AD-7).
+ *
+ * A Story 1.7 nao registrou tool de exclusao de proposito — "FR-13/FR-14 nao a
+ * preveem, e inventa-la aqui seria expor uma acao destrutiva pela superficie
+ * que a Story 1.5 acabou de proteger. A Story 4.3 decide se e como ela
+ * aparece". Esta e a decisao: **aparecem, e as tres exigem confirmacao.**
+ *
+ * A descricao de cada uma diz o que a acao FAZ e o que ela NAO desfaz. E o
+ * texto que a IA le para decidir se chama — e, quando chama, e o que a pessoa
+ * do outro lado vai ver antes de confirmar.
+ */
+export const criarHandlerExcluirChamado = (deps: McpDeps) =>
+  criarHandler(
+    deps,
+    excluirChamado({ repositorio: deps.repositorio, confirmacao: deps.confirmacao }),
+    (saida) => `Chamado #${saida.number} excluido. O registro permanece no Log.`,
+  )
+
+export const criarHandlerExcluirComentario = (deps: McpDeps) =>
+  criarHandler(
+    deps,
+    excluirComentario({ repositorio: deps.repositorio, confirmacao: deps.confirmacao }),
+    (saida) => `Comentario ${saida.id} excluido. Ele sumiu da thread para todo mundo.`,
+  )
+
+export const criarHandlerExcluirUsuario = (deps: McpDeps) =>
+  criarHandler(
+    deps,
+    excluirUsuario({
+      identidades: deps.identidades,
+      repositorio: deps.repositorio,
+      confirmacao: deps.confirmacao,
+    }),
+    (saida) =>
+      `Usuario ${saida.email} excluido: a sessao e o token MCP dele pararam de valer agora.` +
+      (saida.chamadosSemDono > 0
+        ? ` ATENCAO: ${saida.chamadosSemDono} Chamado(s) nao encerrado(s) continuam com ele como Dono — nada foi redistribuido. Use atribuir_chamado.`
+        : ''),
+  )
+
 /** Handler da tool de leitura, extraido para ser testavel sem transporte. */
 export const criarHandlerVerChamado = (deps: McpDeps) =>
   criarHandler(
@@ -645,6 +702,42 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: importarCsvOutputSchema,
     },
     criarHandlerImportarCsv(deps),
+  )
+
+  servidor.registerTool(
+    'excluir_chamado',
+    {
+      title: 'Excluir Chamado',
+      description:
+        'Exclui um Chamado. A exclusao e LOGICA: o Chamado sai da Fila, da busca e do export para todo mundo, e o registro permanece no Log — mas NAO HA COMO DESFAZER por este sistema. Exige confirmacao humana explicita: a primeira chamada devolve um token para mostrar a quem decide.',
+      inputSchema: excluirChamadoInputSchema,
+      outputSchema: excluirChamadoOutputSchema,
+    },
+    criarHandlerExcluirChamado(deps),
+  )
+
+  servidor.registerTool(
+    'excluir_comentario',
+    {
+      title: 'Excluir Comentario',
+      description:
+        'Exclui um Comentario de um Chamado. O `id` vem de ver_chamado. A exclusao e LOGICA e NAO HA COMO DESFAZER: o Comentario some da thread para todo mundo, inclusive para quem o escreveu. Exige confirmacao humana explicita.',
+      inputSchema: excluirComentarioInputSchema,
+      outputSchema: excluirComentarioOutputSchema,
+    },
+    criarHandlerExcluirComentario(deps),
+  )
+
+  servidor.registerTool(
+    'excluir_usuario',
+    {
+      title: 'Excluir Usuario',
+      description:
+        'Desliga o acesso de uma pessoa. A partir daqui a sessao dela para de valer NA HORA, o token MCP dela para de resolver, o e-mail dela deixa de abrir Chamado e ninguem consegue atribuir trabalho a ela. Os Chamados dela PERMANECEM e nao sao redistribuidos. E a acao mais destrutiva deste sistema e NAO HA COMO DESFAZER. Exige confirmacao humana explicita.',
+      inputSchema: excluirUsuarioInputSchema,
+      outputSchema: excluirUsuarioOutputSchema,
+    },
+    criarHandlerExcluirUsuario(deps),
   )
 
   servidor.registerTool(

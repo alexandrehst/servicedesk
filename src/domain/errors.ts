@@ -33,6 +33,18 @@ export type DomainErrorCode =
   // Story 2.1: Comentario sem corpo. Mesma familia de `TituloObrigatorio` e
   // `DescricaoObrigatoria` — o dominio recusa o vazio antes de qualquer I/O.
   | 'CorpoObrigatorio'
+  // Story 4.3: o Comentario nao existe, e de OUTRO Chamado, ou ja foi
+  // excluido — os tres casos, um codigo so. Mesmo raciocinio de
+  // `TicketNaoEncontrado`: distinguir "nao existe" de "existe e nao e deste
+  // Chamado" daria um oraculo de existencia, e os ids sao sequenciais.
+  | 'ComentarioNaoEncontrado'
+  // Story 4.3: nao existe OU ja foi excluido — um codigo so, pelo mesmo motivo
+  // de `CredencialInvalida` (1.3). Distinguir os dois faria desta tool um
+  // verificador de quem trabalha na empresa.
+  | 'UsuarioNaoEncontrado'
+  // Story 4.3: excluir a si mesmo derrubaria a propria sessao no meio da
+  // operacao — e o sistema poderia ficar sem nenhum Agente.
+  | 'AutoExclusao'
   // Story 2.2: a maquina de estados do AD-5 recusou o destino pedido.
   | 'TransicaoInvalida'
   // Story 2.2: concorrencia otimista (AD-10). Alguem mudou o Chamado entre a
