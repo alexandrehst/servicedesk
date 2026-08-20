@@ -107,6 +107,39 @@ describe('o que fica desligado VAI PARA O LOG (AC #4)', () => {
   })
 })
 
+describe('o intake usa o canal de notificacao quando ele existe (AC #4)', () => {
+  /**
+   * O ramo que faltava cobrir, e ele nao e cosmetico: e o caminho em que um
+   * Chamado aberto POR E-MAIL dispara o e-mail de confirmacao. Sem ele, o
+   * intake abriria o Chamado e o Solicitante nao saberia — que e exatamente o
+   * cenario que a Story 1.9 e a 1.6 existem para evitar juntas.
+   */
+  it('com SMTP e IMAP, o intake sobe COM o canal ligado', async () => {
+    const config = lerConfig({
+      ...base,
+      ...IMAP,
+      INTAKE_INTERVALO_MS: '999999',
+      SMTP_HOST: 'smtp.empresa.com',
+      SMTP_PORT: '587',
+      SMTP_USER: 'u',
+      SMTP_PASS: 'p',
+      EMAIL_REMETENTE: 'sd@empresa.com',
+      BASE_URL: 'https://sd.empresa.com',
+    })
+    const montagem = montar(config)
+
+    // O canal existe na montagem — e e ele que o intake recebe.
+    expect(montagem.deps.notificacao).toBeDefined()
+
+    const app = criarAplicacao(config, montagem, { criarCaixa: caixaVazia })
+
+    expect(app.agendador).not.toBeNull()
+    // E nada foi dado como desligado.
+    expect(config.recursosDesligados).toEqual([])
+    await app.encerrar('teste')
+  })
+})
+
 describe('o encerramento (AC #1)', () => {
   /**
    * A ordem importa: fechar o pool antes de parar o agendador deixaria uma

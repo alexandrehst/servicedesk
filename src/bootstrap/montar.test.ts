@@ -122,6 +122,16 @@ describe('o que fica desligado sem configuracao (AC #4)', () => {
     )
 
     expect(comEmail.deps.notificacao).toBeDefined()
+
+    // A URL do link e montada com a BASE_URL configurada — e o token viaja
+    // nela e SO nela (AD-9). Sem esta assercao, um `montarUrl` que ignorasse a
+    // base passaria, e o e-mail chegaria com link para lugar nenhum.
+    const url = comEmail.deps.notificacao?.montarUrl(1042, 'tok')
+
+    expect(url).toContain('https://sd.empresa.com')
+    expect(url).toContain('1042')
+    expect(url).toContain('tok')
+
     void comEmail.fechar()
   })
 })

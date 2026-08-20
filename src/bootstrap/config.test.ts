@@ -121,5 +121,19 @@ describe('o intervalo do intake', () => {
   it('recusa valor invalido em vez de cair no padrao em silencio', () => {
     expect(() => lerConfig({ ...MINIMO, INTAKE_INTERVALO_MS: 'daqui a pouco' })).toThrow()
     expect(() => lerConfig({ ...MINIMO, INTAKE_INTERVALO_MS: '0' })).toThrow()
+    expect(() => lerConfig({ ...MINIMO, INTAKE_INTERVALO_MS: '-1' })).toThrow()
+  })
+
+  /**
+   * Achado do `claude-review` no PR #85. O tipo do erro NAO e detalhe: o catch
+   * de boot decide `tipo: 'configuracao'` vs `tipo: 'defeito'` por
+   * `instanceof ConfigInvalida`. Um `ZodError` cru viraria "defeito nosso", com
+   * stack — mandando quem monitora investigar codigo que esta certo por causa
+   * de um valor que o operador digitou errado.
+   */
+  it('e o erro e ConfigInvalida, nao ZodError cru', () => {
+    expect(() => lerConfig({ ...MINIMO, INTAKE_INTERVALO_MS: 'ontem' })).toThrow(ConfigInvalida)
+    // E a mensagem diz o que fazer, nao so que falhou.
+    expect(() => lerConfig({ ...MINIMO, INTAKE_INTERVALO_MS: 'ontem' })).toThrow(/milissegundos/i)
   })
 })

@@ -136,10 +136,27 @@ export const lerConfig = (ambiente: Record<string, string | undefined>): Config 
   })
 
   const intervalo = ambiente.INTAKE_INTERVALO_MS
-  const intakeIntervaloMs =
-    intervalo === undefined || intervalo === ''
-      ? INTAKE_INTERVALO_PADRAO_MS
-      : inteiroPositivo.parse(intervalo)
+  const intakeIntervaloMs = (() => {
+    if (intervalo === undefined || intervalo === '') {
+      return INTAKE_INTERVALO_PADRAO_MS
+    }
+
+    const lido = inteiroPositivo.safeParse(intervalo)
+
+    if (!lido.success) {
+      // Embrulhado em `ConfigInvalida` como todo o resto deste arquivo — e nao
+      // por simetria: o `catch` de boot decide `tipo: 'configuracao'` vs
+      // `tipo: 'defeito'` por `instanceof ConfigInvalida`. Um `ZodError` cru
+      // cairia no `else` e seria registrado como DEFEITO NOSSO, com stack —
+      // mandando quem monitora investigar codigo que esta certo, por causa de
+      // um valor que o operador digitou errado. (Achado do review no PR #85.)
+      throw new ConfigInvalida(
+        `INTAKE_INTERVALO_MS invalido: "${intervalo}". Informe milissegundos, um inteiro maior que zero.`,
+      )
+    }
+
+    return lido.data
+  })()
 
   return {
     databaseUrl: obrigatorias.data.DATABASE_URL,
