@@ -229,11 +229,11 @@ claude-opus-5 (Claude Code, loop Ralph)
 
 ### Debug Log References
 
-- `scratchpad/mutacoes-42.py` — **36 mutações, 36 reprovadas** (saída em `scratchpad/mutacoes-42.out`). **Alvo evaporado em três rodadas seguidas**, quatro ocorrências ao todo nesta story: `resultado.novo.criadoEm` → `novo.criadoEm` (o `for` virou lote), `criado === null` → `resultado.value === null` (`Promise.all` virou `allSettled`) e duas no `falhas.push` (quando `causa` foi extraída). Todas corrigidas e reexecutadas isoladas. Somando as anteriores do projeto, seis vezes — as duas primeiras por causa do formatador, as quatro desta story pela minha própria refatoração.
+- `scratchpad/mutacoes-42.py` — **38 mutações, 38 reprovadas** (saída em `scratchpad/mutacoes-42.out`). **Alvo evaporado em três rodadas seguidas**, quatro ocorrências ao todo nesta story: `resultado.novo.criadoEm` → `novo.criadoEm` (o `for` virou lote), `criado === null` → `resultado.value === null` (`Promise.all` virou `allSettled`) e duas no `falhas.push` (quando `causa` foi extraída). Todas corrigidas e reexecutadas isoladas. Somando as anteriores do projeto, seis vezes — as duas primeiras por causa do formatador, as quatro desta story pela minha própria refatoração.
 
 Na terceira vez parei de consertar o sintoma: **o script agora confere todos os alvos ANTES de rodar** e se recusa a começar, com uma mensagem que separa "SCRIPT DESATUALIZADO" de "MUTAÇÃO SOBREVIVENTE". Eram duas coisas diferentes reportadas do mesmo jeito, e a diferença importa — uma quer dizer "o script aponta para código que mudou", a outra quer dizer "falta teste". Agora o erro aparece em um segundo, não quarenta minutos depois
-- `pnpm test` — 902 testes verdes; `pnpm typecheck`, `pnpm lint`, `pnpm arch` limpos
-- `src/adapters/persistence/import-csv.test.ts` — 16 testes contra o Postgres real
+- `pnpm test` — 904 testes verdes; `pnpm typecheck`, `pnpm lint`, `pnpm arch` limpos
+- `src/adapters/persistence/import-csv.test.ts` — 18 testes contra o Postgres real
 - `src/application/commands/importar-csv.test.ts` — 13 testes do lote paralelo, do caminho de falha e do log, com duble
 
 ### Completion Notes List
@@ -327,6 +327,47 @@ Solicitante, e log é lugar por onde dado vaza); e que linha **rejeitada** não
 vira erro no log, porque dado errado num arquivo de migração é o caso normal, e
 registrá-lo como erro treinaria quem monitora a ignorar erro — distinção que o
 próprio port já fazia entre `erro` e `aviso`.
+
+**O quarto achado, e o único em que o teste existia e mesmo assim não
+provava nada.** O revisor apontou que `causa = erro.message` repassava a
+mensagem do Drizzle sem saneamento — e que meu teste do vazamento usava um duble
+lançando `new Error('timeout ao falar com o banco')`, string sintética que nunca
+exercitaria o formato real.
+
+**Medi contra o Postgres antes de aceitar**, e é pior do que soa. Uma linha com
+byte nulo no Título (caso comum em arquivo de sistema legado, não laboratório)
+produz:
+
+```
+Failed query: insert into "tickets" (...) values ($1,$2,...)
+params: <Título>,<Descrição>,rede,aberto,media,<e-mail do Solicitante>,,INC-1
+```
+
+O `DrizzleQueryError` carrega a query **e os parâmetros**. Título, Descrição e
+e-mail iriam inteiros para o log estruturado e para a resposta da tool — o
+vazamento que o comentário ao lado afirmava estar prevenido.
+
+Terceira vez nesta story que "afirmação não é teste" aparece, e a única em que o
+teste **existia e passava**. A lição fica mais afiada: um duble prova o contrato
+que você imaginou; só o caminho real prova o contrato que existe. Onde a
+garantia é sobre o **formato de um dado que vem de fora do nosso código**, o
+duble é a própria ilusão.
+
+Correção: `causaSegura` devolve **só o SQLSTATE**, traduzido por uma tabela
+nossa. Nenhum texto vindo do banco atravessa — `invalid input syntax for type
+integer: "xyz"` também carrega valor, e a lista de mensagens que vazam não é
+enumerável, então filtrar por padrão seria perder por construção. O operador
+recebe `a consulta foi cancelada por tempo (SQLSTATE 57014)`: diz o que fazer
+sem dizer o que estava na linha. E o teste novo é de **integração**, forçando o
+erro de verdade.
+
+**Um risco do método, que apareceu aqui e vale registrar:** o script de mutação
+foi interrompido no meio de uma rodada e **deixou o repositório mutado** — a
+mutação do AD-4, trocando `nextval` pelo número do arquivo, ficou aplicada em
+`ticket-repository.ts`. Peguei no `git diff` antes de commitar. O script
+restaura no `finally`, mas `finally` não roda quando o processo morre. Conferir
+`git status` depois de rodar mutação não é zelo: é a única coisa entre isso e um
+commit que inverte o AD-4.
 
 **A autorização que a story não pedia.** Nenhuma AC mencionava quem pode
 importar, e o command nasceu sem checagem. Importar é a **única escrita do

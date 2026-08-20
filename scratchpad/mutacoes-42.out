@@ -1,6 +1,6 @@
-OK O Numero passa a vir do arquivo (AD-4 contornado): 11 teste(s)
-OK O numero_legado nao e gravado (nao ha como ligar ao sistema antigo): 5 teste(s)
-OK Violacao de unicidade vira ERRO (o lote inteiro cai no reimport): 2 teste(s)
+OK O Numero passa a vir do arquivo (AD-4 contornado): 13 teste(s)
+OK O numero_legado nao e gravado (nao ha como ligar ao sistema antigo): 7 teste(s)
+OK Violacao de unicidade vira ERRO (o lote inteiro cai no reimport): 1 teste(s)
 OK Repetida e contada como aceita: 3 teste(s)
 OK Linha invalida e ignorada em silencio (some do relatorio): 5 teste(s)
 OK O motivo da rejeicao vira generico: 1 teste(s)
@@ -23,26 +23,25 @@ OK REMOVER a checagem de permissao (qualquer um importa): 1 teste(s)
 OK Solicitante ganha a capacidade de importar: 1 teste(s)
 OK O relatorio sai na ordem em que o banco respondeu, nao na do arquivo: 1 teste(s)
 OK Duplicata dentro do arquivo vai ao banco e o vencedor vira sorteio: 2 teste(s)
-OK O lote pula a ultima fatia (arquivo maior que LINHAS_POR_LOTE): 21 teste(s)
+OK O lote pula a ultima fatia (arquivo maior que LINHAS_POR_LOTE): 23 teste(s)
 OK O lote reprocessa a primeira fatia (avanco errado): 3 teste(s)
-OK Uma falha de banco derruba o import inteiro (`all` no lugar de `allSettled`): 23 teste(s)
-!! ALVOS EVAPORADOS nesta rodada (a linha do `falhas.push` mudou quando `causa`
-   foi extraida): as duas foram corrigidas e reexecutadas isoladas, reprovando
-   4 testes cada. Quinta e sexta ocorrencia do mesmo acidente no projeto — o
-   script agora CONFERE TODOS OS ALVOS ANTES de rodar, e se recusa a comecar.
-
-OK A causa da falha vira texto generico: 2 teste(s)
+OK Uma falha de banco derruba o import inteiro (`all` no lugar de `allSettled`): 25 teste(s)
+OK A falha some do relatorio (o operador nao sabe o que nao entrou): 6 teste(s)
+OK Falha e classificada como rejeitada (perde-se a acao que ela pede): 6 teste(s)
 OK A falha nao e registrada no log (so o relatorio sincrono a conhece): 1 teste(s)
-OK O log leva o TITULO da linha (AD-9: dado do Solicitante vaza no log): 2 teste(s)
+OK O log leva o TITULO da linha (AD-9: dado do Solicitante vaza no log): 3 teste(s)
 OK Linha rejeitada tambem vira erro no log (treina quem monitora a ignorar erro): 1 teste(s)
+OK A causa volta a ser `erro.message` (o vazamento medido: params no log): 4 teste(s)
+OK O SQLSTATE some da causa (o operador nao sabe o que houve): 3 teste(s)
+OK O SQLSTATE do `cause` e ignorado (todo erro do Drizzle vira generico): 1 teste(s)
 OK Campo entre aspas perde o tratamento (virgula quebra a linha): 5 teste(s)
 OK Aspas dobradas deixam de virar uma so: 3 teste(s)
 
 | Mutacao aplicada | Reprovou |
 | --- | --- |
-| O Numero passa a vir do arquivo (AD-4 contornado) | 11 teste(s) |
-| O numero_legado nao e gravado (nao ha como ligar ao sistema antigo) | 5 teste(s) |
-| Violacao de unicidade vira ERRO (o lote inteiro cai no reimport) | 2 teste(s) |
+| O Numero passa a vir do arquivo (AD-4 contornado) | 13 teste(s) |
+| O numero_legado nao e gravado (nao ha como ligar ao sistema antigo) | 7 teste(s) |
+| Violacao de unicidade vira ERRO (o lote inteiro cai no reimport) | 1 teste(s) |
 | Repetida e contada como aceita | 3 teste(s) |
 | Linha invalida e ignorada em silencio (some do relatorio) | 5 teste(s) |
 | O motivo da rejeicao vira generico | 1 teste(s) |
@@ -65,17 +64,18 @@ OK Aspas dobradas deixam de virar uma so: 3 teste(s)
 | Solicitante ganha a capacidade de importar | 1 teste(s) |
 | O relatorio sai na ordem em que o banco respondeu, nao na do arquivo | 1 teste(s) |
 | Duplicata dentro do arquivo vai ao banco e o vencedor vira sorteio | 2 teste(s) |
-| O lote pula a ultima fatia (arquivo maior que LINHAS_POR_LOTE) | 21 teste(s) |
+| O lote pula a ultima fatia (arquivo maior que LINHAS_POR_LOTE) | 23 teste(s) |
 | O lote reprocessa a primeira fatia (avanco errado) | 3 teste(s) |
-| Uma falha de banco derruba o import inteiro (`all` no lugar de `allSettled`) | 23 teste(s) |
-| A falha some do relatorio (o operador nao sabe o que nao entrou) | 4 teste(s) — reexecutado isolado |
-| Falha e classificada como rejeitada (perde-se a acao que ela pede) | 4 teste(s) — reexecutado isolado |
-| A causa da falha vira texto generico | 2 teste(s) |
+| Uma falha de banco derruba o import inteiro (`all` no lugar de `allSettled`) | 25 teste(s) |
+| A falha some do relatorio (o operador nao sabe o que nao entrou) | 6 teste(s) |
+| Falha e classificada como rejeitada (perde-se a acao que ela pede) | 6 teste(s) |
 | A falha nao e registrada no log (so o relatorio sincrono a conhece) | 1 teste(s) |
-| O log leva o TITULO da linha (AD-9: dado do Solicitante vaza no log) | 2 teste(s) |
+| O log leva o TITULO da linha (AD-9: dado do Solicitante vaza no log) | 3 teste(s) |
 | Linha rejeitada tambem vira erro no log (treina quem monitora a ignorar erro) | 1 teste(s) |
+| A causa volta a ser `erro.message` (o vazamento medido: params no log) | 4 teste(s) |
+| O SQLSTATE some da causa (o operador nao sabe o que houve) | 3 teste(s) |
+| O SQLSTATE do `cause` e ignorado (todo erro do Drizzle vira generico) | 1 teste(s) |
 | Campo entre aspas perde o tratamento (virgula quebra a linha) | 5 teste(s) |
 | Aspas dobradas deixam de virar uma so | 3 teste(s) |
 
-Todas as mutacoes foram reprovadas (as duas sobreviventes foram alvo evaporado,
-nao teste faltando — corrigidas e reexecutadas acima).
+Todas as mutacoes foram reprovadas.

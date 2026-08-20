@@ -174,7 +174,11 @@ describe('quando o BANCO falha numa linha (achado do claude-review, PR #79)', ()
       async importarComAuditoria(novo: ChamadoImportado) {
         chamadas.push(novo.numeroLegado)
         if (numerosLegados.includes(novo.numeroLegado)) {
-          throw new Error('timeout ao falar com o banco')
+          // Com SQLSTATE, como o erro real do driver. O que o duble NAO
+          // consegue reproduzir e o formato da mensagem do Drizzle (que carrega
+          // os parametros) — isso tem teste de integracao proprio, em
+          // `adapters/persistence/import-csv.test.ts`.
+          throw Object.assign(new Error('Failed query: ...'), { code: '57014' })
         }
         proximoNumero += 1
         return { number: proximoNumero }
@@ -190,7 +194,11 @@ describe('quando o BANCO falha numa linha (achado do claude-review, PR #79)', ()
 
     expect(saida.aceitas.map((a) => a.numeroLegado)).toEqual(['INC-1', 'INC-2', 'INC-4', 'INC-5'])
     expect(saida.falhas).toEqual([
-      { linha: 4, numeroLegado: 'INC-3', erro: 'timeout ao falar com o banco' },
+      {
+        linha: 4,
+        numeroLegado: 'INC-3',
+        erro: 'a consulta foi cancelada por tempo (SQLSTATE 57014)',
+      },
     ])
   })
 
@@ -238,7 +246,11 @@ describe('quando o BANCO falha numa linha (achado do claude-review, PR #79)', ()
     expect(logger.erros).toEqual([
       {
         evento: 'falha_ao_importar_linha',
-        dados: { linha: 3, numero_legado: 'INC-2', causa: 'timeout ao falar com o banco' },
+        dados: {
+          linha: 3,
+          numero_legado: 'INC-2',
+          causa: 'a consulta foi cancelada por tempo (SQLSTATE 57014)',
+        },
       },
     ])
   })
@@ -254,6 +266,8 @@ describe('quando o BANCO falha numa linha (achado do claude-review, PR #79)', ()
     const registrado = JSON.stringify(logger.erros)
     expect(registrado).not.toContain('folha')
     expect(registrado).not.toContain('Sem acesso remoto')
+    // Nem o texto do erro, que no driver real carrega a query e os parametros.
+    expect(registrado).not.toContain('Failed query')
   })
 
   it('linha REJEITADA nao vira erro no log: o dado errado e o caso normal', async () => {

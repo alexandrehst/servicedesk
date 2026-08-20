@@ -229,12 +229,6 @@ MUTACOES = [
         "          falhas.push({ linha, numeroLegado: novo.numeroLegado, erro: causa })",
         "          rejeitadas.push({ linha, numeroLegado: novo.numeroLegado, motivo: 'falhou' })",
     ),
-    (
-        "A causa da falha vira texto generico",
-        COMMAND,
-        "const mensagem = (erro: unknown): string => (erro instanceof Error ? erro.message : String(erro))",
-        "const mensagem = (_erro: unknown): string => 'falhou'",
-    ),
     # ---- A falha tambem vai para o LOG (3o achado do review, PR #79) ----
     (
         "A falha nao e registrada no log (so o relatorio sincrono a conhece)",
@@ -253,6 +247,25 @@ MUTACOES = [
         COMMAND,
         "        rejeitadas.push({\n          linha,\n          numeroLegado: bruta.numero_legado ?? '',\n          motivo: resultado.motivo,\n        })",
         "        logger.erro('falha_ao_importar_linha', { linha, numero_legado: '', causa: 'x' })\n        rejeitadas.push({\n          linha,\n          numeroLegado: bruta.numero_legado ?? '',\n          motivo: resultado.motivo,\n        })",
+    ),
+    # ---- O erro do banco carrega os PARAMETROS (4o achado do review, PR #79) ----
+    (
+        "A causa volta a ser `erro.message` (o vazamento medido: params no log)",
+        COMMAND,
+        "const causaSegura = (erro: unknown): string => {\n  const codigo = codigoDoErro(erro)",
+        "const causaSegura = (erro: unknown): string => {\n  if (erro instanceof Error) return erro.message\n  const codigo = codigoDoErro(erro)",
+    ),
+    (
+        "O SQLSTATE some da causa (o operador nao sabe o que houve)",
+        COMMAND,
+        "  return conhecida === undefined\n    ? `falha do banco (SQLSTATE ${codigo})`\n    : `${conhecida} (SQLSTATE ${codigo})`",
+        "  return conhecida === undefined ? 'falha do banco' : 'falha do banco'",
+    ),
+    (
+        "O SQLSTATE do `cause` e ignorado (todo erro do Drizzle vira generico)",
+        COMMAND,
+        "  for (const candidato of [erro, (erro as { cause?: unknown })?.cause]) {",
+        "  for (const candidato of [erro]) {",
     ),
     # ---- O parser: o dado vem de FORA ----
     (

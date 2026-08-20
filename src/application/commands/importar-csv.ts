@@ -67,14 +67,68 @@ const semPermissao = (): DomainError =>
 const LINHAS_POR_LOTE = 8
 
 /**
- * O que o operador ve quando o banco falha numa linha.
+ * O que o operador ve quando o banco falha numa linha — e por que NAO e
+ * `erro.message`.
  *
- * Vai para o relatorio, e nao so para o log do servidor, porque quem migra
- * precisa saber POR QUE a linha nao entrou — "falhou" sozinho nao distingue
- * timeout de deadlock de disco cheio, e a acao e diferente em cada caso. Quem
- * le e um Agente com a capacidade `importa`, o papel mais restrito do sistema.
+ * A mensagem do Drizzle carrega a query E OS PARAMETROS. Medido contra o
+ * Postgres real: uma linha com byte nulo no Titulo (caso comum em arquivo de
+ * sistema legado) produz
+ *
+ *   Failed query: insert into "tickets" (...) values ($1,$2,...)
+ *   params: <Titulo>,<Descricao>,rede,aberto,media,<email do Solicitante>,,INC-1
+ *
+ * Repassar isso jogaria Titulo, Descricao e e-mail — dado do Solicitante — no
+ * log estruturado (AD-9: log e lugar por onde segredo vaza) E na resposta da
+ * tool. O primeiro comentario deste trecho AFIRMAVA que o conteudo da linha
+ * nao chegava ao log; o teste que "provava" isso usava um duble que lancava
+ * `new Error('timeout')`, uma string sintetica que nunca exercitou o formato
+ * real. Afirmacao nao e teste, de novo — agora ha um teste de integracao que
+ * forca o erro de verdade.
+ *
+ * O que sai daqui e SO o codigo SQLSTATE, traduzido por uma tabela nossa.
+ * Nenhum texto que venha do banco atravessa: um `invalid input syntax for type
+ * integer: "xyz"` tambem carrega valor, e a lista de mensagens que vazam nao e
+ * enumeravel. O codigo basta para saber o que fazer.
  */
-const mensagem = (erro: unknown): string => (erro instanceof Error ? erro.message : String(erro))
+const CAUSAS_CONHECIDAS: Record<string, string> = {
+  '22021': 'o texto tem byte invalido para UTF-8 (comum em arquivo de sistema legado)',
+  '22001': 'um campo e maior que o limite da coluna',
+  '23502': 'um campo obrigatorio chegou nulo',
+  '23503': 'a linha aponta para um registro que nao existe',
+  '23505': 'ja existe registro com essa chave',
+  '23514': 'um campo violou uma regra da tabela',
+  '40001': 'conflito de concorrencia — rode o arquivo de novo',
+  '40P01': 'deadlock — rode o arquivo de novo',
+  '53300': 'o banco esta sem conexoes disponiveis',
+  '57014': 'a consulta foi cancelada por tempo',
+  '08006': 'a conexao com o banco caiu',
+}
+
+const codigoDoErro = (erro: unknown): string | undefined => {
+  // O Drizzle embrulha o erro do driver; o SQLSTATE fica no `cause`.
+  for (const candidato of [erro, (erro as { cause?: unknown })?.cause]) {
+    const codigo = (candidato as { code?: unknown })?.code
+    if (typeof codigo === 'string' && codigo.length > 0) {
+      return codigo
+    }
+  }
+  return undefined
+}
+
+const causaSegura = (erro: unknown): string => {
+  const codigo = codigoDoErro(erro)
+
+  if (codigo === undefined) {
+    // Sem SQLSTATE nao ha o que traduzir, e o texto do erro esta fora de
+    // questao. O nome da classe nao carrega dado.
+    return `falha do banco (${(erro as { constructor?: { name?: string } })?.constructor?.name ?? 'desconhecida'})`
+  }
+
+  const conhecida = CAUSAS_CONHECIDAS[codigo]
+  return conhecida === undefined
+    ? `falha do banco (SQLSTATE ${codigo})`
+    : `${conhecida} (SQLSTATE ${codigo})`
+}
 
 type Pendente = { readonly linha: number; readonly novo: ChamadoImportado }
 
@@ -160,10 +214,11 @@ export const importarCsv =
           // gravou — rode de novo". O reimport e seguro (o `numero_legado` ja
           // gravado volta como repetida), entao retomar e literalmente rodar o
           // mesmo arquivo.
-          const causa = mensagem(resultado.reason)
+          const causa = causaSegura(resultado.reason)
           // NUNCA o conteudo da linha: Titulo e Descricao vem do Solicitante, e
           // log e um lugar por onde dado vaza (AD-9). O numero da linha e o
-          // `numero_legado` bastam para achar a linha no arquivo.
+          // `numero_legado` bastam para achar a linha no arquivo — e a `causa`
+          // ja vem saneada de `causaSegura`, nao de `erro.message`.
           logger.erro('falha_ao_importar_linha', {
             linha,
             numero_legado: novo.numeroLegado,

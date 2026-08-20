@@ -31,6 +31,18 @@ const bruno: Principal = { identity: 'bruno@empresa.com', role: 'agente', origin
 /** O log tem sonda propria em `commands/importar-csv.test.ts`; aqui ele so precisa existir. */
 const semLog = { erro: () => {}, aviso: () => {} }
 
+/** Guarda o que foi registrado, para o teste de vazamento. */
+const logQueGuarda = () => {
+  const erros: { evento: string; dados: Record<string, string | number> }[] = []
+  return {
+    erros,
+    erro: (evento: string, dados: Record<string, string | number>) => {
+      erros.push({ evento, dados })
+    },
+    aviso: () => {},
+  }
+}
+
 const importar = importarCsv({ repositorio, logger: semLog })
 
 const CABECALHO =
@@ -352,5 +364,91 @@ describe('a corrida que so o banco resolve', () => {
       sql`SELECT count(*)::int AS total FROM tickets WHERE numero_legado = 'INC-CORRIDA'`,
     )
     expect(total).toBe(1)
+  })
+})
+
+describe('o erro REAL do banco nao vaza o conteudo da linha (AD-9)', () => {
+  /**
+   * Este teste existe porque o duble mentia.
+   *
+   * O teste de unidade "o log NAO leva o conteudo da linha" usava um duble que
+   * lancava `new Error('timeout ao falar com o banco')` — string sintetica, sem
+   * dado nenhum. Ele passava e nao provava nada: o `DrizzleQueryError` real
+   * carrega a query E OS PARAMETROS. Medido contra este mesmo Postgres:
+   *
+   *   Failed query: insert into "tickets" (...) values ($1,$2,...)
+   *   params: <Titulo>,<Descricao>,rede,aberto,media,<email>,,INC-1
+   *
+   * O byte nulo no meio do texto e o gatilho, e nao e caso de laboratorio:
+   * arquivo de sistema legado tem byte nulo. O Postgres recusa com 22021.
+   *
+   * "Afirmacao nao e teste" pela terceira vez nesta story — e das tres, esta
+   * foi a unica em que o teste EXISTIA e ainda assim nao provava o caminho.
+   */
+  const SEGREDO = 'ACESSO-NEGADO-AO-SISTEMA-DA-FOLHA'
+  const DESCRICAO_SENSIVEL = 'a demissao da equipe toda sai na sexta'
+  const EMAIL = 'quem.abriu@empresa.com'
+
+  it('a causa que chega ao log e ao relatorio traz o SQLSTATE, nao os parametros', async () => {
+    const logger = logQueGuarda()
+    const csv = [
+      CABECALHO,
+      [
+        'INC-BYTE-NULO',
+        `${SEGREDO}${String.fromCharCode(0)}`,
+        DESCRICAO_SENSIVEL,
+        'rede',
+        'aberto',
+        'media',
+        EMAIL,
+        '',
+        '2024-03-15T10:30:00Z',
+      ].join(','),
+    ].join('\n')
+
+    const saida = await importarCsv({ repositorio, logger })({ csv }, bruno)
+
+    expect(saida.aceitas).toEqual([])
+    expect(saida.falhas).toHaveLength(1)
+
+    // O que o operador VE — no relatorio e no log.
+    const tudoQueSaiu = JSON.stringify([saida.falhas, logger.erros])
+
+    expect(tudoQueSaiu).not.toContain(SEGREDO)
+    expect(tudoQueSaiu).not.toContain(DESCRICAO_SENSIVEL)
+    expect(tudoQueSaiu).not.toContain(EMAIL)
+    expect(tudoQueSaiu).not.toContain('Failed query')
+    expect(tudoQueSaiu).not.toContain('params:')
+
+    // E ainda assim diz o que aconteceu.
+    expect(saida.falhas[0]?.erro).toContain('22021')
+    expect(saida.falhas[0]?.erro).toMatch(/UTF-8/)
+    expect(saida.falhas[0]?.numeroLegado).toBe('INC-BYTE-NULO')
+  })
+
+  it('nada foi gravado, e o Chamado seguinte entra normalmente', async () => {
+    const csv = [
+      CABECALHO,
+      [
+        'INC-BYTE-NULO',
+        `x${String.fromCharCode(0)}`,
+        'd',
+        'rede',
+        'aberto',
+        'media',
+        EMAIL,
+        '',
+        '',
+      ].join(','),
+      linha('INC-BOM'),
+    ].join('\n')
+
+    const saida = await importar({ csv }, bruno)
+
+    expect(saida.falhas.map((f) => f.numeroLegado)).toEqual(['INC-BYTE-NULO'])
+    expect(saida.aceitas.map((a) => a.numeroLegado)).toEqual(['INC-BOM'])
+
+    const gravados = await db.execute(sql`SELECT numero_legado FROM tickets`)
+    expect(gravados.map((g) => g.numero_legado)).toEqual(['INC-BOM'])
   })
 })
