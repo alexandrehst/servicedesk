@@ -1,4 +1,22 @@
-# Prompt do loop — Epic 4
+# Prompt do loop — Epic 4 ✅ ENCERRADO
+
+> **Este épico está completo** (PRs #77, #79, #81, #83) — e com ele o **MVP
+> planejado**. As quatro stories estão `done`.
+>
+> **O corte do contrato NÃO está validado**, e o que falta não é código: o
+> baseline do sistema contratado, o mês de operação em paralelo e a avaliação da
+> checklist de paridade são do dono do projeto. Ver `RESUME.md` e
+> `planning-artifacts/checklist-de-paridade.md`.
+>
+> **A próxima coisa a fazer é a story de bootstrap**: não há raiz de composição,
+> e sem ela os dois e-mails do FR-18 e o agendador do intake continuam prontos e
+> desligados — o sistema não roda fora dos testes. Ela depende da topologia de
+> deploy, que segue `Deferred` na spine.
+>
+> O que está abaixo é o registro do que este épico mediu, para o próximo prompt
+> aproveitar.
+
+# Prompt do loop — Epic 4 (histórico)
 
 Este arquivo é realimentado **inteiro** a cada iteração do `ralph-loop`. Você
 não lembra das voltas anteriores: descubra o estado lendo os arquivos e o
@@ -448,25 +466,58 @@ visibilidade (AD-8), e agora esta.
   as duas que ela mesma mandou registrar em vez de resolver: **não há restauração
   e não há política de retenção**, ambas agora no PRD.
 
-#### Story 4.4 — NÃO é completável por código, e isso precisa estar claro
+#### O que a 4.4 mediu — e por que o Epic 4 NÃO pode ser declarado completo
 
-A AC pede medir o baseline do sistema atual e **rodar em paralelo por ~1 mês**.
-O loop não roda um mês, não tem acesso ao software contratado e não avalia
-checklist operacional. **Não finja que fez.**
+A 4.4 entregou o que era entregável: a tool `relatorio_de_operacao` e a
+**checklist de paridade** (`planning-artifacts/checklist-de-paridade.md`).
+**O que ela não entregou continua não entregue**, e não por falha:
 
-O que é entregável por código, e é o que a story deve entregar:
+| Falta | Por quê | Quem |
+| --- | --- | --- |
+| Baseline do sistema contratado | exige acesso ao software do fornecedor | dono do projeto |
+| ~1 mês de operação em paralelo | o tempo precisa passar | dono do projeto |
+| Avaliar a checklist | julgamento sobre o mundo real | dono do projeto + Agentes |
+| Lista de tipos de Chamado do contratado | nunca foi levantada | dono do projeto |
 
-- **o instrumento de medição** — a consulta/relatório que calcula tempo médio de
-  resolução a partir do Log (`audit_entries` já tem `mudar_status` com o par
-  `de`/`para` e `registrado_em`, desde a 2.2);
-- **a checklist de paridade** como documento versionado, com os critérios do
-  SM-1/SM-5 em forma verificável.
+**A promessa `EPIC 4 COMPLETO` não é verdadeira enquanto isso não acontecer** —
+e nada disso acontece dentro do loop. Ver a seção 7.
 
-O que **não** é: os números do sistema antigo e o mês de operação em paralelo.
-Isso é do dono do projeto. **Entregue o instrumento, marque a story como
-parcialmente entregue no Dev Agent Record, e diga exatamente o que falta e quem
-faz.** Se preferir tratar como bloqueio, use a seção 5 — mas não marque `done`
-o que não foi feito.
+#### A lição da 4.4, que é sobre MÉTRICA e vale para qualquer story futura
+
+A mesma armadilha apareceu **três vezes na mesma story**, com roupas diferentes:
+
+1. **a média sozinha** esconderia que um Chamado esquecido arrasta o número
+   (por isso mediana **e** média — há teste com mediana 3,5h e média 100h+);
+2. **a reabertura contada pelo primeiro `resolvido`** faria a métrica melhorar
+   quando o atendimento piora;
+3. **o limite superior no período** transformaria "resolvido depois" em "sem
+   resolução", melhorando a média do período.
+
+> **Numa métrica de decisão, desconfie de toda mudança que MELHORA o número.**
+> Ela quase sempre está descartando o caso que mais importa. As três acima
+> pareciam simplificações razoáveis, e as três teriam feito o sistema parecer
+> melhor do que é — na conta que decide um contrato de R$240k/ano.
+
+E a regra irmã: **o que o sistema não consegue medir precisa estar escrito**,
+com dono e critério. A tabela "medível daqui / não medível daqui" no Dev Agent
+Record da 4.4 é a entrega intelectual daquela story — mais do que o SQL.
+
+#### Sobreviventes de mutação: a 4.4 encontrou os quatro tipos
+
+A 4.3 registrou que sobrevivente não tem um diagnóstico só. A 4.4 confirmou com
+uma rodada que teve os quatro:
+
+| Tipo | Exemplo da 4.4 | Ação |
+| --- | --- | --- |
+| **falta teste** | filtro de período nos autores (o SM-5 inflaria) | escrever a sonda |
+| **equivalente por dados** | `min`→`max` num grupo de uma linha só | remover, com o porquê |
+| **equivalente por outra guarda** | `JOIN`→`LEFT JOIN`, neutralizado pelo `WHERE` de sanidade | remover, com o porquê |
+| **equivalente por política** | `veHistorico`→`veChamadoDeTerceiro`, mesma política hoje | remover, com o porquê |
+
+**E uma quinta, que é a mais instrutiva:** ao justificar a remoção de uma delas,
+escrevi **no próprio script** que outra mutação "morre". Ela sobreviveu na
+rodada seguinte. Quarta aparição de *"afirmação não é teste"* no projeto — e
+desta vez a afirmação estava no arquivo que existe para verificar afirmações.
 
 #### Use o que os Epics 1–3 deixaram prontos
 

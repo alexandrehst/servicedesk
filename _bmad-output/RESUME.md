@@ -1,6 +1,6 @@
 # ServiceDesk — Ponto de Retomada
 
-**Última atualização:** 2026-08-19 (**Epic 3 completo** — PR #74 fechou a 3.6)
+**Última atualização:** 2026-08-20 (**Epic 4 completo** — PR #83 fechou a 4.4. **Último épico do MVP**)
 **Repo:** https://github.com/alexandrehst/servicedesk (público)
 
 ## O que é o projeto
@@ -9,13 +9,34 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Epics 0, 1, 2 e 3 completos.** Próximo: **Epic 4** — portabilidade e migração de dados (a primeira story é a 4.1, `export CSV`).
+**Os cinco épicos do MVP estão completos.** O desenvolvimento planejado acabou — mas **o corte do contrato ainda não pode acontecer**, e o que falta não é código. Ver "O que falta para o corte", logo abaixo.
 
 O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois papéis com autorização no domínio, token de máquina com rate limit, e-mail de abertura com link de acesso, soft-delete, revisão do Log de auditoria e intake por e-mail com remetente verificado. E o Chamado já **muda**: comentário público ou interno, status por máquina de estados, Dono e Prioridade — todos com concorrência otimista (AD-10) e auditoria na mesma transação. Resolver **avisa o Solicitante** por e-mail, com quem resolveu e o tempo total (2.5). E as três ações que não voltam atrás — fechar, cancelar, reabrir — **exigem confirmação humana** (2.6): um token que o servidor emite, com uso único, 5 minutos e escopo de um Chamado, uma ação e uma identidade.
 
 **E o trabalho se enxerga** (Epic 3): a Fila filtra por Status, Dono e Categoria, com os recortes "meus" e "sem Dono", paginada e ordenada; o resumo dá a carga por Status, Categoria e Dono; a busca acha por texto em Título, Descrição, Comentários e número do sistema anterior; a sugestão de parecidos evita duplicado na abertura; e o MCP expõe Resources (`chamado`, `fila`) e um Prompt de triagem.
 
-**O que falta para a paridade é TIRAR e PÔR dado:** export, import da base antiga e o corte de baseline — o Epic 4. Sem isso, não há como migrar os anos de histórico que o sistema contratado guarda, e "paridade comprovada" não se sustenta.
+**E o dado entra e sai** (Epic 4): export CSV com escape RFC 4180 e neutralização de fórmula; import de migração em que cada Chamado recebe **Número novo** e o antigo vira referência, com relatório de aceitas/repetidas/rejeitadas que não aborta o lote; soft-delete completo — Chamado, Comentário **e Usuário** —, com as três exclusões exigindo confirmação humana (o AD-7 que a Story 1.7 tinha marcado para este momento); e o **relatório de operação**, que mede tempo de resolução, adoção do MCP e quantas pessoas operam o sistema.
+
+## O que falta para o corte do contrato
+
+**Nada disso é código, e nenhuma parte acontece dentro do desenvolvimento.** Está tudo em `_bmad-output/planning-artifacts/checklist-de-paridade.md`, com critério observável e responsável por item.
+
+| Pendência | Por quê | Quem |
+| --- | --- | --- |
+| **Baseline do sistema contratado** | exige acesso ao software do fornecedor; peça **média e mediana**, com período e total de Chamados | dono do projeto |
+| **~1 mês rodando em paralelo** | o tempo precisa passar | dono do projeto |
+| **Lista de tipos de Chamado do contratado** | nunca foi levantada; sem ela, o "100%" do SM-1 não tem denominador | dono do projeto |
+| **Avaliar a checklist** | julgamento sobre o mundo real | dono do projeto + Agentes |
+| **Formato real do CSV do fornecedor** | a 4.2 definiu o **contrato de entrada**; o mapeamento real depende de um arquivo de verdade | dono do projeto + dev |
+
+**O item mais fácil de fingir que está verde** é "zero Chamados sendo tratados fora do ServiceDesk" — é sobre o que **não** está no sistema, então nenhuma consulta o responde. A checklist diz como verificá-lo: perguntar a cada Agente **e** conferir se entraram Chamados novos no contratado.
+
+**Duas dívidas que atravessaram todos os épicos e continuam abertas:**
+
+1. **Não há raiz de composição** — os dois e-mails do FR-18 e o agendador do intake estão prontos e **desligados**. Precisam da story de bootstrap.
+2. **A topologia de deploy segue `Deferred`** na spine, e a story de bootstrap depende dela.
+
+Sem as duas, **o sistema não roda fora dos testes** — o que é aceitável para um MVP verificado, e bloqueante para o mês de operação em paralelo. **Esta é a próxima coisa a fazer.**
 
 **A leitura em conjunto trouxe uma regra que atravessa o resto do projeto:** a autorização de lista acontece em duas camadas — o domínio decide o escopo e entrega como dado, o adapter traduz para `WHERE`, e o domínio reaplica sobre o que voltou. Onde não há itens para reaplicar (o resumo), o que se confere é **a pergunta que gerou os dados**.
 
@@ -27,7 +48,7 @@ O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois 
 | Epic 1 — Fundação segura | ✅ 9/9 `done` |
 | Epic 2 — Ciclo de vida do Chamado | ✅ 6/6 `done` (PRs #46, #48, #50, #52, #58, #60) |
 | Epic 3 — Fila, triagem e busca | ✅ 6/6 `done` (PRs #63, #65, #68, #70, #72, #74) |
-| Epic 4 — Portabilidade & migração | `backlog` (4 stories) |
+| Epic 4 — Portabilidade & migração | ✅ 4/4 `done` (PRs #77, #79, #81, #83) |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 
