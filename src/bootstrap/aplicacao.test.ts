@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { CaixaDeEntrada } from '../application/ports/caixa-de-entrada.js'
 import { hashToken } from '../platform/auth/token.js'
 import { criarAplicacao } from './aplicacao.js'
