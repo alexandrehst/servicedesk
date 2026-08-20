@@ -4,7 +4,7 @@ baseline_commit: 240cb1e
 
 # Story 4.3: Soft-delete completo
 
-Status: review
+Status: done
 
 ## Story
 
