@@ -65,6 +65,10 @@ import {
 } from '../../application/contracts/mudar-status.js'
 import type { Principal } from '../../application/contracts/principal.js'
 import {
+  relatorioDeOperacaoInputSchema,
+  relatorioDeOperacaoOutputSchema,
+} from '../../application/contracts/relatorio-de-operacao.js'
+import {
   resumoFilaInputSchema,
   resumoFilaOutputSchema,
 } from '../../application/contracts/resumo-fila.js'
@@ -78,6 +82,7 @@ import type { TicketRepository } from '../../application/ports/ticket-repository
 import { buscarChamados } from '../../application/queries/buscar-chamados.js'
 import { chamadosParecidos } from '../../application/queries/chamados-parecidos.js'
 import { exportarCsv } from '../../application/queries/exportar-csv.js'
+import { relatorioDeOperacao } from '../../application/queries/relatorio-de-operacao.js'
 import { resumoFila } from '../../application/queries/resumo-fila.js'
 import { verChamado } from '../../application/queries/ver-chamado.js'
 import { ehDomainError } from '../../domain/errors.js'
@@ -460,6 +465,29 @@ export const criarHandlerExcluirUsuario = (deps: McpDeps) =>
         : ''),
   )
 
+/**
+ * Handler do relatorio de operacao (Story 4.4).
+ *
+ * O texto resume as tres metricas porque quem le decide o corte do contrato com
+ * elas — e diz **quantos** Chamados sustentam a media, porque uma media de tres
+ * nao sustenta decisao nenhuma.
+ */
+export const criarHandlerRelatorioDeOperacao = (deps: McpDeps) =>
+  criarHandler(
+    deps,
+    relatorioDeOperacao({ repositorio: deps.repositorio, agora: () => new Date() }),
+    (saida) =>
+      `Periodo: ${saida.periodo.de.slice(0, 10)} a ${saida.periodo.ate.slice(0, 10)}. ` +
+      (saida.resolucao.resolvidos === 0
+        ? 'Nenhum Chamado resolvido no periodo.'
+        : `Resolucao: mediana ${saida.resolucao.medianaHoras?.toFixed(1)}h, media ${saida.resolucao.mediaHoras?.toFixed(1)}h ` +
+          `(${saida.resolucao.resolvidos} Chamado(s); ${saida.resolucao.semResolucao} aberto(s) sem resolucao).`) +
+      (saida.origem.percentualMcp === null
+        ? ' Nenhuma acao registrada.'
+        : ` ${saida.origem.percentualMcp}% das acoes vieram pelo MCP.`) +
+      ` ${saida.adocao.autoresDistintos} pessoa(s) agiram no sistema.`,
+  )
+
 /** Handler da tool de leitura, extraido para ser testavel sem transporte. */
 export const criarHandlerVerChamado = (deps: McpDeps) =>
   criarHandler(
@@ -738,6 +766,18 @@ export const criarServidorMcp = (deps: McpDeps): McpServer => {
       outputSchema: excluirUsuarioOutputSchema,
     },
     criarHandlerExcluirUsuario(deps),
+  )
+
+  servidor.registerTool(
+    'relatorio_de_operacao',
+    {
+      title: 'Relatorio de operacao',
+      description:
+        'Mede a operacao DESTE sistema no periodo: tempo de resolucao (mediana e media), percentual de acoes via MCP e quantas pessoas agiram. Tudo sai do Log de auditoria. NAO mede o software anterior nem sabe se ha Chamados sendo tratados fora daqui — essas duas perguntas estao na checklist de paridade e dependem de observacao humana.',
+      inputSchema: relatorioDeOperacaoInputSchema,
+      outputSchema: relatorioDeOperacaoOutputSchema,
+    },
+    criarHandlerRelatorioDeOperacao(deps),
   )
 
   servidor.registerTool(

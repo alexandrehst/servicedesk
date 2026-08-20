@@ -109,5 +109,5 @@ development_status:
   4-1-export-csv: done
   4-2-import-csv-de-migracao: done
   4-3-soft-delete-completo: done
-  4-4-corte-baseline-validacao-de-paridade: backlog
+  4-4-corte-baseline-validacao-de-paridade: review
   epic-4-retrospective: optional

@@ -480,6 +480,18 @@ O sistema pode importar Chamados do software atual via CSV.
 
 **Secundárias**
 - **SM-3: Sem regressão de serviço** — tempo médio de resolução não pior que o baseline atual. Valida FR-8–FR-10. `[SUPOSIÇÃO: baseline a medir]`
+
+**Decidido em 2026-08-20 (Story 4.4) — o instrumento existe; o baseline continua sendo do dono do projeto:**
+
+- **O ServiceDesk mede a si mesmo, e só isso.** A tool `relatorio_de_operacao` devolve tempo de resolução (SM-3), percentual de ações via MCP (SM-4) e pessoas distintas que agiram (SM-5, a parte medível) — **as três do mesmo Log e no mesmo período**, porque quem decide o corte olha as três juntas e três consultas separadas seriam três chances de discordarem sobre qual período era.
+- **O que NÃO é medível de dentro, e por quê:** o baseline do software contratado (outro sistema, sem acesso); "zero Chamados perdidos fora dele" (é sobre o que **não** está aqui — nenhuma consulta interna enxerga); e a paridade funcional do SM-1 (julgamento sobre tipos de Chamado do mundo real). Os três estão na **checklist de paridade**, com critério observável e responsável.
+- **Mediana E média, e a diferença importa.** Este SM pede "tempo médio", mas numa fila de 8 Agentes um único Chamado esquecido arrasta a média sozinho. **A mediana é o número honesto para a comparação com o baseline** — peça a mediana do contratado também, ou a comparação será entre coisas diferentes. O relatório devolve os dois, mais **quantos Chamados os sustentam**: uma média de 3 não decide contrato.
+- **Reabertura conta até o ÚLTIMO `resolvido`.** A métrica responde "quanto tempo o Solicitante esperou até o problema acabar", e uma reabertura diz que não tinha acabado. A alternativa (o primeiro) tem um defeito que a inutilizaria: **faria o número melhorar quando o atendimento piora.**
+- **Chamado nunca resolvido e cancelado ficam fora do cálculo, mas entram na contagem.** Um Chamado aberto há três meses não tem tempo de resolução; assumir "até agora" misturaria "demorou" com "não acabou".
+- **Nada é medido por coluna derivada.** Um `resolvido_em` em `tickets` seria um segundo lugar guardando o que o Log já tem (FR-22, AD-3). E há um cuidado da FR-25: Chamado importado tem `criado_em` do arquivo antigo e `abrir_chamado` do dia do import — **misturar as fontes faria o tempo do histórico migrado virar ficção**.
+- **A autorização é `veHistorico`**, a mesma do Log (FR-22): o relatório é uma agregação do que aquela capacidade já libera, e não há versão reduzida para o Solicitante — um relatório filtrado por uma pessoa responderia outra pergunta com cara de responder esta.
+
+**A suposição continua aberta, e agora está delimitada:** o baseline do contratado precisa ser extraído **antes** do corte, com média, mediana, período e total de Chamados. Está como pré-condição na Parte 0 da checklist de paridade.
 - **SM-4: Operação via IA** — parcela relevante dos Chamados aberta/triada via MCP. `[SUPOSIÇÃO: meta ≥ 50% no 1º trimestre]` Valida FR-13–FR-16.
 - **SM-5: Adoção** — 8 Agentes operando 100% dos novos Chamados no sistema; zero Chamados perdidos fora dele. Valida FR-8, FR-9.
 

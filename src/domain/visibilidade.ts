@@ -298,6 +298,37 @@ export type ResumoVisivel = {
   readonly contadores: ContadoresDaFila
 }
 
+/**
+ * O relatorio de operacao (Story 4.4, SM-3/SM-4/SM-5).
+ *
+ * Embrulhado como toda leitura, e por um motivo que NAO e o de sempre: aqui nao
+ * ha conteudo de Chamado nenhum — sao contagens e medias. O embrulho continua
+ * porque a decisao de QUEM pode ver o agregado tem de passar pelo dominio, e
+ * uma leitura que nascesse "solta" abriria a primeira excecao ao AD-8.
+ *
+ * Diferente da Fila e do resumo, este relatorio NAO tem escopo por
+ * Solicitante: e uma medida do sistema inteiro, e quem nao pode ve-lo nao ve
+ * versao nenhuma dele. Ver `relatorioVisivelPara`.
+ */
+export type MedidasDaOperacao = {
+  /**
+   * Vazia sempre: existe para deixar EXPLICITO que a lista de tempos NAO
+   * atravessa a fronteira. Mediana e media sao decididas no SQL, e o dominio
+   * nao as recalcula — a mesma licao de `temMais` (3.1, 4.1), onde recalcular
+   * no dominio o que o SQL ja respondeu mascarou o defeito da consulta.
+   */
+  readonly resolucaoHoras: readonly number[]
+  readonly medianaHoras: number | null
+  readonly mediaHoras: number | null
+  readonly resolvidos: number
+  readonly semResolucao: number
+  readonly porOrigem: { readonly mcp: number; readonly api: number; readonly email: number }
+  readonly autoresDistintos: number
+  readonly chamadosAbertos: number
+}
+
+export type RelatorioBruto = Bruto<MedidasDaOperacao>
+
 const mesmoEscopo = (a: EscopoDeLeitura, b: EscopoDeLeitura): boolean =>
   a.tipo === 'todos' ? b.tipo === 'todos' : b.tipo === 'apenasDe' && a.requester === b.requester
 
@@ -362,3 +393,21 @@ export const historicoVisivelPara = (
 
   return entradas
 }
+
+/**
+ * Abre o relatorio de operacao (Story 4.4).
+ *
+ * A autorizacao e `veHistorico`, a capacidade que a Story 1.8 criou — e nao uma
+ * nova. A pergunta e a MESMA ("pode ver o que aconteceu no sistema?"), e o
+ * relatorio e uma agregacao do que aquela capacidade ja libera. Uma capacidade
+ * `veRelatorio` nunca divergiria dela, e a 4.3 registrou o que isso significa:
+ * separacao que nao muda comportamento e mutacao que nao morre.
+ *
+ * Nao ha versao "reduzida" para quem nao pode: um relatorio de operacao filtrado
+ * por Solicitante mediria a fila de uma pessoa so e responderia outra pergunta,
+ * com cara de responder esta.
+ */
+export const relatorioVisivelPara = (
+  quem: QuemPergunta,
+  bruto: RelatorioBruto,
+): MedidasDaOperacao | null => (pode(quem.role, 'veHistorico') ? bruto[conteudo] : null)

@@ -12,6 +12,7 @@ import type {
   ExportacaoBruta,
   FilaBruta,
   HistoricoBruto,
+  RelatorioBruto,
   ResumoBruto,
 } from '../../domain/visibilidade.js'
 import type { Principal } from '../contracts/principal.js'
@@ -227,6 +228,19 @@ export type TicketRepository = {
    * parado.
    */
   contarChamadosAbertosDe(email: string): Promise<number>
+
+  /**
+   * Story 4.4 — as tres metricas do relatorio de operacao, de UMA vez.
+   *
+   * Juntas porque quem decide o corte do contrato olha as tres no MESMO
+   * periodo; separadas, seriam tres chances de discordarem sobre qual periodo
+   * era.
+   *
+   * Sai tudo do Log (FR-22, AD-3): nao ha coluna derivada, e nao deve haver —
+   * um `resolvido_em` em `tickets` seria um segundo lugar guardando o mesmo
+   * fato, com a chance de divergir do evento que ja existe.
+   */
+  medirOperacao(periodo: { readonly de: Date; readonly ate: Date }): Promise<RelatorioBruto>
 
   excluirComentarioComAuditoria(numero: number, id: number, autor: Principal): Promise<boolean>
 

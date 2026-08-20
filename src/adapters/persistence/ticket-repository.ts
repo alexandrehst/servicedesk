@@ -701,6 +701,116 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
     )
   },
 
+  async medirOperacao({ de, ate }) {
+    // ISO explicito: `db.execute` com SQL cru nao serializa `Date` (o driver
+    // recusa), diferente do query builder. Falha ALTA e imediata — mas so em
+    // tempo de execucao, e por isso ha teste de integracao para cada caminho.
+    const inicio = de.toISOString()
+    const fim = ate.toISOString()
+
+    // UMA ida ao banco para as tres metricas. Sao agregacoes independentes
+    // sobre a MESMA janela, e tres consultas dariam tres chances de a janela
+    // divergir entre elas — que e exatamente o que quem decide o corte do
+    // contrato nao pode ter.
+    //
+    // `audit_entries` NAO tem `deleted_at` (decisao da 1.7: e append-only), por
+    // isso o JOIN com `tickets` e o filtro de excluido aparecem em toda
+    // subconsulta que olha Chamado. Sem ele, o relatorio contaria o que a
+    // FR-23 tirou da vista de todo mundo.
+    const [linha] = await db.execute(sql`
+      WITH aberturas AS (
+        SELECT a.ticket_number, min(a.registrado_em) AS abertura
+          FROM audit_entries a
+          JOIN tickets t ON t.number = a.ticket_number AND t.deleted_at IS NULL
+         WHERE a.acao = 'abrir_chamado'
+           AND a.registrado_em >= ${inicio}::timestamptz AND a.registrado_em < ${fim}::timestamptz
+         GROUP BY a.ticket_number
+      ),
+      resolucoes AS (
+        -- O ULTIMO 'resolvido', nao o primeiro. A metrica responde "quanto
+        -- tempo o Solicitante esperou ate o problema ACABAR", e uma reabertura
+        -- diz que nao tinha acabado. Usar o primeiro faria o numero MELHORAR
+        -- quando o atendimento piora — o pior defeito possivel numa metrica de
+        -- servico.
+        SELECT a.ticket_number, max(a.registrado_em) AS resolucao
+          FROM audit_entries a
+         WHERE a.para = 'resolvido'
+           -- Limite INFERIOR so. audit_entries e append-only e cresce para
+           -- sempre; sem ele, esta CTE varria a tabela inteira a cada chamada,
+           -- e o custo do relatorio passava a crescer com o HISTORICO em vez
+           -- de com o periodo pedido — pior justamente durante o mes de
+           -- validacao, quando ele mais roda. Nao muda resultado: a resolucao
+           -- nunca vem antes da abertura, e a abertura ja esta limitada ao
+           -- mesmo inicio.
+           AND a.registrado_em >= ${inicio}::timestamptz
+           -- SEM limite superior, e isso e DELIBERADO. Um Chamado aberto
+           -- dentro do periodo e resolvido depois dele levou um tempo real
+           -- para ser resolvido, e esse tempo e a resposta da pergunta "quanto
+           -- demorou para resolver o que entrou em julho?". Cortar no fim do
+           -- periodo transformaria esses Chamados em "sem resolucao" e faria a
+           -- media parecer melhor do que foi — o mesmo defeito da reabertura
+           -- contada pelo primeiro resolvido: melhorar o numero descartando o
+           -- caso ruim.
+         GROUP BY a.ticket_number
+      ),
+      tempos AS (
+        SELECT EXTRACT(EPOCH FROM (r.resolucao - ab.abertura)) / 3600.0 AS horas
+          FROM aberturas ab
+          JOIN resolucoes r ON r.ticket_number = ab.ticket_number
+         -- Resolucao ANTES da abertura nao existe; se existir, e dado corrompido
+         -- e entra como negativo estragando a media em silencio.
+         WHERE r.resolucao >= ab.abertura
+      )
+      SELECT
+        (SELECT count(*)::int FROM aberturas) AS chamados_abertos,
+        (SELECT count(*)::int FROM tempos) AS resolvidos,
+        (SELECT count(*)::int FROM aberturas ab
+          WHERE NOT EXISTS (SELECT 1 FROM resolucoes r WHERE r.ticket_number = ab.ticket_number)
+        ) AS sem_resolucao,
+        (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY horas) FROM tempos) AS mediana_horas,
+        (SELECT avg(horas) FROM tempos) AS media_horas,
+        (SELECT count(*)::int FROM audit_entries a
+          WHERE a.origin = 'mcp' AND a.registrado_em >= ${inicio}::timestamptz AND a.registrado_em < ${fim}::timestamptz
+        ) AS acoes_mcp,
+        (SELECT count(*)::int FROM audit_entries a
+          WHERE a.origin = 'api' AND a.registrado_em >= ${inicio}::timestamptz AND a.registrado_em < ${fim}::timestamptz
+        ) AS acoes_api,
+        (SELECT count(*)::int FROM audit_entries a
+          WHERE a.origin = 'email' AND a.registrado_em >= ${inicio}::timestamptz AND a.registrado_em < ${fim}::timestamptz
+        ) AS acoes_email,
+        (SELECT count(DISTINCT a.autor)::int FROM audit_entries a
+          WHERE a.registrado_em >= ${inicio}::timestamptz AND a.registrado_em < ${fim}::timestamptz
+        ) AS autores_distintos
+    `)
+
+    // A mediana e a media chegam como `numeric` (string no driver) ou nulas
+    // quando nao ha Chamado resolvido no periodo. `Number(null)` daria 0, que
+    // mentiria — "resolveu em 0 horas" e diferente de "nao resolveu nada".
+    const numeroOuNulo = (v: unknown): number | null =>
+      v === null || v === undefined ? null : Number(v)
+
+    const mediana = numeroOuNulo(linha?.mediana_horas)
+    const media = numeroOuNulo(linha?.media_horas)
+
+    return embrulharBruto({
+      // A lista de tempos nao volta: o dominio nao recalcula o que o SQL ja
+      // decidiu (a licao de `temMais`, das Stories 3.1 e 4.1). O que volta sao
+      // as duas medidas, e o dominio so as repassa.
+      resolucaoHoras: [],
+      medianaHoras: mediana,
+      mediaHoras: media,
+      resolvidos: Number(linha?.resolvidos ?? 0),
+      semResolucao: Number(linha?.sem_resolucao ?? 0),
+      porOrigem: {
+        mcp: Number(linha?.acoes_mcp ?? 0),
+        api: Number(linha?.acoes_api ?? 0),
+        email: Number(linha?.acoes_email ?? 0),
+      },
+      autoresDistintos: Number(linha?.autores_distintos ?? 0),
+      chamadosAbertos: Number(linha?.chamados_abertos ?? 0),
+    })
+  },
+
   async contarChamadosAbertosDe(email) {
     const [linha] = await db
       .select({ total: sql<number>`count(*)::int` })
