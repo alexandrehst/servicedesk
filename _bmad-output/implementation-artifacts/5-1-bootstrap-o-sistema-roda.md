@@ -4,7 +4,7 @@ baseline_commit: 86a9eb7
 
 # Story 5.1: Bootstrap — o sistema roda
 
-Status: review
+Status: done
 
 ## Story
 
@@ -348,6 +348,42 @@ existe.
 neste projeto. `tsconfig.build.json` + `tsc` (que já estava aqui) resolvem, e
 compilar antes de rodar tem vantagem própria em produção: **erro de tipo aparece
 no build, não na primeira chamada de tool.**
+
+### Os seis achados do `claude-review`, e o padrão de novo
+
+Seis achados neste PR — e, como no Epic 4, **cada um apareceu no código escrito
+para corrigir o anterior**. Vale listar porque três são de tipos que ainda não
+tinham aparecido:
+
+| # | Achado | O que ensinou |
+| --- | --- | --- |
+| 1 | `void encerrar()` sem `catch` | levou à separação decisão × fio, que era o problema real |
+| 2 | `catch` de boot com stack cru | a mesma inconsistência que eu tinha acabado de corrigir ao lado |
+| 3 | `ZodError` cru no intervalo | conectava com o campo `tipo` que o achado 2 criou |
+| 4 | mensagem de config com lista vazia | eu montava "quais chaves estão vazias" em vez de usar o que o Zod já sabia |
+| 5 | `parar()` fora do `try` | **o mesmo defeito do achado 1, reaberto por outra via, no mesmo commit** |
+| 6 | fiação duplicada nos dois pontos de entrada | o risco que a 4.1 já pagou com a tradução escopo→SQL |
+
+Mais três na rodada final, e o primeiro deles é de uma categoria nova:
+
+**Eu escrevi um critério e o violei no mesmo PR.** A exclusão de
+`servidor-mcp.ts` da cobertura foi justificada com *"se aparecer um `if`, ele
+sai desta lista — não o contrário"*, e o `catch` de boot tinha duas decisões.
+É a quarta aparição de *"afirmação não é teste"* no projeto, e a primeira em que
+a afirmação era **a regra criada para impedir o próprio abuso**.
+
+A correção importa tanto quanto o defeito: **não apaguei o ternário para caber
+no texto** — seria fazer o código servir à justificativa. Movi a decisão para
+onde ela é testável, que era a premissa da exclusão desde o início.
+
+**O código de saída estava mentindo.** `1` significava "o pool falhou ao
+fechar", mas uma falha em `parar()` pulava o `fechar()` e devolvia `1` do mesmo
+jeito — código certo por acaso, mensagem errada, e **o pool aberto**. Quem lesse
+o log iria investigar a única coisa que não tinha falhado.
+
+**E `pnpm build` não rodava em CI nenhum.** `typecheck` usa `tsconfig.json` com
+`noEmit`; o build usa outro tsconfig, que emite. Um erro que só aparece na
+emissão passaria batido — e o `dist/` é o que o `pnpm start` executa.
 
 ### File List
 

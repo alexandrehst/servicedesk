@@ -116,5 +116,5 @@ development_status:
   # cinco epicos entregaram 973 testes verdes e nenhum jeito de rodar. A divida
   # estava registrada desde o Epic 1 e cada epico a empurrou; o mes de operacao
   # em paralelo (Story 4.4) e o que a tornou bloqueante.
-  epic-5: in-progress
-  5-1-bootstrap-o-sistema-roda: review
+  epic-5: done
+  5-1-bootstrap-o-sistema-roda: done
