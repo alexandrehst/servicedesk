@@ -286,6 +286,12 @@ MUTACOES = [
         "        alvo: alvoDoComentario(numero, id),",
         "        alvo: null,",
     ),
+    (
+        "O contrato de saida diverge do que o command devolve (achado do #81)",
+        "src/application/contracts/excluir.ts",
+        "  number: z.number().int().positive(),\n})\n\nexport const excluirComentarioInputSchema",
+        "  numero: z.number().int().positive(),\n})\n\nexport const excluirComentarioInputSchema",
+    ),
     # ---- O Comentario excluido some da thread ----
     (
         "Comentario excluido volta a aparecer na thread",

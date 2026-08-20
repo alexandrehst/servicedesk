@@ -25,7 +25,14 @@ export const excluirChamadoInputSchema = z.object({
 export type ExcluirChamadoInput = z.infer<typeof excluirChamadoInputSchema>
 
 export const excluirChamadoOutputSchema = z.object({
-  numero: z.number().int().positive(),
+  /**
+   * `number`, e nao `numero`: e o nome que TODO contrato de saida do projeto
+   * usa para o Numero do Chamado (`abrirChamadoOutputSchema`,
+   * `acaoIrreversivelOutputSchema`), e o que o command devolve. Este schema
+   * nasceu dizendo `numero` e o `structuredContent` da tool nunca teria batido
+   * com ele — o campo prometido viria sempre vazio.
+   */
+  number: z.number().int().positive(),
 })
 
 export const excluirComentarioInputSchema = z.object({

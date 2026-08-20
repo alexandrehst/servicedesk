@@ -317,7 +317,7 @@ claude-opus-5 (Claude Code, loop Ralph)
 
 ### Debug Log References
 
-- `scratchpad/mutacoes-43.py` — **36 mutações, 36 reprovadas** (saída em `scratchpad/mutacoes-43.out`); a conferência prévia de alvos, herdada da 4.2, acusou zero ausentes
+- `scratchpad/mutacoes-43.py` — **37 mutações, 37 reprovadas** (saída em `scratchpad/mutacoes-43.out`); a conferência prévia de alvos, herdada da 4.2, acusou zero ausentes
 - `pnpm test` — 953 testes verdes; `typecheck`, `lint` e `arch` limpos
 - Integração contra o Postgres real: `excluir-comentario.test.ts` (12),
   `usuario-excluido.test.ts` (9), `excluir-usuario.test.ts` (17)
@@ -438,6 +438,24 @@ As duas sondas: a **tentativa não concluída** (pedido registrado, os três cam
 antigos nulos, alvo presente, nada excluído) e o **pareamento** entre pedido e
 execução pelo mesmo alvo — que é a pergunta que um auditor faz sobre uma ação
 com human-in-the-loop.
+
+**O segundo achado do PR #81, e a lacuna estrutural que ele expôs.**
+`excluirChamadoOutputSchema` declarava `numero`; o command devolve `number` —
+como todos os outros contratos de saída do projeto. O schema é publicado como
+`outputSchema` da tool, então **toda chamada bem-sucedida produzia um
+`structuredContent` que não batia com o contrato**, e o campo prometido vinha
+sempre vazio.
+
+O que interessa é **por que nenhum teste pegou**: os testes de command não
+passam pelo `registerTool`, e os do adapter comparavam a saída com um literal
+escrito à mão — que repetia o mesmo erro. Os dois lados concordavam entre si e
+discordavam do contrato.
+
+A correção do campo é de uma linha; a que vale é o teste novo, que **parseia o
+que cada handler devolve com o schema que a tool publica**. Ele fecha a classe
+inteira — divergência de nome, tipo errado, campo faltando —, sem depender de
+alguém lembrar de conferir os dois lados. Confirmei que morde: reintroduzindo o
+`numero`, ele reprova.
 
 **A armadilha que a migration documenta:** o `UNIQUE` de `users.email` **não**
 virou parcial. Seria a saída óbvia para recadastrar quem saiu, e quebraria a

@@ -1,4 +1,10 @@
-import { expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
+import {
+  excluirChamadoOutputSchema,
+  excluirComentarioOutputSchema,
+  excluirUsuarioOutputSchema,
+} from '../../application/contracts/excluir.js'
 import type { Principal } from '../../application/contracts/principal.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
 import type { NovoComentario } from '../../domain/comentario.js'
@@ -9,6 +15,9 @@ import {
   criarHandlerAbrirChamado,
   criarHandlerAtribuirChamado,
   criarHandlerComentarChamado,
+  criarHandlerExcluirChamado,
+  criarHandlerExcluirComentario,
+  criarHandlerExcluirUsuario,
   criarHandlerMudarPrioridade,
   criarHandlerMudarStatus,
   criarHandlerVerChamado,
@@ -1180,4 +1189,110 @@ it('recusa a mudanca de prioridade quando o limite estourou', async () => {
 
   expect(resultado.isError).toBe(true)
   expect(prioridadesMudadas).toHaveLength(0)
+})
+
+describe('o `structuredContent` bate com o `outputSchema` publicado (AD-6)', () => {
+  /**
+   * A lacuna que o `claude-review` expos no PR #81.
+   *
+   * `excluirChamadoOutputSchema` declarava `numero`; o command devolve
+   * `number`. O schema e registrado como `outputSchema` da tool, e o handler
+   * devolve `structuredContent: saida` — entao **toda chamada bem-sucedida
+   * produzia uma saida que nao batia com o contrato publicado**, e o campo
+   * prometido vinha sempre vazio. Nenhum teste pegou porque os testes de
+   * command nao passam pelo `registerTool`, e os do adapter comparavam a saida
+   * com um literal escrito a mao — que repetia o erro.
+   *
+   * Este teste fecha a classe inteira: para cada handler, o que ele devolve e
+   * PARSEADO pelo schema que a tool publica. Divergencia de nome de campo, tipo
+   * errado ou campo faltando reprovam aqui, sem depender de alguem lembrar de
+   * conferir os dois lados.
+   */
+  const chamadoVisivel: Ticket = {
+    number: 1042,
+    titulo: 'VPN',
+    descricao: 'nao conecta',
+    categoria: 'rede',
+    status: 'aberto',
+    prioridade: 'media',
+    requester: 'marina@empresa.com',
+    assignee: null,
+    criadoEm: new Date('2026-08-20T10:00:00Z'),
+    excluidoEm: null,
+    version: 1,
+  }
+
+  const repoQueExclui: TicketRepository = {
+    ...repositorio,
+    async buscarPorNumero() {
+      return embrulharBruto({ ticket: chamadoVisivel, comentarios: [] })
+    },
+    async excluirComAuditoria() {
+      return true
+    },
+    async excluirComentarioComAuditoria() {
+      return true
+    },
+    async contarChamadosAbertosDe() {
+      return 3
+    },
+  }
+
+  const confirmacaoQueAceita = {
+    async emitir() {
+      return 'token'
+    },
+    async consumir() {
+      return true
+    },
+  }
+
+  const depsDeExclusao = {
+    ...deps,
+    repositorio: repoQueExclui,
+    confirmacao: confirmacaoQueAceita,
+    identidades: {
+      async buscarUsuarioPorEmail(email: string) {
+        return { email, papel: 'agente' as const }
+      },
+      async excluirUsuarioComAuditoria() {
+        return true
+      },
+    },
+  }
+
+  it('excluir_chamado', async () => {
+    const saida = await criarHandlerExcluirChamado(depsDeExclusao)({
+      numero: 1042,
+      confirmacao: 'token',
+    })
+
+    expect(() => excluirChamadoOutputSchema.parse(saida.structuredContent)).not.toThrow()
+  })
+
+  it('excluir_comentario', async () => {
+    const saida = await criarHandlerExcluirComentario(depsDeExclusao)({
+      numero: 1042,
+      id: 7,
+      confirmacao: 'token',
+    })
+
+    expect(() => excluirComentarioOutputSchema.parse(saida.structuredContent)).not.toThrow()
+  })
+
+  it('excluir_usuario', async () => {
+    const saida = await criarHandlerExcluirUsuario(depsDeExclusao)({
+      email: 'ana@empresa.com',
+      confirmacao: 'token',
+    })
+
+    expect(() => excluirUsuarioOutputSchema.parse(saida.structuredContent)).not.toThrow()
+  })
+
+  /** A prova de que o teste morde: um schema que nao bate reprova. */
+  it('e um schema divergente REPROVA — senao este teste nao vale nada', () => {
+    const comNomeErrado = z.object({ numero: z.number().int().positive() })
+
+    expect(() => comNomeErrado.parse({ number: 1042 })).toThrow()
+  })
 })
