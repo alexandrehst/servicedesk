@@ -1,6 +1,6 @@
 # ServiceDesk — Ponto de Retomada
 
-**Última atualização:** 2026-08-20 (**Epic 4 completo** — PR #83 fechou a 4.4. **Último épico do MVP**)
+**Última atualização:** 2026-08-20 (**o sistema roda** — PR #85 entregou o bootstrap. MVP completo e operável)
 **Repo:** https://github.com/alexandrehst/servicedesk (público)
 
 ## O que é o projeto
@@ -9,7 +9,9 @@ Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de den
 
 ## Onde paramos
 
-**Os cinco épicos do MVP estão completos.** O desenvolvimento planejado acabou — mas **o corte do contrato ainda não pode acontecer**, e o que falta não é código. Ver "O que falta para o corte", logo abaixo.
+**Os cinco épicos do MVP estão completos, e o sistema sobe.** `pnpm start` conecta um cliente MCP por stdio — verificado de ponta a ponta: abrir, comentar, mudar status, atribuir, resolver e fechar com confirmação, tudo registrado no Log com `origin: mcp`. O `README.md` tem o passo a passo.
+
+**O corte do contrato ainda não pode acontecer**, e o que falta não é código. Ver "O que falta para o corte", logo abaixo.
 
 O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois papéis com autorização no domínio, token de máquina com rate limit, e-mail de abertura com link de acesso, soft-delete, revisão do Log de auditoria e intake por e-mail com remetente verificado. E o Chamado já **muda**: comentário público ou interno, status por máquina de estados, Dono e Prioridade — todos com concorrência otimista (AD-10) e auditoria na mesma transação. Resolver **avisa o Solicitante** por e-mail, com quem resolveu e o tempo total (2.5). E as três ações que não voltam atrás — fechar, cancelar, reabrir — **exigem confirmação humana** (2.6): um token que o servidor emite, com uso único, 5 minutos e escopo de um Chamado, uma ação e uma identidade.
 
@@ -31,12 +33,12 @@ O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois 
 
 **O item mais fácil de fingir que está verde** é "zero Chamados sendo tratados fora do ServiceDesk" — é sobre o que **não** está no sistema, então nenhuma consulta o responde. A checklist diz como verificá-lo: perguntar a cada Agente **e** conferir se entraram Chamados novos no contratado.
 
-**Duas dívidas que atravessaram todos os épicos e continuam abertas:**
+**A dívida da raiz de composição foi paga** (Story 5.1, PR #85): existe `pnpm start`, os e-mails do FR-18 e o agendador do intake ligam quando configurados, e o boot **avisa** o que ficou desligado por falta de configuração — desligado e quebrado se parecem de fora.
 
-1. **Não há raiz de composição** — os dois e-mails do FR-18 e o agendador do intake estão prontos e **desligados**. Precisam da story de bootstrap.
-2. **A topologia de deploy segue `Deferred`** na spine, e a story de bootstrap depende dela.
+**O que continua aberto, e vale saber antes do mês em paralelo:**
 
-Sem as duas, **o sistema não roda fora dos testes** — o que é aceitável para um MVP verificado, e bloqueante para o mês de operação em paralelo. **Esta é a próxima coisa a fazer.**
+1. **A topologia de deploy segue `Deferred`** na spine. Hoje o transporte é **stdio**, o que significa **um processo = uma identidade**: todas as ações são do dono do token, e o Log não distingue pessoas. Serve para você testar e para um piloto; **oito Agentes operando ao mesmo tempo provavelmente pedem HTTP com sessão por pessoa**, que é story nova.
+2. **Não há adapter HTTP** — a origem `api` existe no Log e nada a produz.
 
 **A leitura em conjunto trouxe uma regra que atravessa o resto do projeto:** a autorização de lista acontece em duas camadas — o domínio decide o escopo e entrega como dado, o adapter traduz para `WHERE`, e o domínio reaplica sobre o que voltou. Onde não há itens para reaplicar (o resumo), o que se confere é **a pergunta que gerou os dados**.
 
@@ -49,6 +51,7 @@ Sem as duas, **o sistema não roda fora dos testes** — o que é aceitável par
 | Epic 2 — Ciclo de vida do Chamado | ✅ 6/6 `done` (PRs #46, #48, #50, #52, #58, #60) |
 | Epic 3 — Fila, triagem e busca | ✅ 6/6 `done` (PRs #63, #65, #68, #70, #72, #74) |
 | Epic 4 — Portabilidade & migração | ✅ 4/4 `done` (PRs #77, #79, #81, #83) |
+| Epic 5 — Operação | 1/1 `done` (PR #85) — nasceu fora do plano: o MVP tinha 973 testes e nenhum jeito de rodar |
 
 Estado por story: `_bmad-output/implementation-artifacts/sprint-status.yaml`.
 
