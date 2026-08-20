@@ -96,10 +96,24 @@ const blocoOpcional = <T>(
   const resultado = schema.safeParse(Object.fromEntries(informados))
 
   if (!resultado.success) {
-    const faltando = Object.keys(bruto).filter((k) => bruto[k] === undefined || bruto[k] === '')
+    // A lista sai dos ISSUES do Zod, e nao de "quais chaves estao vazias".
+    //
+    // Achado do review no PR #85: campo PRESENTE mas invalido (`SMTP_PORT=abc`)
+    // nao aparecia como ausente, e a mensagem saia com a lista vazia —
+    // "Configuracao de SMTP incompleta: falta ." O operador via um erro sem
+    // pista nenhuma, que e exatamente o que este modulo existe para evitar.
+    //
+    // Ausente e invalido tambem sao ditos com palavras diferentes: "falta" e
+    // "esta invalido" mandam a pessoa fazer coisas diferentes.
+    const problemas = resultado.error.issues.map((issue) => {
+      const campo = issue.path.join('.')
+      const valor = bruto[campo]
+      return valor === undefined || valor === '' ? `${campo} (falta)` : `${campo} (invalido)`
+    })
+
     throw new ConfigInvalida(
-      `Configuracao de ${nome} incompleta: falta ${faltando.join(', ')}. ` +
-        `Preencha tudo ou remova todas para desligar ${nome}.`,
+      `Configuracao de ${nome} incompleta ou invalida: ${problemas.join(', ')}. ` +
+        `Preencha tudo corretamente ou remova todas para desligar ${nome}.`,
     )
   }
 

@@ -79,15 +79,27 @@ export const criarAplicacao = (
 
   return {
     agendador,
+    /**
+     * **Esta funcao NUNCA rejeita** — e isso e contrato, nao coincidencia.
+     *
+     * Quem a chama sao os handlers de SIGINT/SIGTERM, registrados DEPOIS do
+     * `principal().catch(...)`; uma rejeicao aqui nao seria interceptada por
+     * ninguem e derrubaria o processo por `unhandledRejection` cru, sem passar
+     * pelo logger estruturado.
+     *
+     * Na primeira versao o `agendador?.parar()` ficava FORA do `try` (achado do
+     * review no PR #85) — o mesmo defeito que este PR ja tinha corrigido para o
+     * `fechar()`, reaberto por outra via. Agora o `try` cobre os dois, e o
+     * entrypoint nao precisa de `catch` defensivo: garantia estrutural vale
+     * mais que deteccao, e um `catch` que nunca dispara e codigo nao
+     * exercitado (licao da Story 4.3).
+     */
     encerrar: async (sinal: string) => {
-      agendador?.parar()
-
-      // A falha ao fechar o pool vai para o LOG ESTRUTURADO, como todo o resto.
-      // Sem isto ela viraria `unhandledRejection` cru — sem os campos
-      // `nivel`/`evento` que o logger grava de proposito para "um coletor
-      // conseguir indexar sem parser proprio" (1.6). Quem monitora pelo log
-      // nao veria; so quem estivesse lendo o stderr bruto na hora.
       try {
+        // Parar o agendador ANTES de fechar o pool: o inverso deixaria uma
+        // varredura em voo falando com um banco ja fechado, e o erro apareceria
+        // como falha de intake — escondendo a causa.
+        agendador?.parar()
         await fechar()
         return 0
       } catch (erro: unknown) {

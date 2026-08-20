@@ -96,13 +96,13 @@ describe('bloco pela METADE e engano, nao intencao', () => {
     const { SMTP_PASS: _, ...semSenha } = SMTP
 
     expect(() => lerConfig({ ...MINIMO, ...semSenha })).toThrow(ConfigInvalida)
-    expect(() => lerConfig({ ...MINIMO, ...semSenha })).toThrow(/pass/)
+    expect(() => lerConfig({ ...MINIMO, ...semSenha })).toThrow(/pass \(falta\)/)
   })
 
   it('IMAP incompleto FALHA', () => {
     const { IMAP_CAIXA: _, ...semCaixa } = IMAP
 
-    expect(() => lerConfig({ ...MINIMO, ...semCaixa })).toThrow(/caixa/)
+    expect(() => lerConfig({ ...MINIMO, ...semCaixa })).toThrow(/caixa \(falta\)/)
   })
 
   /** SMTP sem BASE_URL seria um e-mail que chega e nao leva a lugar nenhum. */

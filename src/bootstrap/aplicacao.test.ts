@@ -173,6 +173,39 @@ describe('o encerramento (AC #1)', () => {
     expect(ordem).toEqual(['parar', 'fechar'])
   })
 
+  /**
+   * Achado do review no PR #85: `agendador?.parar()` estava FORA do `try`, e
+   * uma rejeicao dele nao seria interceptada por ninguem — os handlers de
+   * SIGINT/SIGTERM sao registrados DEPOIS do `principal().catch(...)`. O
+   * processo cairia por `unhandledRejection` cru, sem passar pelo logger: o
+   * mesmo defeito que este PR ja tinha corrigido para o `fechar()`, reaberto
+   * por outra via.
+   *
+   * O contrato agora e: **`encerrar` NUNCA rejeita.**
+   */
+  it('falha ao PARAR o agendador tambem vai para o log, sem rejeitar', async () => {
+    const config = lerConfig({ ...base, ...IMAP, INTAKE_INTERVALO_MS: '999999' })
+    const montagem = montagemDeTeste()
+    const erros: { evento: string; dados: Record<string, string | number> }[] = []
+    montagem.logger.erro = (evento, dados) => {
+      erros.push({ evento, dados })
+    }
+
+    const app = criarAplicacao(config, montagem, { criarCaixa: caixaVazia })
+    Object.assign(app.agendador ?? {}, {
+      parar: () => {
+        throw new Error('clearInterval explodiu')
+      },
+    })
+
+    // Nao rejeita — devolve o codigo de saida.
+    expect(await app.encerrar('SIGTERM')).toBe(1)
+    expect(erros[0]?.evento).toBe('falha_ao_encerrar')
+    expect(erros[0]?.dados.causa).toBe('clearInterval explodiu')
+
+    await montagem.fechar()
+  })
+
   it('devolve 0 no encerramento limpo', async () => {
     const app = criarAplicacao(lerConfig(base), montagemDeTeste())
 
