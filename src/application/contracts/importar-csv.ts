@@ -41,6 +41,22 @@ export const importarCsvOutputSchema = z.object({
   repetidas: z.array(z.object({ linha: z.number().int().positive(), numeroLegado: z.string() })),
   rejeitadas: z.array(linhaRejeitadaSchema),
   /**
+   * Linhas VALIDAS que o banco nao gravou (timeout, deadlock, conexao caindo).
+   *
+   * Separada de `rejeitadas` porque a acao que cada uma pede e diferente:
+   * rejeitada quer dizer "corrija o CSV"; falha quer dizer "a linha esta boa,
+   * rode de novo". Uma falha no meio do arquivo NAO interrompe o import — o
+   * resto continua, e o relatorio diz onde retomar. Como o reimport nao
+   * duplica, retomar e rodar o mesmo arquivo.
+   */
+  falhas: z.array(
+    z.object({
+      linha: z.number().int().positive(),
+      numeroLegado: z.string(),
+      erro: z.string(),
+    }),
+  ),
+  /**
    * Linhas cuja data de abertura nao veio no arquivo e ficou com a data do
    * import. Nao e erro — mas quem migra precisa saber que o historico daquelas
    * linhas comeca hoje.

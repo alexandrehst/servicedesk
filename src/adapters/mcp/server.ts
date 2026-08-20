@@ -386,6 +386,9 @@ export const criarHandlerImportarCsv = (deps: McpDeps) =>
     importarCsv({ repositorio: deps.repositorio }),
     (saida) =>
       `${saida.aceitas.length} importado(s), ${saida.repetidas.length} ja existia(m), ${saida.rejeitadas.length} rejeitada(s)` +
+      (saida.falhas.length > 0
+        ? ` — ATENCAO: ${saida.falhas.length} linha(s) valida(s) que o banco nao gravou; rode o mesmo arquivo de novo para retoma-las.`
+        : '') +
       (saida.semDataOriginal > 0
         ? ` — ${saida.semDataOriginal} sem data de abertura no arquivo, gravado(s) com a data de hoje.`
         : '.'),

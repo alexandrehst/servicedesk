@@ -52,6 +52,16 @@ const semPermissao = (): DomainError =>
  */
 const LINHAS_POR_LOTE = 8
 
+/**
+ * O que o operador ve quando o banco falha numa linha.
+ *
+ * Vai para o relatorio, e nao so para o log do servidor, porque quem migra
+ * precisa saber POR QUE a linha nao entrou — "falhou" sozinho nao distingue
+ * timeout de deadlock de disco cheio, e a acao e diferente em cada caso. Quem
+ * le e um Agente com a capacidade `importa`, o papel mais restrito do sistema.
+ */
+const mensagem = (erro: unknown): string => (erro instanceof Error ? erro.message : String(erro))
+
 type Pendente = { readonly linha: number; readonly novo: ChamadoImportado }
 
 export const importarCsv =
@@ -66,6 +76,7 @@ export const importarCsv =
     const aceitas: ImportarCsvOutput['aceitas'][number][] = []
     const repetidas: ImportarCsvOutput['repetidas'][number][] = []
     const rejeitadas: ImportarCsvOutput['rejeitadas'][number][] = []
+    const falhas: ImportarCsvOutput['falhas'][number][] = []
     let semDataOriginal = 0
 
     const pendentes: Pendente[] = []
@@ -107,21 +118,39 @@ export const importarCsv =
       const lote = pendentes.slice(inicio, inicio + LINHAS_POR_LOTE)
 
       // Cada chamada e uma transacao independente (AD-3): o Chamado e sua
-      // auditoria entram juntos ou nao entram. NAO ha transacao do lote — a
-      // AC #2 exige que a linha 5.000 entre mesmo que a 4.999 falhe, e um
-      // `Promise.all` que abortasse no primeiro erro reintroduziria o
-      // "tudo ou nada" pela porta dos fundos. Por isso o resultado de cada uma
-      // e capturado, e nenhuma rejeicao escapa.
-      const gravadas = await Promise.all(
-        lote.map(async ({ linha, novo }) => ({
-          linha,
-          novo,
-          criado: await repositorio.importarComAuditoria(novo, autor),
-        })),
+      // auditoria entram juntos ou nao entram. NAO ha transacao do lote.
+      //
+      // `allSettled`, e nao `all`, e a diferenca IMPORTA. `Promise.all` rejeita
+      // na primeira falha: um timeout na linha 2.003 derrubaria a funcao
+      // inteira, os lotes seguintes nunca rodariam, e quem migra receberia um
+      // erro sem relatorio nenhum — sem saber quantas linhas entraram nem onde
+      // retomar. Isso e exatamente o "tudo ou nada" que a AC #2 proibe, so que
+      // pela porta dos fundos. Pior: `all` nao cancela as irmas, entao as
+      // chamadas em voo continuariam e poderiam COMITAR depois do erro, com
+      // Chamado gravado e auditado que nao aparece em relatorio algum.
+      const gravadas = await Promise.allSettled(
+        lote.map(({ novo }) => repositorio.importarComAuditoria(novo, autor)),
       )
 
-      for (const { linha, novo, criado } of gravadas) {
-        if (criado === null) {
+      for (const [posicao, resultado] of gravadas.entries()) {
+        const pendente = lote[posicao]
+        if (pendente === undefined) {
+          continue
+        }
+        const { linha, novo } = pendente
+
+        if (resultado.status === 'rejected') {
+          // FALHA e coisa diferente de REJEITADA, e a distincao e a acao que
+          // cada uma pede: rejeitada quer dizer "o dado esta errado, corrija o
+          // CSV"; falha quer dizer "a linha esta boa, o banco e que nao
+          // gravou — rode de novo". O reimport e seguro (o `numero_legado` ja
+          // gravado volta como repetida), entao retomar e literalmente rodar o
+          // mesmo arquivo.
+          falhas.push({ linha, numeroLegado: novo.numeroLegado, erro: mensagem(resultado.reason) })
+          continue
+        }
+
+        if (resultado.value === null) {
           // `numero_legado` ja existia na base: o arquivo esta sendo importado
           // de novo.
           repetidas.push({ linha, numeroLegado: novo.numeroLegado })
@@ -132,7 +161,7 @@ export const importarCsv =
           semDataOriginal += 1
         }
 
-        aceitas.push({ linha, numeroLegado: novo.numeroLegado, numero: criado.number })
+        aceitas.push({ linha, numeroLegado: novo.numeroLegado, numero: resultado.value.number })
       }
     }
 
@@ -146,6 +175,7 @@ export const importarCsv =
       aceitas: porLinha(aceitas),
       repetidas: porLinha(repetidas),
       rejeitadas: porLinha(rejeitadas),
+      falhas: porLinha(falhas),
       semDataOriginal,
     }
   }

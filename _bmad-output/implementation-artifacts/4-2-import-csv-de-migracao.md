@@ -229,10 +229,10 @@ claude-opus-5 (Claude Code, loop Ralph)
 
 ### Debug Log References
 
-- `scratchpad/mutacoes-42.py` — **29 mutações, 29 reprovadas** (saída em `scratchpad/mutacoes-42.out`). Uma sobreviveu na rodada final por **alvo evaporado** — `resultado.novo.criadoEm` virou `novo.criadoEm` quando o `for` virou lote —, foi corrigida e reexecutada isolada. Terceira vez que isso acontece no projeto; das outras duas a causa foi o formatador, desta vez foi a minha própria refatoração
-- `pnpm test` — 895 testes verdes; `pnpm typecheck`, `pnpm lint`, `pnpm arch` limpos
+- `scratchpad/mutacoes-42.py` — **33 mutações, 33 reprovadas** (saída em `scratchpad/mutacoes-42.out`). **Alvo evaporado nas duas últimas rodadas**, uma vez em cada: `resultado.novo.criadoEm` virou `novo.criadoEm` quando o `for` virou lote, e `criado === null` virou `resultado.value === null` quando `Promise.all` virou `allSettled`. Ambas corrigidas e reexecutadas isoladas. Terceira e quarta vez que isso acontece no projeto; das duas primeiras a causa foi o formatador, destas duas foi a minha própria refatoração — **toda mudança no código é mudança nos alvos**, e o script não avisa alto o bastante: ele imprime a linha e segue
+- `pnpm test` — 899 testes verdes; `pnpm typecheck`, `pnpm lint`, `pnpm arch` limpos
 - `src/adapters/persistence/import-csv.test.ts` — 16 testes contra o Postgres real
-- `src/application/commands/importar-csv.test.ts` — 6 testes do lote paralelo, com duble
+- `src/application/commands/importar-csv.test.ts` — 10 testes do lote paralelo e do caminho de falha, com duble
 
 ### Completion Notes List
 
@@ -289,6 +289,28 @@ O que o comentário **não** menciona é que paralelizar cria dois riscos que o
    o único em que a ordem quebra de verdade. Sem ele, a ordenação seria código
    não exercitado, que este projeto já registrou (em `transicoes.ts`) como
    sintoma de guarda que não guarda nada.
+
+**O segundo achado do `claude-review`, e o pior deles: eu tinha escrito no
+código uma garantia que o código não dava.** O comentário do lote dizia "nenhuma
+rejeição escapa". `Promise.all` rejeita na primeira falha — então um timeout na
+linha 2.003 derrubava `importarCsv` inteiro: os lotes seguintes nunca rodavam, e
+quem migra recebia um erro de protocolo **sem relatório nenhum**, sem saber
+quantas linhas entraram nem onde retomar. Exatamente o "tudo ou nada" que a
+AC #2 proíbe, pela porta dos fundos que eu mesmo tinha acabado de abrir ao
+paralelizar. Pior: `all` não cancela as irmãs, então chamadas em voo podiam
+**comitar depois do erro** — Chamado gravado e auditado que não aparece em
+relatório algum.
+
+É a segunda vez no projeto que uma afirmação minha em prosa passou por
+verificação: na 3.6 foi o Dev Agent Record dizendo que o contrato recusava o que
+ele não recusava. **Afirmação não é teste** — e desta vez a afirmação estava no
+comentário, ao lado do código que a contradizia.
+
+Corrigido com `Promise.allSettled` e uma categoria nova no relatório: `falhas`,
+separada de `rejeitadas` **porque a ação que cada uma pede é diferente** —
+rejeitada quer dizer "o dado está errado, corrija o CSV"; falha quer dizer "a
+linha está boa, o banco é que não gravou, rode de novo". E retomar é literalmente
+rodar o mesmo arquivo, porque o reimport não duplica.
 
 **A autorização que a story não pedia.** Nenhuma AC mencionava quem pode
 importar, e o command nasceu sem checagem. Importar é a **única escrita do

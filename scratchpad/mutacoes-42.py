@@ -64,7 +64,7 @@ MUTACOES = [
     (
         "Repetida e contada como aceita",
         COMMAND,
-        "      if (criado === null) {",
+        "        if (resultado.value === null) {",
         "      if (false) {",
     ),
     # ---- O relatorio: a unica prova de que a validacao rodou ----
@@ -209,6 +209,31 @@ MUTACOES = [
         COMMAND,
         "      const lote = pendentes.slice(inicio, inicio + LINHAS_POR_LOTE)",
         "      const lote = pendentes.slice(0, LINHAS_POR_LOTE)",
+    ),
+    # ---- O erro GENUINO do banco no meio do lote (2o achado do review, PR #79) ----
+    (
+        "Uma falha de banco derruba o import inteiro (`all` no lugar de `allSettled`)",
+        COMMAND,
+        "      const gravadas = await Promise.allSettled(",
+        "      const gravadas = await Promise.all(",
+    ),
+    (
+        "A falha some do relatorio (o operador nao sabe o que nao entrou)",
+        COMMAND,
+        "          falhas.push({ linha, numeroLegado: novo.numeroLegado, erro: mensagem(resultado.reason) })",
+        "          void 0",
+    ),
+    (
+        "Falha e classificada como rejeitada (perde-se a acao que ela pede)",
+        COMMAND,
+        "          falhas.push({ linha, numeroLegado: novo.numeroLegado, erro: mensagem(resultado.reason) })",
+        "          rejeitadas.push({ linha, numeroLegado: novo.numeroLegado, motivo: 'falhou' })",
+    ),
+    (
+        "A causa da falha vira texto generico",
+        COMMAND,
+        "const mensagem = (erro: unknown): string => (erro instanceof Error ? erro.message : String(erro))",
+        "const mensagem = (_erro: unknown): string => 'falhou'",
     ),
     # ---- O parser: o dado vem de FORA ----
     (
