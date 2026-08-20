@@ -69,6 +69,9 @@ const repositorio: TicketRepository = {
   async importarComAuditoria() {
     throw new Error('esta suite nao importa')
   },
+  async medirOperacao() {
+    throw new Error('esta suite nao mede operacao')
+  },
   async contarChamadosAbertosDe() {
     return 0
   },

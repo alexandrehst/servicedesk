@@ -1,0 +1,31 @@
+OK O periodo nao filtra as aberturas (mede a base inteira): 2 teste(s)
+OK O periodo nao filtra a contagem de autores (SM-5 infla): 1 teste(s)
+OK Periodo invertido devolve vazio em vez de recusar: 1 teste(s)
+OK O padrao deixa de ser 30 dias: 2 teste(s)
+OK Reabertura usa o PRIMEIRO resolvido (a metrica melhora quando o atendimento piora): 2 teste(s)
+OK Resolucao anterior a abertura entra como tempo NEGATIVO: 1 teste(s)
+OK A contagem de sem-resolucao some do relatorio: 2 teste(s)
+OK Chamado excluido volta para a contagem: 1 teste(s)
+OK A mediana passa a ser a media (some o numero honesto): 1 teste(s)
+OK Base vazia devolve 0 em vez de nulo ('resolveu em 0h' != 'nao resolveu'): 2 teste(s)
+OK Sem acao nenhuma, o percentual via MCP vira 0% em vez de nulo: 1 teste(s)
+OK Qualquer um passa a ver o relatorio: 1 teste(s)
+OK Sem permissao devolve relatorio vazio em vez de recusar: 1 teste(s)
+
+| Mutacao aplicada | Reprovou |
+| --- | --- |
+| O periodo nao filtra as aberturas (mede a base inteira) | 2 teste(s) |
+| O periodo nao filtra a contagem de autores (SM-5 infla) | 1 teste(s) |
+| Periodo invertido devolve vazio em vez de recusar | 1 teste(s) |
+| O padrao deixa de ser 30 dias | 2 teste(s) |
+| Reabertura usa o PRIMEIRO resolvido (a metrica melhora quando o atendimento piora) | 2 teste(s) |
+| Resolucao anterior a abertura entra como tempo NEGATIVO | 1 teste(s) |
+| A contagem de sem-resolucao some do relatorio | 2 teste(s) |
+| Chamado excluido volta para a contagem | 1 teste(s) |
+| A mediana passa a ser a media (some o numero honesto) | 1 teste(s) |
+| Base vazia devolve 0 em vez de nulo ('resolveu em 0h' != 'nao resolveu') | 2 teste(s) |
+| Sem acao nenhuma, o percentual via MCP vira 0% em vez de nulo | 1 teste(s) |
+| Qualquer um passa a ver o relatorio | 1 teste(s) |
+| Sem permissao devolve relatorio vazio em vez de recusar | 1 teste(s) |
+
+Todas as mutacoes foram reprovadas.

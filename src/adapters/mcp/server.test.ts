@@ -27,6 +27,9 @@ import {
 const registradas: Principal[] = []
 
 const repositorio: TicketRepository = {
+  async medirOperacao() {
+    throw new Error('esta suite nao mede operacao')
+  },
   async contarChamadosAbertosDe() {
     return 0
   },
@@ -236,6 +239,9 @@ it('deixa erro nao-tipado subir, em vez de engolir (pilar Observavel)', async ()
     async importarComAuditoria() {
       throw new Error('esta suite nao importa')
     },
+    async medirOperacao() {
+      throw new Error('esta suite nao mede operacao')
+    },
     async contarChamadosAbertosDe() {
       return 0
     },
@@ -300,6 +306,9 @@ const thread: readonly Comentario[] = [
 const repoLeitura: TicketRepository = {
   async criarComAuditoria(): Promise<Ticket> {
     throw new Error('a tool de leitura nao deve escrever')
+  },
+  async medirOperacao() {
+    throw new Error('esta suite nao mede operacao')
   },
   async contarChamadosAbertosDe() {
     return 0
@@ -522,6 +531,9 @@ it('deixa erro nao-tipado da leitura subir (pilar Observavel)', async () => {
     },
     async importarComAuditoria() {
       throw new Error('esta suite nao importa')
+    },
+    async medirOperacao() {
+      throw new Error('esta suite nao mede operacao')
     },
     async contarChamadosAbertosDe() {
       return 0
@@ -1232,6 +1244,9 @@ describe('o `structuredContent` bate com o `outputSchema` publicado (AD-6)', () 
     },
     async excluirComentarioComAuditoria() {
       return true
+    },
+    async medirOperacao() {
+      throw new Error('esta suite nao mede operacao')
     },
     async contarChamadosAbertosDe() {
       return 3

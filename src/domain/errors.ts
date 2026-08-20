@@ -45,6 +45,10 @@ export type DomainErrorCode =
   // Story 4.3: excluir a si mesmo derrubaria a propria sessao no meio da
   // operacao — e o sistema poderia ficar sem nenhum Agente.
   | 'AutoExclusao'
+  // Story 4.4: periodo com inicio depois do fim. Recusar, e nao devolver
+  // vazio: um relatorio vazio com cara de resposta faria alguem concluir "nao
+  // houve atendimento" a partir de um periodo que nao existe.
+  | 'PeriodoInvalido'
   // Story 2.2: a maquina de estados do AD-5 recusou o destino pedido.
   | 'TransicaoInvalida'
   // Story 2.2: concorrencia otimista (AD-10). Alguem mudou o Chamado entre a

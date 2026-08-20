@@ -53,6 +53,9 @@ const repositorioFake = (): TicketRepository & { chamadas: [NovoTicket, Principa
     async importarComAuditoria() {
       throw new Error('esta suite nao importa')
     },
+    async medirOperacao() {
+      throw new Error('esta suite nao mede operacao')
+    },
     async contarChamadosAbertosDe() {
       return 0
     },
@@ -133,6 +136,9 @@ it('propaga falha da persistencia sem mascarar', async () => {
     },
     async importarComAuditoria() {
       throw new Error('esta suite nao importa')
+    },
+    async medirOperacao() {
+      throw new Error('esta suite nao mede operacao')
     },
     async contarChamadosAbertosDe() {
       return 0
