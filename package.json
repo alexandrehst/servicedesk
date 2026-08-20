@@ -9,14 +9,16 @@
     "node": ">=24"
   },
   "scripts": {
-    "lint": "biome ci .",
+    "arch": "depcruise src --config .dependency-cruiser.cjs",
+    "build": "tsc -p tsconfig.build.json",
+    "commitlint": "commitlint",
+    "db:migrate": "for f in drizzle/migrations/*.sql; do echo \"-> $f\"; psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f \"$f\" || exit 1; done",
     "format": "biome format --write .",
-    "typecheck": "tsc --noEmit",
+    "lint": "biome ci .",
+    "start": "node dist/src/bootstrap/servidor-mcp.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "arch": "depcruise src --config .dependency-cruiser.cjs",
-    "commitlint": "commitlint",
-    "db:migrate": "for f in drizzle/migrations/*.sql; do echo \"-> $f\"; psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f \"$f\" || exit 1; done"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.7",

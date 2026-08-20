@@ -138,8 +138,19 @@ export const autenticarComLink =
  * `origin` NAO sai daqui: quem carimba e o adapter, porque so ele sabe se a
  * chamada veio do MCP ou da API (AD-9).
  */
+/**
+ * Story 5.1: `Pick` em vez de `AutenticacaoDeps` inteiro.
+ *
+ * Resolver credencial nao envia e-mail nenhum — exigir o `notificador` fazia a
+ * raiz de composicao ter de inventar um so para satisfazer o tipo, e um
+ * notificador falso e exatamente o tipo de peca que alguem um dia usa de
+ * verdade por engano. E o mesmo padrao ja usado nos commands: "declarar isso
+ * deixa obvio o que ele NAO faz".
+ */
+export type ResolucaoDeps = Pick<AutenticacaoDeps, 'repositorio' | 'agora'>
+
 export const resolverPrincipal =
-  ({ repositorio, agora }: AutenticacaoDeps) =>
+  ({ repositorio, agora }: ResolucaoDeps) =>
   async (tokenDeSessao: string): Promise<Omit<Principal, 'origin'>> => {
     if (tokenDeSessao.length === 0) {
       throw credencialInvalida()
@@ -169,7 +180,7 @@ export const resolverPrincipal =
  * precisa distinguir para saber se adianta tentar de novo.
  */
 export const resolverPrincipalDeTokenMcp =
-  ({ repositorio, agora }: AutenticacaoDeps) =>
+  ({ repositorio, agora }: ResolucaoDeps) =>
   async (tokenDoCliente: string): Promise<Omit<Principal, 'origin'>> => {
     if (tokenDoCliente.length === 0) {
       throw credencialInvalida()
