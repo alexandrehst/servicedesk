@@ -384,43 +384,69 @@ espinha da arquitetura.
   importar é a única escrita em que o autor e o dono do registro são pessoas
   diferentes de propósito. A 4.3 tem o mesmo cheiro (excluir Usuário).
 
-#### Story 4.3 — soft-delete completo, e o que falta é concreto
+#### O que a 4.3 mediu — três achados do `claude-review`, e o padrão se repetiu
 
-Verificado no código em 2026-08-19, depois da 4.2:
+Como na 4.2, **cada achado apareceu no código escrito para o anterior**, e o
+terceiro foi uma aprovação explícita. Vale ler o que cada um ensinou:
 
-- `tickets.deleted_at` ✅ (1.7) e `comments.deleted_at` ✅ (existe no schema
-  desde a 1.2, e `filtrarComentarios` já o respeita);
-- **`users` NÃO tem `deleted_at`** — é o buraco da FR-23;
-- **não existe comando para excluir Comentário nem Usuário**: só
-  `excluir-chamado.ts`. A coluna de Comentário existe e nada a escreve;
-- **`excluir_chamado` não tem tool MCP registrada.** O command existe, a ação
-  está no vocabulário do Log, há testes — e nenhuma porta de entrada. A 1.7
-  decidiu isso de propósito e escreveu que **"a Story 4.3 decide se e como ela
-  aparece"**;
-- **excluir Usuário tem um gargalo único que já existe**: `buscarUsuarioPorEmail`
-  é consultado pelos quatro caminhos que importam (pedir login, consumir link,
-  intake de e-mail, atribuir), e `buscarSessaoPorHash` faz `innerJoin` com
-  `users` — foi escrito assim na 1.3 para que "rebaixamento e remoção valham
-  imediatamente em vez de esperar a sessão expirar". Filtrar `deleted_at` ali
-  fecha os cinco de uma vez. **Confira se é verdade antes de confiar** — e, se
-  for, escreva o teste que desliga cada camada separadamente, porque a
-  redundância que protege também esconde.
+**a) O Log dizia que algo aconteceu, sem dizer com o quê.** O pedido de
+confirmação gravava `ticket_number`, `de` e `para` — e para excluir Usuário os
+três são nulos. Um pedido que **nunca se confirma** (token expira, ou quem
+decide diz não) deixava no Log uma tentativa sem dizer **quem** esteve perto de
+ser excluído: a ação mais destrutiva, no caso em que nada mais ficou
+registrado. **Ao conferir o entorno apareceu um segundo, pior**, que o achado
+não mencionava: a *execução* da exclusão de Comentário gravava o Chamado mas não
+qual Comentário.
 
-**A dívida com prazo de validade que a 1.7 deixou nominalmente para esta
-story:** *"a exclusão é irreversível na prática enquanto não houver restauração.
-No dia em que a 4.3 expuser a exclusão por alguma superfície, o AD-7 passa a
-valer — está anotado aqui para que essa decisão não seja tomada por omissão."*
-Ou seja: **tool de exclusão sem confirmação é violação do AD-7**, e a 2.6 já
-construiu o mecanismo inteiro (`confirmacoes`, escopo por ação/chamado/
-identidade, uso único). A 1.7 também registrou que **não há restauração** e
-**não há política de retenção** — as duas são desta story decidir ou registrar.
+> **Quando uma story acrescenta um tipo de objeto, todo registro que
+> identificava "o objeto" por um campo antigo vira candidato a buraco.** Procure
+> onde o identificador implícito deixou de bastar.
 
-Excluir Usuário toca coisas que as outras exclusões não tocam: login (1.3),
-atribuição (2.3 — o Dono de um Chamado aberto), o escopo de leitura (3.1) e o
-cadastro que a 2.3 consulta. **Decida o que acontece com o Chamado de um
-Solicitante excluído e com o Chamado atribuído a um Agente excluído** — e note
-que `audit_entries` **não** recebe soft-delete (decisão da 1.7: é append-only, e
-uma coluna de exclusão ali permitiria apagar a prova).
+**b) O contrato de saída dizia `numero`; o command devolvia `number`.** Correção
+de uma linha — mas a pergunta boa é **por que nenhum teste pegou**: os testes de
+command não passam pelo `registerTool`, e os do adapter comparavam a saída com
+um literal escrito à mão que repetia o mesmo erro. **Os dois lados concordavam
+entre si e discordavam do contrato publicado.**
+
+> O teste que fecha isso **parseia o que o handler devolve com o schema que a
+> tool publica**. Existe agora para as três exclusões; **estenda-o para a tool
+> que a sua story criar.**
+
+#### As duas lições da 4.3 que atravessam
+
+**1. Sobrevivente de mutação não tem um diagnóstico só — tem três.** A 4.3
+terminou com três, e cada uma pedia uma ação diferente:
+
+| Sobrevivente | O que era | O que fazer |
+| --- | --- | --- |
+| "excluir Usuário já excluído registra de novo" | **defeito real**, escondido porque o gargalo do command impedia o caso de chegar ao adapter | teste que chama o **repositório direto** — o port é público |
+| "trocar `excluiComentario` por `excluiChamado`" | as duas capacidades têm hoje a mesma política; a separação é uma aposta **futura** | **remover a mutação**, com o porquê |
+| "distinguir inexistente de já-excluído" | os dois convergem no **mesmo ramo por construção** | **remover**, e registrar que a garantia é estrutural |
+
+**A do meio e a última não são preguiça: são mutações mal formuladas.** Mas a
+primeira era real, e o sintoma foi o mesmo — por isso **não trate as três do
+mesmo jeito**. Pergunte, para cada uma: *existe um estado do sistema em que esta
+mutação muda o resultado?* Se existe e nenhum teste o alcança, falta teste. Se
+não existe, a mutação não representa defeito nenhum.
+
+**2. Garantia estrutural é mais forte que garantia testada.** "Inexistente" e
+"já excluído" dão a mesma resposta porque o filtro faz o excluído chegar como
+`null` — não porque alguém escreveu um teste comparando as mensagens. **Quando
+puder tornar o defeito impossível em vez de detectável, faça** — e registre,
+porque quem vier depois vai procurar o teste e não achar. O projeto já usou a
+ideia três vezes: `NovoTicket` sem `number` (AD-4), o símbolo privado da
+visibilidade (AD-8), e agora esta.
+
+#### O que a 4.3 deixou pronto para a 4.4
+
+- **`AlvoDeConfirmacao`** (`chamado:N`, `comentario:N/M`, `usuario:email`) — um
+  vocabulário só para "o objeto exato", usado pelo escopo do token E pela coluna
+  `alvo` do Log.
+- **`audit_entries.ticket_number` aceita nulo**, e há precedente de ação que não
+  é sobre um Chamado.
+- **As três exclusões têm tool**, e a 1.7 não tem mais dívida em aberto — exceto
+  as duas que ela mesma mandou registrar em vez de resolver: **não há restauração
+  e não há política de retenção**, ambas agora no PRD.
 
 #### Story 4.4 — NÃO é completável por código, e isso precisa estar claro
 
