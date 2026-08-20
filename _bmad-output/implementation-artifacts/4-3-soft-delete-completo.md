@@ -317,8 +317,8 @@ claude-opus-5 (Claude Code, loop Ralph)
 
 ### Debug Log References
 
-- `scratchpad/mutacoes-43.py` — **33 mutações, 33 reprovadas** (saída em `scratchpad/mutacoes-43.out`); a conferência prévia de alvos, herdada da 4.2, acusou zero ausentes
-- `pnpm test` — 950 testes verdes; `typecheck`, `lint` e `arch` limpos
+- `scratchpad/mutacoes-43.py` — **36 mutações, 36 reprovadas** (saída em `scratchpad/mutacoes-43.out`); a conferência prévia de alvos, herdada da 4.2, acusou zero ausentes
+- `pnpm test` — 953 testes verdes; `typecheck`, `lint` e `arch` limpos
 - Integração contra o Postgres real: `excluir-comentario.test.ts` (12),
   `usuario-excluido.test.ts` (9), `excluir-usuario.test.ts` (17)
 
@@ -415,6 +415,30 @@ As duas não-matáveis saíram do script com o porquê no cabeçalho, seguindo o
 critério que a 4.2 estabeleceu: sobrevivente por ausência de efeito é sintoma de
 **mutação mal formulada**, não de teste faltando.
 
+**O achado do `claude-review` (PR #81), e o buraco maior que estava ao lado.**
+Ele apontou que o `solicitar_confirmacao` grava `ticket_number`, `de` e `para` —
+e que para `excluir_usuario` os três são nulos. Consequência: um pedido de
+exclusão que **nunca se confirma** (o token expira, ou quem decide diz não)
+deixa no Log uma tentativa que não diz **quem** esteve perto de ser excluído.
+É a ação mais destrutiva do sistema, e é o caso em que nada mais ficou
+registrado — porque a exclusão não aconteceu.
+
+Ao conferir o entorno, achei um segundo, que ele não mencionou e é pior: a
+**execução** de `excluir_comentario` gravava o Chamado, mas não **qual**
+Comentário. O Log dizia que alguém apagou algo daquela thread, sem dizer o quê —
+e o corpo continua no banco justamente para que a exclusão seja auditável.
+
+Os dois foram corrigidos com uma coluna `alvo` em `audit_entries`, guardando o
+mesmo `AlvoDeConfirmacao` que já amarra o escopo do token: **um vocabulário só**
+para "o objeto exato", em vez de um segundo com a mesma ideia. Ela é nula onde
+`ticket_number` já identifica o objeto — guardar o mesmo dado duas vezes são
+duas chances de divergir.
+
+As duas sondas: a **tentativa não concluída** (pedido registrado, os três campos
+antigos nulos, alvo presente, nada excluído) e o **pareamento** entre pedido e
+execução pelo mesmo alvo — que é a pergunta que um auditor faz sobre uma ação
+com human-in-the-loop.
+
 **A armadilha que a migration documenta:** o `UNIQUE` de `users.email` **não**
 virou parcial. Seria a saída óbvia para recadastrar quem saiu, e quebraria a
 autenticação de um jeito silencioso — `buscarSessaoPorHash` casa
@@ -432,6 +456,7 @@ antigo passaria a resolver para o novo, herdando o papel dele.
 - `src/adapters/persistence/excluir-usuario.test.ts`
 - `src/adapters/persistence/usuario-excluido.test.ts`
 - `drizzle/migrations/0014_soft_delete_completo.sql`
+- `drizzle/migrations/0015_alvo_no_log.sql`
 - `scratchpad/mutacoes-43.py`
 
 **Alterados**

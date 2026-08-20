@@ -68,6 +68,20 @@ export const auditEntries = pgTable('audit_entries', {
   // `reabrir_chamado` o informa. Vai para o Log, e nao para um Comentario,
   // porque o Log e append-only e o Comentario tem soft-delete.
   motivo: text('motivo'),
+  /**
+   * Story 4.3 (achado do review no PR #81) — sobre QUE OBJETO foi a acao.
+   *
+   * Guarda o `AlvoDeConfirmacao` do dominio (`chamado:1042`,
+   * `comentario:1042/7`, `usuario:ana@empresa.com`). Ate a 4.3 toda acao era
+   * sobre um Chamado e `ticket_number` bastava; agora ha acoes que nao sao — e
+   * o PEDIDO de confirmacao de `excluir_usuario` gravava `ticket_number`, `de`
+   * e `para` todos nulos, deixando no Log uma tentativa que nao dizia QUEM
+   * esteve perto de ser excluido.
+   *
+   * NULA onde `ticket_number` ja identifica o objeto: guardar o mesmo dado
+   * duas vezes e duas chances de divergir.
+   */
+  alvo: text('alvo'),
   registradoEm: timestamp('registrado_em', { withTimezone: true }).notNull().defaultNow(),
 })
 

@@ -3,33 +3,36 @@ OK Excluir Usuario nao marca nada: 4 teste(s)
 OK O `numero` sai do WHERE: id de OUTRO Chamado passa a ser excluivel: 2 teste(s)
 OK Comentario ja excluido e 'excluido' de novo (Log duplicado): 1 teste(s)
 OK Exclusao que nao aconteceu vira registro no Log: 2 teste(s)
-OK A exclusao do Comentario nao vai para o Log: 2 teste(s)
+OK A exclusao do Comentario nao vai para o Log: 3 teste(s)
 OK O Log registra o autor do Comentario em vez de quem excluiu: 1 teste(s)
 OK Camada 1: `buscarUsuarioPorEmail` deixa de filtrar o excluido: 3 teste(s)
 OK Camada 2: a SESSAO ja aberta continua valendo depois da exclusao: 3 teste(s)
 OK Camada 3: o token MCP de quem saiu continua resolvendo: 2 teste(s)
-OK A exclusao do Usuario nao vai para o Log: 3 teste(s)
+OK A exclusao do Usuario nao vai para o Log: 4 teste(s)
 OK O Log da exclusao de Usuario nao diz QUEM foi excluido: 1 teste(s)
 OK A exclusao de Usuario inventa um Chamado no Log: 1 teste(s)
 OK Excluir Usuario ja excluido registra de novo: 2 teste(s)
 OK Excluir Chamado deixa de exigir confirmacao: 2 teste(s)
 OK Excluir Chamado aceita QUALQUER confirmacao: 1 teste(s)
 OK Excluir Comentario deixa de exigir confirmacao: 2 teste(s)
-OK Excluir Comentario aceita QUALQUER confirmacao: 1 teste(s)
-OK Excluir Usuario deixa de exigir confirmacao: 2 teste(s)
+OK Excluir Comentario aceita QUALQUER confirmacao: 2 teste(s)
+OK Excluir Usuario deixa de exigir confirmacao: 3 teste(s)
 OK Excluir Usuario aceita QUALQUER confirmacao: 1 teste(s)
 OK Cracha para quem nao entra: emitir token antes de autorizar (Comentario): 2 teste(s)
 OK Cracha para quem nao entra: emitir token antes de autorizar (Usuario): 2 teste(s)
-OK O alvo do Comentario ignora o Chamado (token serve para qualquer um): 1 teste(s)
-OK O alvo do Usuario vira generico (um token exclui qualquer pessoa): 2 teste(s)
-OK O alvo do Chamado vira generico: 4 teste(s)
+OK O alvo do Comentario ignora o Chamado (token serve para qualquer um): 2 teste(s)
+OK O alvo do Usuario vira generico (um token exclui qualquer pessoa): 4 teste(s)
+OK O alvo do Chamado vira generico: 5 teste(s)
 OK Solicitante ganha permissao de excluir Comentario: 2 teste(s)
 OK Solicitante ganha permissao de excluir Usuario: 2 teste(s)
 OK Pular o gargalo de visibilidade do Chamado ao excluir Comentario: 1 teste(s)
-OK Excluir a si mesmo passa a ser permitido: 1 teste(s)
+OK Excluir a si mesmo passa a ser permitido: 2 teste(s)
 OK O relatorio conta Chamado ENCERRADO como trabalho parado: 1 teste(s)
 OK O relatorio conta Chamado de OUTRO Dono: 1 teste(s)
-OK Comentario excluido volta a aparecer na thread: 4 teste(s)
+OK O PEDIDO de confirmacao nao grava o alvo (tentativa nao concluida some do Log): 2 teste(s)
+OK A execucao da exclusao de Usuario nao grava o alvo (nao pareia com o pedido): 1 teste(s)
+OK O Log nao diz QUAL Comentario foi excluido: 1 teste(s)
+OK Comentario excluido volta a aparecer na thread: 5 teste(s)
 OK O `id` do Comentario para de chegar a quem le: 2 teste(s)
 
 | Mutacao aplicada | Reprovou |
@@ -39,33 +42,36 @@ OK O `id` do Comentario para de chegar a quem le: 2 teste(s)
 | O `numero` sai do WHERE: id de OUTRO Chamado passa a ser excluivel | 2 teste(s) |
 | Comentario ja excluido e 'excluido' de novo (Log duplicado) | 1 teste(s) |
 | Exclusao que nao aconteceu vira registro no Log | 2 teste(s) |
-| A exclusao do Comentario nao vai para o Log | 2 teste(s) |
+| A exclusao do Comentario nao vai para o Log | 3 teste(s) |
 | O Log registra o autor do Comentario em vez de quem excluiu | 1 teste(s) |
 | Camada 1: `buscarUsuarioPorEmail` deixa de filtrar o excluido | 3 teste(s) |
 | Camada 2: a SESSAO ja aberta continua valendo depois da exclusao | 3 teste(s) |
 | Camada 3: o token MCP de quem saiu continua resolvendo | 2 teste(s) |
-| A exclusao do Usuario nao vai para o Log | 3 teste(s) |
+| A exclusao do Usuario nao vai para o Log | 4 teste(s) |
 | O Log da exclusao de Usuario nao diz QUEM foi excluido | 1 teste(s) |
 | A exclusao de Usuario inventa um Chamado no Log | 1 teste(s) |
 | Excluir Usuario ja excluido registra de novo | 2 teste(s) |
 | Excluir Chamado deixa de exigir confirmacao | 2 teste(s) |
 | Excluir Chamado aceita QUALQUER confirmacao | 1 teste(s) |
 | Excluir Comentario deixa de exigir confirmacao | 2 teste(s) |
-| Excluir Comentario aceita QUALQUER confirmacao | 1 teste(s) |
-| Excluir Usuario deixa de exigir confirmacao | 2 teste(s) |
+| Excluir Comentario aceita QUALQUER confirmacao | 2 teste(s) |
+| Excluir Usuario deixa de exigir confirmacao | 3 teste(s) |
 | Excluir Usuario aceita QUALQUER confirmacao | 1 teste(s) |
 | Cracha para quem nao entra: emitir token antes de autorizar (Comentario) | 2 teste(s) |
 | Cracha para quem nao entra: emitir token antes de autorizar (Usuario) | 2 teste(s) |
-| O alvo do Comentario ignora o Chamado (token serve para qualquer um) | 1 teste(s) |
-| O alvo do Usuario vira generico (um token exclui qualquer pessoa) | 2 teste(s) |
-| O alvo do Chamado vira generico | 4 teste(s) |
+| O alvo do Comentario ignora o Chamado (token serve para qualquer um) | 2 teste(s) |
+| O alvo do Usuario vira generico (um token exclui qualquer pessoa) | 4 teste(s) |
+| O alvo do Chamado vira generico | 5 teste(s) |
 | Solicitante ganha permissao de excluir Comentario | 2 teste(s) |
 | Solicitante ganha permissao de excluir Usuario | 2 teste(s) |
 | Pular o gargalo de visibilidade do Chamado ao excluir Comentario | 1 teste(s) |
-| Excluir a si mesmo passa a ser permitido | 1 teste(s) |
+| Excluir a si mesmo passa a ser permitido | 2 teste(s) |
 | O relatorio conta Chamado ENCERRADO como trabalho parado | 1 teste(s) |
 | O relatorio conta Chamado de OUTRO Dono | 1 teste(s) |
-| Comentario excluido volta a aparecer na thread | 4 teste(s) |
+| O PEDIDO de confirmacao nao grava o alvo (tentativa nao concluida some do Log) | 2 teste(s) |
+| A execucao da exclusao de Usuario nao grava o alvo (nao pareia com o pedido) | 1 teste(s) |
+| O Log nao diz QUAL Comentario foi excluido | 1 teste(s) |
+| Comentario excluido volta a aparecer na thread | 5 teste(s) |
 | O `id` do Comentario para de chegar a quem le | 2 teste(s) |
 
 Todas as mutacoes foram reprovadas.

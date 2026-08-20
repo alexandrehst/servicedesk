@@ -149,6 +149,21 @@ describe('a exclusao vai para o Log (AC #1, AD-3, AD-9)', () => {
     expect(entrada?.ticket_number).toBe(1042)
   })
 
+  /**
+   * Achado do review no PR #81 (o entorno dele): a execucao gravava o Chamado,
+   * mas nao QUAL Comentario — o Log dizia que alguem apagou algo daquela
+   * thread, sem dizer o que. O corpo continua no banco justamente para que a
+   * exclusao seja auditavel; sem o alvo, nao havia como chegar ate ele.
+   */
+  it('e dizendo QUAL Comentario foi excluido', async () => {
+    const [primeiro] = await idsDoChamado(1042)
+
+    await excluir({ numero: 1042, id: primeiro ?? 0 }, bruno)
+
+    const [entrada] = await db.execute(sql`SELECT alvo FROM audit_entries ORDER BY id`)
+    expect(entrada?.alvo).toBe(`comentario:1042/${primeiro}`)
+  })
+
   /** Exclusao que nao aconteceu nao vira Log — mesma regra da 1.7. */
   it('excluir duas vezes registra UMA vez', async () => {
     const [primeiro] = await idsDoChamado(1042)

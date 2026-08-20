@@ -3,6 +3,7 @@ import type { PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import { auditEntries, loginLinks, mcpTokens, sessions, users } from '../../../drizzle/schema.js'
 import { papelSchema } from '../../application/contracts/principal.js'
 import type { IdentityRepository } from '../../application/ports/identity-repository.js'
+import { alvoDoUsuario } from '../../domain/alvo-de-confirmacao.js'
 
 /**
  * Driven adapter: implementa o port de identidade.
@@ -34,6 +35,10 @@ export const criarIdentityRepository = (db: PostgresJsDatabase): IdentityReposit
         // de pessoa que nao tem nada a ver com ele.
         ticketNumber: null,
         acao: 'excluir_usuario',
+        // O mesmo alvo que o PEDIDO de confirmacao gravou: e o que permite
+        // parear "pediu" com "executou" no Log, que e a pergunta que um
+        // auditor faz sobre uma acao com human-in-the-loop.
+        alvo: alvoDoUsuario(email),
         // AD-9: quem excluiu.
         autor: autor.identity,
         origin: autor.origin,

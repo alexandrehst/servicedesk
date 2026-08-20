@@ -267,6 +267,25 @@ MUTACOES = [
         "          eq(tickets.assignee, email),",
         "",
     ),
+    # ---- O Log diz sobre QUE OBJETO foi a acao (achado do review, PR #81) ----
+    (
+        "O PEDIDO de confirmacao nao grava o alvo (tentativa nao concluida some do Log)",
+        "src/adapters/persistence/confirmacao-repository.ts",
+        "        alvo,\n      })",
+        "        alvo: null,\n      })",
+    ),
+    (
+        "A execucao da exclusao de Usuario nao grava o alvo (nao pareia com o pedido)",
+        IDENT,
+        "        alvo: alvoDoUsuario(email),",
+        "        alvo: null,",
+    ),
+    (
+        "O Log nao diz QUAL Comentario foi excluido",
+        REPO,
+        "        alvo: alvoDoComentario(numero, id),",
+        "        alvo: null,",
+    ),
     # ---- O Comentario excluido some da thread ----
     (
         "Comentario excluido volta a aparecer na thread",

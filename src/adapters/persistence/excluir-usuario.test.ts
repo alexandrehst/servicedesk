@@ -5,6 +5,8 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest'
 import { excluirUsuario } from '../../application/commands/excluir-usuario.js'
 import type { Principal } from '../../application/contracts/principal.js'
 import { verHistorico } from '../../application/queries/ver-historico.js'
+import { alvoDoUsuario } from '../../domain/alvo-de-confirmacao.js'
+import { criarConfirmacaoRepository } from './confirmacao-repository.js'
 import { criarIdentityRepository } from './identity-repository.js'
 import { criarTicketRepository } from './ticket-repository.js'
 
@@ -48,7 +50,9 @@ const excluir = () => excluirUsuario({ identidades, repositorio, confirmacao })
 beforeEach(async () => {
   alvosEmitidos = []
   confirmacaoVale = true
-  await db.execute(sql`TRUNCATE users, sessions, mcp_tokens, login_links RESTART IDENTITY`)
+  await db.execute(
+    sql`TRUNCATE users, sessions, mcp_tokens, login_links, confirmacoes RESTART IDENTITY`,
+  )
   await db.execute(sql`TRUNCATE tickets, comments, audit_entries RESTART IDENTITY`)
   await db.execute(sql`
     INSERT INTO users (email, papel)
@@ -293,5 +297,75 @@ describe('o REPOSITORIO sozinho, sem o command na frente', () => {
       sql`SELECT count(*)::int AS total FROM audit_entries`,
     )
     expect(total).toBe(0)
+  })
+})
+
+describe('o Log diz sobre QUE OBJETO foi a acao (achado do review, PR #81)', () => {
+  /**
+   * O caso que motivou a coluna `alvo`: alguem pede a exclusao de uma pessoa e
+   * **nunca confirma** — o token expira, ou quem decide diz nao.
+   *
+   * O `solicitar_confirmacao` grava `ticket_number`, `de` e `para`, e nesta
+   * acao os tres sao NULOS. Sem o alvo, o Log guardaria uma tentativa que nao
+   * diz QUEM esteve perto de ser excluido — justamente na acao mais destrutiva
+   * do sistema, e justamente no caso em que nada mais ficou registrado, porque
+   * a exclusao nao aconteceu.
+   */
+  it('a tentativa NAO concluida deixa rastro de quem era o alvo', async () => {
+    // Repositorio de confirmacao REAL: e ele que grava o pedido no Log.
+    const confirmacaoReal = criarConfirmacaoRepository(db)
+
+    await confirmacaoReal.criarConfirmacaoComAuditoria({
+      alvo: alvoDoUsuario(ANA),
+      ticketNumber: null,
+      acao: 'excluir_usuario',
+      autor: bruno,
+      tokenHash: 'hash-que-ninguem-vai-usar',
+      expiraEm: new Date(Date.now() + 5 * 60 * 1000),
+      de: null,
+      para: null,
+    })
+
+    const [pedido] = await db.execute(
+      sql`SELECT ticket_number, de, para, alvo, autor FROM audit_entries
+           WHERE acao = 'solicitar_confirmacao'`,
+    )
+
+    // Os tres campos antigos sao nulos nesta acao — e sempre foram.
+    expect(pedido?.ticket_number).toBeNull()
+    expect(pedido?.de).toBeNull()
+    expect(pedido?.para).toBeNull()
+
+    // O alvo e a unica coisa que diz de quem se tratava.
+    expect(pedido?.alvo).toBe(`usuario:${ANA}`)
+    expect(pedido?.autor).toBe('bruno@empresa.com')
+
+    // E nada foi excluido: a confirmacao nunca foi usada.
+    const [linha] = await db.execute(sql`SELECT deleted_at FROM users WHERE email = ${ANA}`)
+    expect(linha?.deleted_at).toBeNull()
+  })
+
+  /** Pedido e execucao carregam o MESMO alvo — e e assim que se pareia os dois. */
+  it('o alvo do pedido casa com o alvo da execucao', async () => {
+    const confirmacaoReal = criarConfirmacaoRepository(db)
+
+    await confirmacaoReal.criarConfirmacaoComAuditoria({
+      alvo: alvoDoUsuario(ANA),
+      ticketNumber: null,
+      acao: 'excluir_usuario',
+      autor: bruno,
+      tokenHash: 'hash',
+      expiraEm: new Date(Date.now() + 5 * 60 * 1000),
+      de: null,
+      para: null,
+    })
+    await identidades.excluirUsuarioComAuditoria(ANA, bruno)
+
+    const entradas = await db.execute(sql`SELECT acao, alvo FROM audit_entries ORDER BY id`)
+
+    expect(entradas.map((e) => [e.acao, e.alvo])).toEqual([
+      ['solicitar_confirmacao', `usuario:${ANA}`],
+      ['excluir_usuario', `usuario:${ANA}`],
+    ])
   })
 })

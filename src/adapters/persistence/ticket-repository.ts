@@ -6,6 +6,7 @@ import type {
   RegistroDeIntake,
   TicketRepository,
 } from '../../application/ports/ticket-repository.js'
+import { alvoDoChamado, alvoDoComentario } from '../../domain/alvo-de-confirmacao.js'
 import type { AcaoDeAuditoria } from '../../domain/auditoria.js'
 import type { AlcanceDaBusca } from '../../domain/busca.js'
 import type { NovoComentario } from '../../domain/comentario.js'
@@ -746,6 +747,11 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
         // AD-9: quem excluiu, nunca o nome da tool.
         autor: autor.identity,
         origin: autor.origin,
+        // QUAL Comentario. Sem isto o Log dizia que alguem apagou algo daquela
+        // thread, sem dizer o que — e o corpo continua no banco justamente
+        // para que a exclusao seja auditavel (FR-23). Mesmo formato do alvo da
+        // confirmacao: um vocabulario so para "o objeto exato".
+        alvo: alvoDoComentario(numero, id),
       })
 
       return true
@@ -769,6 +775,7 @@ export const criarTicketRepository = (db: PostgresJsDatabase): TicketRepository 
       await tx.insert(auditEntries).values({
         ticketNumber: linha.number,
         acao: 'excluir_chamado',
+        alvo: alvoDoChamado(numero),
         // AD-9: a identidade de quem excluiu, nunca o nome da tool.
         autor: autor.identity,
         origin: autor.origin,

@@ -43,6 +43,12 @@ export const criarConfirmacaoRepository = (db: PostgresJsDatabase): ConfirmacaoR
         origin: autor.origin,
         de,
         para,
+        // O ALVO, e nao so o Chamado. Sem ele, um pedido de excluir Usuario que
+        // nunca se confirma (o token expira, ou quem decide diz nao) fica no
+        // Log sem dizer QUEM esteve perto de ser excluido — `ticket_number`,
+        // `de` e `para` sao todos nulos nessa acao. E justamente na tentativa
+        // NAO concluida da acao mais destrutiva que o rastro mais importa.
+        alvo,
       })
     })
   },
