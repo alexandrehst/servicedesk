@@ -28,7 +28,10 @@ const repositorio = criarTicketRepository(db)
 
 const bruno: Principal = { identity: 'bruno@empresa.com', role: 'agente', origin: 'mcp' }
 
-const importar = importarCsv({ repositorio })
+/** O log tem sonda propria em `commands/importar-csv.test.ts`; aqui ele so precisa existir. */
+const semLog = { erro: () => {}, aviso: () => {} }
+
+const importar = importarCsv({ repositorio, logger: semLog })
 
 const CABECALHO =
   'numero_legado,titulo,descricao,categoria,status,prioridade,solicitante,dono,criado_em'

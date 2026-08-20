@@ -229,10 +229,12 @@ claude-opus-5 (Claude Code, loop Ralph)
 
 ### Debug Log References
 
-- `scratchpad/mutacoes-42.py` — **33 mutações, 33 reprovadas** (saída em `scratchpad/mutacoes-42.out`). **Alvo evaporado nas duas últimas rodadas**, uma vez em cada: `resultado.novo.criadoEm` virou `novo.criadoEm` quando o `for` virou lote, e `criado === null` virou `resultado.value === null` quando `Promise.all` virou `allSettled`. Ambas corrigidas e reexecutadas isoladas. Terceira e quarta vez que isso acontece no projeto; das duas primeiras a causa foi o formatador, destas duas foi a minha própria refatoração — **toda mudança no código é mudança nos alvos**, e o script não avisa alto o bastante: ele imprime a linha e segue
-- `pnpm test` — 899 testes verdes; `pnpm typecheck`, `pnpm lint`, `pnpm arch` limpos
+- `scratchpad/mutacoes-42.py` — **36 mutações, 36 reprovadas** (saída em `scratchpad/mutacoes-42.out`). **Alvo evaporado em três rodadas seguidas**, quatro ocorrências ao todo nesta story: `resultado.novo.criadoEm` → `novo.criadoEm` (o `for` virou lote), `criado === null` → `resultado.value === null` (`Promise.all` virou `allSettled`) e duas no `falhas.push` (quando `causa` foi extraída). Todas corrigidas e reexecutadas isoladas. Somando as anteriores do projeto, seis vezes — as duas primeiras por causa do formatador, as quatro desta story pela minha própria refatoração.
+
+Na terceira vez parei de consertar o sintoma: **o script agora confere todos os alvos ANTES de rodar** e se recusa a começar, com uma mensagem que separa "SCRIPT DESATUALIZADO" de "MUTAÇÃO SOBREVIVENTE". Eram duas coisas diferentes reportadas do mesmo jeito, e a diferença importa — uma quer dizer "o script aponta para código que mudou", a outra quer dizer "falta teste". Agora o erro aparece em um segundo, não quarenta minutos depois
+- `pnpm test` — 902 testes verdes; `pnpm typecheck`, `pnpm lint`, `pnpm arch` limpos
 - `src/adapters/persistence/import-csv.test.ts` — 16 testes contra o Postgres real
-- `src/application/commands/importar-csv.test.ts` — 10 testes do lote paralelo e do caminho de falha, com duble
+- `src/application/commands/importar-csv.test.ts` — 13 testes do lote paralelo, do caminho de falha e do log, com duble
 
 ### Completion Notes List
 
@@ -311,6 +313,20 @@ separada de `rejeitadas` **porque a ação que cada uma pede é diferente** —
 rejeitada quer dizer "o dado está errado, corrija o CSV"; falha quer dizer "a
 linha está boa, o banco é que não gravou, rode de novo". E retomar é literalmente
 rodar o mesmo arquivo, porque o reimport não duplica.
+
+**O terceiro achado: a falha só existia no relatório síncrono.** O `Logger`
+(Story 1.6) foi criado exatamente para isto — "a falha não pode sumir num
+`catch {}` vazio" —, e o padrão idêntico já estava em
+`adapters/email/varredura.ts`. O relatório da tool existe uma vez, na resposta
+daquela chamada: se o cliente truncar a saída estruturada, ou o processo cair
+antes de responder, não sobra rastro de por que a linha 2.003 não entrou.
+
+Segui o padrão existente em vez de inventar um. As três sondas: que o log
+acontece; que ele **não** leva o conteúdo da linha (AD-9 — o Título vem do
+Solicitante, e log é lugar por onde dado vaza); e que linha **rejeitada** não
+vira erro no log, porque dado errado num arquivo de migração é o caso normal, e
+registrá-lo como erro treinaria quem monitora a ignorar erro — distinção que o
+próprio port já fazia entre `erro` e `aviso`.
 
 **A autorização que a story não pedia.** Nenhuma AC mencionava quem pode
 importar, e o command nasceu sem checagem. Importar é a **única escrita do

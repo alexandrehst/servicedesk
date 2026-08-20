@@ -81,6 +81,8 @@ const deps = (quem: Principal, dono = 'marina@empresa.com'): McpDeps => {
         return null
       },
     },
+    // O import (4.2) registra falha de banco; nenhum Resource a exercita.
+    logger: { erro: () => {}, aviso: () => {} },
     confirmacao: {
       async emitir() {
         return 'token'

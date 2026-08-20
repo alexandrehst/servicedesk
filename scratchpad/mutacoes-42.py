@@ -220,13 +220,13 @@ MUTACOES = [
     (
         "A falha some do relatorio (o operador nao sabe o que nao entrou)",
         COMMAND,
-        "          falhas.push({ linha, numeroLegado: novo.numeroLegado, erro: mensagem(resultado.reason) })",
+        "          falhas.push({ linha, numeroLegado: novo.numeroLegado, erro: causa })",
         "          void 0",
     ),
     (
         "Falha e classificada como rejeitada (perde-se a acao que ela pede)",
         COMMAND,
-        "          falhas.push({ linha, numeroLegado: novo.numeroLegado, erro: mensagem(resultado.reason) })",
+        "          falhas.push({ linha, numeroLegado: novo.numeroLegado, erro: causa })",
         "          rejeitadas.push({ linha, numeroLegado: novo.numeroLegado, motivo: 'falhou' })",
     ),
     (
@@ -234,6 +234,25 @@ MUTACOES = [
         COMMAND,
         "const mensagem = (erro: unknown): string => (erro instanceof Error ? erro.message : String(erro))",
         "const mensagem = (_erro: unknown): string => 'falhou'",
+    ),
+    # ---- A falha tambem vai para o LOG (3o achado do review, PR #79) ----
+    (
+        "A falha nao e registrada no log (so o relatorio sincrono a conhece)",
+        COMMAND,
+        "          logger.erro('falha_ao_importar_linha', {",
+        "          void ({",
+    ),
+    (
+        "O log leva o TITULO da linha (AD-9: dado do Solicitante vaza no log)",
+        COMMAND,
+        "            numero_legado: novo.numeroLegado,\n            causa,",
+        "            numero_legado: novo.numeroLegado,\n            titulo: novo.titulo,\n            causa,",
+    ),
+    (
+        "Linha rejeitada tambem vira erro no log (treina quem monitora a ignorar erro)",
+        COMMAND,
+        "        rejeitadas.push({\n          linha,\n          numeroLegado: bruta.numero_legado ?? '',\n          motivo: resultado.motivo,\n        })",
+        "        logger.erro('falha_ao_importar_linha', { linha, numero_legado: '', causa: 'x' })\n        rejeitadas.push({\n          linha,\n          numeroLegado: bruta.numero_legado ?? '',\n          motivo: resultado.motivo,\n        })",
     ),
     # ---- O parser: o dado vem de FORA ----
     (
@@ -272,15 +291,45 @@ def rodar_suite() -> tuple[bool, list[str]]:
     return (len(reprovados) > 0, reprovados)
 
 
+def conferir_alvos() -> list[str]:
+    """
+    Todos os alvos existem, ANTES de rodar qualquer coisa.
+
+    Esta funcao nasceu de quatro ocorrencias do mesmo acidente: o alvo evapora
+    quando o codigo muda — duas vezes pelo formatador, duas pela minha propria
+    refatoracao (o `for` virou lote; `Promise.all` virou `allSettled`). O
+    script antigo descobria isso 40 minutos depois, no meio da rodada, e
+    reportava o alvo ausente junto com as mutacoes sobreviventes — misturando
+    "o script esta desatualizado" com "falta teste", que sao problemas
+    diferentes e pedem acoes diferentes.
+
+    Toda mudanca no codigo e mudanca nos alvos. Agora isso aparece em um
+    segundo, e o script se recusa a rodar.
+    """
+    ausentes = []
+    cache: dict[str, str] = {}
+    for nome, arquivo, alvo, _ in MUTACOES:
+        if arquivo not in cache:
+            cache[arquivo] = (RAIZ / arquivo).read_text()
+        if alvo not in cache[arquivo]:
+            ausentes.append(f"{nome}  [{arquivo}]")
+    return ausentes
+
+
 def main() -> int:
+    ausentes = conferir_alvos()
+    if ausentes:
+        print("SCRIPT DESATUALIZADO — estes alvos nao existem mais no codigo:")
+        for a in ausentes:
+            print(f"  !! {a}")
+        print("\nIsto NAO e mutacao sobrevivente: e o script apontando para codigo")
+        print("que mudou. Corrija os alvos e rode de novo.")
+        return 2
+
     resultados = []
     for nome, arquivo, alvo, troca in MUTACOES:
         caminho = RAIZ / arquivo
         original = caminho.read_text()
-        if alvo not in original:
-            print(f"!! ALVO NAO ENCONTRADO: {nome} ({arquivo})")
-            resultados.append((nome, False, ["<alvo nao encontrado>"]))
-            continue
         caminho.write_text(original.replace(alvo, troca, 1))
         try:
             reprovou, quais = rodar_suite()

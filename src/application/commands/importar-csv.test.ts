@@ -21,6 +21,18 @@ import { importarCsv } from './importar-csv.js'
  */
 const bruno: Principal = { identity: 'bruno@empresa.com', role: 'agente', origin: 'mcp' }
 
+/** Guarda o que foi registrado, para a sonda do log (achado do review, PR #79). */
+const loggerDeTeste = () => {
+  const erros: { evento: string; dados: Record<string, string | number> }[] = []
+  return {
+    erros,
+    erro: (evento: string, dados: Record<string, string | number>) => {
+      erros.push({ evento, dados })
+    },
+    aviso: () => {},
+  }
+}
+
 const CABECALHO = 'numero_legado,titulo,descricao,solicitante'
 const linha = (numeroLegado: string, titulo = 'VPN nao conecta') =>
   `${numeroLegado},${titulo},Sem acesso remoto.,marina@empresa.com`
@@ -53,7 +65,7 @@ describe('o relatorio segue o ARQUIVO, nao o banco', () => {
     const repositorio = repositorioQueInverteAOrdem(6)
     const csv = arquivo(...Array.from({ length: 6 }, (_, i) => linha(`INC-${i + 1}`)))
 
-    const saida = await importarCsv({ repositorio })({ csv }, bruno)
+    const saida = await importarCsv({ repositorio, logger: loggerDeTeste() })({ csv }, bruno)
 
     expect(saida.aceitas.map((a) => a.linha)).toEqual([2, 3, 4, 5, 6, 7])
     expect(saida.aceitas.map((a) => a.numeroLegado)).toEqual([
@@ -76,7 +88,7 @@ describe('o relatorio segue o ARQUIVO, nao o banco', () => {
       linha('INC-4'),
     )
 
-    const saida = await importarCsv({ repositorio })({ csv }, bruno)
+    const saida = await importarCsv({ repositorio, logger: loggerDeTeste() })({ csv }, bruno)
 
     expect(saida.aceitas.map((a) => a.linha)).toEqual([2, 4, 6])
     expect(saida.rejeitadas.map((r) => r.linha)).toEqual([3, 5])
@@ -98,7 +110,7 @@ describe('o mesmo numero_legado duas vezes no MESMO arquivo', () => {
       linha('INC-2'),
     )
 
-    const saida = await importarCsv({ repositorio })({ csv }, bruno)
+    const saida = await importarCsv({ repositorio, logger: loggerDeTeste() })({ csv }, bruno)
 
     expect(repositorio.chamadas).toEqual(['INC-1', 'INC-2'])
     expect(saida.aceitas.map((a) => a.linha)).toEqual([2, 4])
@@ -131,7 +143,7 @@ describe('as duas fases de "repetida" se misturam no relatorio', () => {
       linha('INC-DUPLA', 'a segunda ocorrencia no arquivo'),
     )
 
-    const saida = await importarCsv({ repositorio })({ csv }, bruno)
+    const saida = await importarCsv({ repositorio, logger: loggerDeTeste() })({ csv }, bruno)
 
     expect(saida.repetidas).toEqual([
       { linha: 2, numeroLegado: 'INC-JA-EXISTE' },
@@ -174,7 +186,7 @@ describe('quando o BANCO falha numa linha (achado do claude-review, PR #79)', ()
     const repositorio = repositorioQueFalhaEm(['INC-3'])
     const csv = arquivo(...Array.from({ length: 5 }, (_, i) => linha(`INC-${i + 1}`)))
 
-    const saida = await importarCsv({ repositorio })({ csv }, bruno)
+    const saida = await importarCsv({ repositorio, logger: loggerDeTeste() })({ csv }, bruno)
 
     expect(saida.aceitas.map((a) => a.numeroLegado)).toEqual(['INC-1', 'INC-2', 'INC-4', 'INC-5'])
     expect(saida.falhas).toEqual([
@@ -187,7 +199,7 @@ describe('quando o BANCO falha numa linha (achado do claude-review, PR #79)', ()
     const repositorio = repositorioQueFalhaEm(['INC-2'])
     const csv = arquivo(...Array.from({ length: 20 }, (_, i) => linha(`INC-${i + 1}`)))
 
-    const saida = await importarCsv({ repositorio })({ csv }, bruno)
+    const saida = await importarCsv({ repositorio, logger: loggerDeTeste() })({ csv }, bruno)
 
     expect(repositorio.chamadas).toHaveLength(20)
     expect(saida.aceitas).toHaveLength(19)
@@ -201,7 +213,7 @@ describe('quando o BANCO falha numa linha (achado do claude-review, PR #79)', ()
     const repositorio = repositorioQueFalhaEm(['INC-1'])
     const csv = arquivo(linha('INC-1'), linha('INC-2', ''))
 
-    const saida = await importarCsv({ repositorio })({ csv }, bruno)
+    const saida = await importarCsv({ repositorio, logger: loggerDeTeste() })({ csv }, bruno)
 
     // A linha 2 esta boa e o banco nao gravou -> rode de novo.
     expect(saida.falhas.map((f) => f.linha)).toEqual([2])
@@ -209,11 +221,57 @@ describe('quando o BANCO falha numa linha (achado do claude-review, PR #79)', ()
     expect(saida.rejeitadas.map((r) => r.linha)).toEqual([3])
   })
 
+  /**
+   * O relatorio e SINCRONO: existe uma vez, na resposta daquela chamada. Se o
+   * cliente MCP truncar a saida estruturada, ou o processo cair antes de
+   * responder, o log e o unico rastro de por que a linha nao entrou — e engolir
+   * erro e violacao direta do pilar Observavel. Mesmo padrao de
+   * `adapters/email/varredura.ts`.
+   */
+  it('a falha tambem vai para o LOG, nao so para o relatorio', async () => {
+    const repositorio = repositorioQueFalhaEm(['INC-2'])
+    const logger = loggerDeTeste()
+    const csv = arquivo(linha('INC-1'), linha('INC-2'))
+
+    await importarCsv({ repositorio, logger })({ csv }, bruno)
+
+    expect(logger.erros).toEqual([
+      {
+        evento: 'falha_ao_importar_linha',
+        dados: { linha: 3, numero_legado: 'INC-2', causa: 'timeout ao falar com o banco' },
+      },
+    ])
+  })
+
+  /** AD-9: log e um lugar por onde dado vaza. O Titulo vem do Solicitante. */
+  it('o log NAO leva o conteudo da linha', async () => {
+    const repositorio = repositorioQueFalhaEm(['INC-1'])
+    const logger = loggerDeTeste()
+    const csv = arquivo(linha('INC-1', 'Acesso negado ao sistema da folha'))
+
+    await importarCsv({ repositorio, logger })({ csv }, bruno)
+
+    const registrado = JSON.stringify(logger.erros)
+    expect(registrado).not.toContain('folha')
+    expect(registrado).not.toContain('Sem acesso remoto')
+  })
+
+  it('linha REJEITADA nao vira erro no log: o dado errado e o caso normal', async () => {
+    const repositorio = repositorioQueFalhaEm([])
+    const logger = loggerDeTeste()
+    const csv = arquivo(linha('INC-1', ''))
+
+    const saida = await importarCsv({ repositorio, logger })({ csv }, bruno)
+
+    expect(saida.rejeitadas).toHaveLength(1)
+    expect(logger.erros).toEqual([])
+  })
+
   it('o import DEVOLVE o relatorio em vez de lancar, mesmo com todas falhando', async () => {
     const repositorio = repositorioQueFalhaEm(['INC-1', 'INC-2'])
     const csv = arquivo(linha('INC-1'), linha('INC-2'))
 
-    const saida = await importarCsv({ repositorio })({ csv }, bruno)
+    const saida = await importarCsv({ repositorio, logger: loggerDeTeste() })({ csv }, bruno)
 
     expect(saida.aceitas).toEqual([])
     expect(saida.falhas).toHaveLength(2)
@@ -230,7 +288,7 @@ describe('o arquivo maior que um lote', () => {
     const repositorio = repositorioQueInverteAOrdem(20)
     const csv = arquivo(...Array.from({ length: 20 }, (_, i) => linha(`INC-${i + 1}`)))
 
-    const saida = await importarCsv({ repositorio })({ csv }, bruno)
+    const saida = await importarCsv({ repositorio, logger: loggerDeTeste() })({ csv }, bruno)
 
     expect(saida.aceitas).toHaveLength(20)
     expect(new Set(repositorio.chamadas).size).toBe(20)
@@ -246,7 +304,7 @@ describe('o arquivo maior que um lote', () => {
     }
     const csv = arquivo(...Array.from({ length: 12 }, (_, i) => linha(`INC-${i + 1}`)))
 
-    const saida = await importarCsv({ repositorio })({ csv }, bruno)
+    const saida = await importarCsv({ repositorio, logger: loggerDeTeste() })({ csv }, bruno)
 
     expect(saida.aceitas).toHaveLength(11)
     expect(saida.repetidas).toEqual([{ linha: 4, numeroLegado: 'INC-3' }])

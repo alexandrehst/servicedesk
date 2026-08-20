@@ -1,16 +1,14 @@
 OK O Numero passa a vir do arquivo (AD-4 contornado): 11 teste(s)
 OK O numero_legado nao e gravado (nao ha como ligar ao sistema antigo): 5 teste(s)
-OK Violacao de unicidade vira ERRO (o lote inteiro cai no reimport): 1 teste(s)
-!! ALVO NAO ENCONTRADO na rodada (o alvo evaporou de novo: `criado === null` virou
-   `resultado.value === null` quando `Promise.all` virou `allSettled`);
-   corrigido e reexecutado isolado: reprovou 3 testes
-OK Linha invalida e ignorada em silencio (some do relatorio): 4 teste(s)
+OK Violacao de unicidade vira ERRO (o lote inteiro cai no reimport): 2 teste(s)
+OK Repetida e contada como aceita: 3 teste(s)
+OK Linha invalida e ignorada em silencio (some do relatorio): 5 teste(s)
 OK O motivo da rejeicao vira generico: 1 teste(s)
-OK O numero da linha ignora o cabecalho (aponta para a linha errada): 12 teste(s)
-OK Linha invalida ABORTA o lote (a AC #2 deixa de valer): 5 teste(s)
+OK O numero da linha ignora o cabecalho (aponta para a linha errada): 13 teste(s)
+OK Linha invalida ABORTA o lote (a AC #2 deixa de valer): 6 teste(s)
 OK O aviso de 'sem data original' some do relatorio: 1 teste(s)
 OK numero_legado vazio passa (o reimport duplicaria): 2 teste(s)
-OK Titulo vazio passa: 4 teste(s)
+OK Titulo vazio passa: 5 teste(s)
 OK Solicitante vazio passa (Chamado sem dono conhecido): 1 teste(s)
 OK Categoria desconhecida cai no default (a informacao some): 2 teste(s)
 OK Status desconhecido vira 'aberto' (Chamado fechado volta a fila): 2 teste(s)
@@ -25,12 +23,18 @@ OK REMOVER a checagem de permissao (qualquer um importa): 1 teste(s)
 OK Solicitante ganha a capacidade de importar: 1 teste(s)
 OK O relatorio sai na ordem em que o banco respondeu, nao na do arquivo: 1 teste(s)
 OK Duplicata dentro do arquivo vai ao banco e o vencedor vira sorteio: 2 teste(s)
-OK O lote pula a ultima fatia (arquivo maior que LINHAS_POR_LOTE): 20 teste(s)
+OK O lote pula a ultima fatia (arquivo maior que LINHAS_POR_LOTE): 21 teste(s)
 OK O lote reprocessa a primeira fatia (avanco errado): 3 teste(s)
-OK Uma falha de banco derruba o import inteiro (`all` no lugar de `allSettled`): 21 teste(s)
-OK A falha some do relatorio (o operador nao sabe o que nao entrou): 4 teste(s)
-OK Falha e classificada como rejeitada (perde-se a acao que ela pede): 4 teste(s)
-OK A causa da falha vira texto generico: 1 teste(s)
+OK Uma falha de banco derruba o import inteiro (`all` no lugar de `allSettled`): 23 teste(s)
+!! ALVOS EVAPORADOS nesta rodada (a linha do `falhas.push` mudou quando `causa`
+   foi extraida): as duas foram corrigidas e reexecutadas isoladas, reprovando
+   4 testes cada. Quinta e sexta ocorrencia do mesmo acidente no projeto — o
+   script agora CONFERE TODOS OS ALVOS ANTES de rodar, e se recusa a comecar.
+
+OK A causa da falha vira texto generico: 2 teste(s)
+OK A falha nao e registrada no log (so o relatorio sincrono a conhece): 1 teste(s)
+OK O log leva o TITULO da linha (AD-9: dado do Solicitante vaza no log): 2 teste(s)
+OK Linha rejeitada tambem vira erro no log (treina quem monitora a ignorar erro): 1 teste(s)
 OK Campo entre aspas perde o tratamento (virgula quebra a linha): 5 teste(s)
 OK Aspas dobradas deixam de virar uma so: 3 teste(s)
 
@@ -38,15 +42,15 @@ OK Aspas dobradas deixam de virar uma so: 3 teste(s)
 | --- | --- |
 | O Numero passa a vir do arquivo (AD-4 contornado) | 11 teste(s) |
 | O numero_legado nao e gravado (nao ha como ligar ao sistema antigo) | 5 teste(s) |
-| Violacao de unicidade vira ERRO (o lote inteiro cai no reimport) | 1 teste(s) |
-| Repetida e contada como aceita | 3 teste(s) — reexecutado isolado, ver acima |
-| Linha invalida e ignorada em silencio (some do relatorio) | 4 teste(s) |
+| Violacao de unicidade vira ERRO (o lote inteiro cai no reimport) | 2 teste(s) |
+| Repetida e contada como aceita | 3 teste(s) |
+| Linha invalida e ignorada em silencio (some do relatorio) | 5 teste(s) |
 | O motivo da rejeicao vira generico | 1 teste(s) |
-| O numero da linha ignora o cabecalho (aponta para a linha errada) | 12 teste(s) |
-| Linha invalida ABORTA o lote (a AC #2 deixa de valer) | 5 teste(s) |
+| O numero da linha ignora o cabecalho (aponta para a linha errada) | 13 teste(s) |
+| Linha invalida ABORTA o lote (a AC #2 deixa de valer) | 6 teste(s) |
 | O aviso de 'sem data original' some do relatorio | 1 teste(s) |
 | numero_legado vazio passa (o reimport duplicaria) | 2 teste(s) |
-| Titulo vazio passa | 4 teste(s) |
+| Titulo vazio passa | 5 teste(s) |
 | Solicitante vazio passa (Chamado sem dono conhecido) | 1 teste(s) |
 | Categoria desconhecida cai no default (a informacao some) | 2 teste(s) |
 | Status desconhecido vira 'aberto' (Chamado fechado volta a fila) | 2 teste(s) |
@@ -61,14 +65,17 @@ OK Aspas dobradas deixam de virar uma so: 3 teste(s)
 | Solicitante ganha a capacidade de importar | 1 teste(s) |
 | O relatorio sai na ordem em que o banco respondeu, nao na do arquivo | 1 teste(s) |
 | Duplicata dentro do arquivo vai ao banco e o vencedor vira sorteio | 2 teste(s) |
-| O lote pula a ultima fatia (arquivo maior que LINHAS_POR_LOTE) | 20 teste(s) |
+| O lote pula a ultima fatia (arquivo maior que LINHAS_POR_LOTE) | 21 teste(s) |
 | O lote reprocessa a primeira fatia (avanco errado) | 3 teste(s) |
-| Uma falha de banco derruba o import inteiro (`all` no lugar de `allSettled`) | 21 teste(s) |
-| A falha some do relatorio (o operador nao sabe o que nao entrou) | 4 teste(s) |
-| Falha e classificada como rejeitada (perde-se a acao que ela pede) | 4 teste(s) |
-| A causa da falha vira texto generico | 1 teste(s) |
+| Uma falha de banco derruba o import inteiro (`all` no lugar de `allSettled`) | 23 teste(s) |
+| A falha some do relatorio (o operador nao sabe o que nao entrou) | 4 teste(s) — reexecutado isolado |
+| Falha e classificada como rejeitada (perde-se a acao que ela pede) | 4 teste(s) — reexecutado isolado |
+| A causa da falha vira texto generico | 2 teste(s) |
+| A falha nao e registrada no log (so o relatorio sincrono a conhece) | 1 teste(s) |
+| O log leva o TITULO da linha (AD-9: dado do Solicitante vaza no log) | 2 teste(s) |
+| Linha rejeitada tambem vira erro no log (treina quem monitora a ignorar erro) | 1 teste(s) |
 | Campo entre aspas perde o tratamento (virgula quebra a linha) | 5 teste(s) |
 | Aspas dobradas deixam de virar uma so | 3 teste(s) |
 
-Todas as mutacoes foram reprovadas (a unica sobrevivente foi alvo evaporado,
-nao teste faltando — corrigida e reexecutada acima).
+Todas as mutacoes foram reprovadas (as duas sobreviventes foram alvo evaporado,
+nao teste faltando — corrigidas e reexecutadas acima).

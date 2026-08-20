@@ -4,6 +4,7 @@ import { pode } from '../../domain/papeis.js'
 import { deCsv } from '../../platform/csv/csv.js'
 import type { ImportarCsvInput, ImportarCsvOutput } from '../contracts/importar-csv.js'
 import type { Principal } from '../contracts/principal.js'
+import type { Logger } from '../ports/logger.js'
 import type { TicketRepository } from '../ports/ticket-repository.js'
 
 /**
@@ -25,6 +26,19 @@ import type { TicketRepository } from '../ports/ticket-repository.js'
  */
 export type ImportarCsvDeps = {
   readonly repositorio: Pick<TicketRepository, 'importarComAuditoria'>
+  /**
+   * A falha de banco tambem vai para o log, e nao so para o relatorio.
+   *
+   * O relatorio e sincrono: existe uma vez, na resposta daquela chamada. Se o
+   * cliente MCP truncar o `structuredContent`, ou o processo cair antes de
+   * responder, nao sobra rastro nenhum de por que a linha 2.003 nao entrou —
+   * e engolir erro e violacao direta do pilar Observavel (o motivo pelo qual
+   * este port existe, Story 1.6).
+   *
+   * Mesmo padrao de `adapters/email/varredura.ts`: cada item do lote que falha
+   * vira registro estruturado, e a contagem ainda volta no resumo.
+   */
+  readonly logger: Logger
 }
 
 /**
@@ -65,7 +79,7 @@ const mensagem = (erro: unknown): string => (erro instanceof Error ? erro.messag
 type Pendente = { readonly linha: number; readonly novo: ChamadoImportado }
 
 export const importarCsv =
-  ({ repositorio }: ImportarCsvDeps) =>
+  ({ repositorio, logger }: ImportarCsvDeps) =>
   async (input: ImportarCsvInput, autor: Principal): Promise<ImportarCsvOutput> => {
     if (!pode(autor.role, 'importa')) {
       throw semPermissao()
@@ -146,7 +160,16 @@ export const importarCsv =
           // gravou — rode de novo". O reimport e seguro (o `numero_legado` ja
           // gravado volta como repetida), entao retomar e literalmente rodar o
           // mesmo arquivo.
-          falhas.push({ linha, numeroLegado: novo.numeroLegado, erro: mensagem(resultado.reason) })
+          const causa = mensagem(resultado.reason)
+          // NUNCA o conteudo da linha: Titulo e Descricao vem do Solicitante, e
+          // log e um lugar por onde dado vaza (AD-9). O numero da linha e o
+          // `numero_legado` bastam para achar a linha no arquivo.
+          logger.erro('falha_ao_importar_linha', {
+            linha,
+            numero_legado: novo.numeroLegado,
+            causa,
+          })
+          falhas.push({ linha, numeroLegado: novo.numeroLegado, erro: causa })
           continue
         }
 

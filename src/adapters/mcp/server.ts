@@ -62,6 +62,7 @@ import {
   verChamadoOutputSchema,
 } from '../../application/contracts/ver-chamado.js'
 import type { IdentityRepository } from '../../application/ports/identity-repository.js'
+import type { Logger } from '../../application/ports/logger.js'
 import type { TicketRepository } from '../../application/ports/ticket-repository.js'
 import { buscarChamados } from '../../application/queries/buscar-chamados.js'
 import { chamadosParecidos } from '../../application/queries/chamados-parecidos.js'
@@ -114,6 +115,14 @@ export type McpDeps = {
    * `buscarUsuarioPorEmail` — o adapter MCP nao cria sessao nem emite token.
    */
   readonly identidades: Pick<IdentityRepository, 'buscarUsuarioPorEmail'>
+  /**
+   * Story 4.2: o import registra cada linha que o banco recusou.
+   *
+   * O relatorio da tool e sincrono — existe uma vez, na resposta daquela
+   * chamada. Se o cliente truncar a saida estruturada, ou o processo cair antes
+   * de responder, o log e o unico rastro de por que uma linha nao entrou.
+   */
+  readonly logger: Logger
   /**
    * Story 2.6: emitir e consumir a confirmacao das Acoes irreversiveis (AD-7).
    *
@@ -383,7 +392,7 @@ export const criarHandlerExportarCsv = (deps: McpDeps) => {
 export const criarHandlerImportarCsv = (deps: McpDeps) =>
   criarHandler(
     deps,
-    importarCsv({ repositorio: deps.repositorio }),
+    importarCsv({ repositorio: deps.repositorio, logger: deps.logger }),
     (saida) =>
       `${saida.aceitas.length} importado(s), ${saida.repetidas.length} ja existia(m), ${saida.rejeitadas.length} rejeitada(s)` +
       (saida.falhas.length > 0
