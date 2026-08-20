@@ -1,6 +1,6 @@
 import { conectarPorImap, criarCaixaImap } from '../adapters/email/imap.js'
 import { criarVarredura } from '../adapters/email/varredura.js'
-import { abrirChamado } from '../application/commands/abrir-chamado.js'
+import { abrirChamado, depsDeAbrirChamado } from '../application/commands/abrir-chamado.js'
 import { abrirChamadoPorEmail } from '../application/commands/abrir-chamado-por-email.js'
 import type { CaixaDeEntrada } from '../application/ports/caixa-de-entrada.js'
 import { type Agendador, iniciarAgendador } from './agendador.js'
@@ -64,11 +64,10 @@ export const criarAplicacao = (
             processar: abrirChamadoPorEmail({
               identidades: deps.identidades,
               repositorio: deps.repositorio,
-              abrir: abrirChamado(
-                deps.notificacao === undefined
-                  ? { repositorio: deps.repositorio }
-                  : { repositorio: deps.repositorio, notificacao: deps.notificacao },
-              ),
+              // O MESMO helper que a tool MCP usa: dois pontos de entrada
+              // montando o command de jeitos diferentes foi o achado do review
+              // no PR #85.
+              abrir: abrirChamado(depsDeAbrirChamado(deps.repositorio, deps.notificacao)),
               logger,
             }),
             logger,

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { depsDeAbrirChamado } from '../application/commands/abrir-chamado.js'
 import type { CaixaDeEntrada } from '../application/ports/caixa-de-entrada.js'
 import { hashToken } from '../platform/auth/token.js'
 import { criarAplicacao } from './aplicacao.js'
@@ -137,6 +138,41 @@ describe('o intake usa o canal de notificacao quando ele existe (AC #4)', () => 
     // E nada foi dado como desligado.
     expect(config.recursosDesligados).toEqual([])
     await app.encerrar('teste')
+  })
+})
+
+describe('os dois pontos de entrada montam o command IGUAL', () => {
+  /**
+   * Achado do review no PR #85. A tool MCP e o intake por e-mail construiam
+   * `AbrirChamadoDeps` cada um por conta propria, com a mesma ternaria copiada.
+   * Um campo opcional novo seria facil de acrescentar num lugar e esquecer no
+   * outro — e Chamado aberto por e-mail passaria a se comportar diferente de
+   * Chamado aberto por MCP, **sem nenhum teste pegar**, porque cada lado monta
+   * as proprias deps.
+   *
+   * Agora os dois chamam `depsDeAbrirChamado`. Este teste guarda a propriedade
+   * que a extracao existe para dar: **o que sai e o mesmo objeto, campo a
+   * campo**. Se alguem voltar a montar a mao num dos lados, e aqui que aparece.
+   */
+  it('com notificacao, o objeto tem os dois campos', () => {
+    const repositorio = {} as never
+    const notificacao = { marcador: 'canal' } as never
+
+    expect(depsDeAbrirChamado(repositorio, notificacao)).toEqual({ repositorio, notificacao })
+  })
+
+  /**
+   * Sem notificacao, o campo tem de ficar AUSENTE — nao `undefined`. Com
+   * `exactOptionalPropertyTypes`, os dois nao sao a mesma coisa, e um
+   * `notificacao: undefined` explicito quebraria a montagem no outro lado.
+   */
+  it('sem notificacao, o campo nao existe (nao e `undefined`)', () => {
+    const repositorio = {} as never
+
+    const deps = depsDeAbrirChamado(repositorio)
+
+    expect(deps).toEqual({ repositorio })
+    expect('notificacao' in deps).toBe(false)
   })
 })
 

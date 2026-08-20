@@ -25,6 +25,30 @@ export type AbrirChamadoDeps = {
   readonly notificacao?: CanalDeNotificacao
 }
 
+/**
+ * Monta `AbrirChamadoDeps` quando a notificacao pode ou nao existir.
+ *
+ * Existe por causa de um achado do review no PR #85: a MESMA ternaria estava
+ * escrita em dois lugares — o handler da tool MCP e o intake por e-mail —,
+ * cada um decidindo campo a campo se `notificacao` entra no objeto. **Sao dois
+ * pontos de entrada construindo o mesmo command de forma independente**, e um
+ * campo opcional novo em `AbrirChamadoDeps` seria facil de acrescentar num
+ * lugar e esquecer no outro: Chamado aberto por e-mail passaria a se comportar
+ * diferente de Chamado aberto por MCP, sem nenhum teste pegar — porque cada
+ * lado monta as proprias deps.
+ *
+ * E o mesmo risco que a Story 4.1 pagou com a traducao escopo->SQL copiada
+ * entre a Fila e o export: **duplicacao some quando alguem aponta; a garantia
+ * contra divergencia futura so existe com a extracao.**
+ *
+ * A ternaria e necessaria por causa de `exactOptionalPropertyTypes`: passar
+ * `notificacao: undefined` explicitamente nao e o mesmo que omitir o campo.
+ */
+export const depsDeAbrirChamado = (
+  repositorio: TicketRepository,
+  notificacao?: CanalDeNotificacao,
+): AbrirChamadoDeps => (notificacao === undefined ? { repositorio } : { repositorio, notificacao })
+
 export const abrirChamado =
   ({ repositorio, notificacao }: AbrirChamadoDeps) =>
   async (

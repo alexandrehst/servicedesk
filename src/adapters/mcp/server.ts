@@ -1,6 +1,6 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server'
 import { z } from 'zod'
-import { abrirChamado } from '../../application/commands/abrir-chamado.js'
+import { abrirChamado, depsDeAbrirChamado } from '../../application/commands/abrir-chamado.js'
 import { acaoIrreversivel, type Confirmacao } from '../../application/commands/acao-irreversivel.js'
 import { atribuirChamado } from '../../application/commands/atribuir-chamado.js'
 import { comentarChamado } from '../../application/commands/comentar-chamado.js'
@@ -328,11 +328,7 @@ export const TEXTO_DA_TRIAGEM = (numero: number): string =>
 export const criarHandlerAbrirChamado = (deps: McpDeps) =>
   criarHandler(
     deps,
-    abrirChamado(
-      deps.notificacao === undefined
-        ? { repositorio: deps.repositorio }
-        : { repositorio: deps.repositorio, notificacao: deps.notificacao },
-    ),
+    abrirChamado(depsDeAbrirChamado(deps.repositorio, deps.notificacao)),
     (saida) => `Chamado #${saida.number} aberto (${saida.status}).`,
   )
 
