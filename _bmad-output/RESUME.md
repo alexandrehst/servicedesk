@@ -3,6 +3,37 @@
 **Última atualização:** 2026-08-20 (**o sistema roda** — PR #85 entregou o bootstrap. MVP completo e operável)
 **Repo:** https://github.com/alexandrehst/servicedesk (público)
 
+## ⚠️ Este é um projeto de DEMONSTRAÇÃO
+
+Declarado pelo dono do projeto em **2026-08-21**: o ServiceDesk **nunca vai
+subir em produção** e **nunca será usado por múltiplos agentes reais**. Ele
+existe para demonstrar *spec-driven development* com um gate de qualidade que
+não se contorna.
+
+**O enquadramento de negócio abaixo continua valendo como está escrito** — o
+contrato de R$240k/ano, os 8 agentes, a paridade a comprovar. É ele que dá peso
+às decisões e faz a demonstração ter sentido; um exercício sem consequência
+produz arquitetura sem consequência.
+
+**O que muda é o que conta como pendência.** Não são pendências reais, e não
+devem ser tratadas como próximo passo:
+
+| Não é pendência | Por quê |
+| --- | --- |
+| Transporte HTTP com sessão por pessoa | "um processo = uma identidade" nunca vai incomodar ninguém |
+| Dockerfile da aplicação, deploy, topologia | segue `Deferred` na spine, e assim fica |
+| O mês de operação em paralelo | não há sistema contratado do outro lado |
+| Baseline do contratado, lista de tipos de Chamado | idem |
+| Avaliar a `checklist-de-paridade.md` | ela é **artefato da demonstração**, não plano a executar |
+| SMTP/IMAP de verdade | e-mail e intake seguem desligados, e está certo assim |
+
+**O que continua valendo integralmente:** os nove required checks, a verificação
+por mutação, a honestidade dos registros e o rigor das decisões de arquitetura.
+É exatamente isso que está sendo demonstrado.
+
+**Consequência:** com o código pronto e o sistema subindo por `pnpm start`, **o
+projeto está completo**.
+
 ## O que é o projeto
 
 Service desk interno **MCP-first**: núcleo = API + servidor MCP, operado de dentro de uma IA (UI web é Fase 1.5). Arquitetura **hexagonal**, **TypeScript** ponta-a-ponta. Objetivo: **substituir o software de chamados contratado (~R$240k/ano)** com paridade comprovada. 1 pessoa + IA. Escala: ~100 funcionários, 8 agentes.
@@ -19,9 +50,16 @@ O MVP já tem: abrir e ver Chamado via MCP, autenticação por magic link, dois 
 
 **E o dado entra e sai** (Epic 4): export CSV com escape RFC 4180 e neutralização de fórmula; import de migração em que cada Chamado recebe **Número novo** e o antigo vira referência, com relatório de aceitas/repetidas/rejeitadas que não aborta o lote; soft-delete completo — Chamado, Comentário **e Usuário** —, com as três exclusões exigindo confirmação humana (o AD-7 que a Story 1.7 tinha marcado para este momento); e o **relatório de operação**, que mede tempo de resolução, adoção do MCP e quantas pessoas operam o sistema.
 
-## O que falta para o corte do contrato
+## O que "falta para o corte" — e por que não vai acontecer
 
-**Nada disso é código, e nenhuma parte acontece dentro do desenvolvimento.** Está tudo em `_bmad-output/planning-artifacts/checklist-de-paridade.md`, com critério observável e responsável por item.
+**Nada disso é código.** E, desde o esclarecimento de 2026-08-21, nada disso vai
+ser feito: não há sistema contratado do outro lado, porque o projeto é uma
+demonstração.
+
+A lista abaixo e a `checklist-de-paridade.md` **continuam no repositório de
+propósito**: elas são a entrega intelectual da Story 4.4 — a separação entre o
+que um sistema prova sozinho e o que exige alguém olhando o mundo real. Como
+artefato, valem; como plano, não se aplicam.
 
 | Pendência | Por quê | Quem |
 | --- | --- | --- |

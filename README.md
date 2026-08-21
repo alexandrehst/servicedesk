@@ -1,8 +1,16 @@
 # ServiceDesk
 
+> **Projeto de demonstração.** Ele não roda em produção e não é usado por uma
+> equipe real. Existe para demonstrar *spec-driven development* com um gate de
+> qualidade que não se contorna: 1010 testes, verificação por mutação a cada
+> story, nove required checks e review por IA em todo PR.
+>
+> O cenário de negócio abaixo é levado a sério de propósito — decisões de
+> arquitetura sem consequência não demonstram nada.
+
 Service desk interno **MCP-first**: o núcleo é um servidor MCP operado de dentro
-de uma IA. Existe para substituir um software de chamados contratado, com
-paridade comprovada — não presumida.
+de uma IA. Escrito como se precisasse substituir um software de chamados
+contratado, com paridade comprovada — não presumida.
 
 **TypeScript, arquitetura hexagonal, Postgres.** 995 testes, incluindo ~250 de
 integração contra um banco real.
@@ -132,15 +140,22 @@ percentual de ações via MCP, pessoas operando.
 
 ---
 
-## O que ele ainda NÃO faz
+## O que ele NÃO faz — e não vai fazer
 
-- **Não há interface web.** É MCP-first; a UI é Fase 1.5.
-- **Não há API HTTP.** A origem `api` existe no Log e nada a produz ainda.
+Por ser demonstração, os itens abaixo são **limites conhecidos**, não backlog:
+
+- **Não há interface web.** É MCP-first; a UI seria Fase 1.5.
+- **Não há API HTTP nem deploy.** A origem `api` existe no Log e nada a produz;
+  a topologia segue `Deferred` na spine.
 - **Um processo = uma identidade.** O transporte stdio não tem sessão, então
-  todas as ações são do dono do token. Identidade por pessoa exige transporte
-  HTTP, que depende da topologia de deploy.
-- **Não há restauração** do que foi excluído, nem política de retenção. As duas
-  estão registradas no PRD como decisões conscientes.
+  todas as ações são do dono do token. Identidade por pessoa exigiria HTTP.
+- **Não há restauração** do que foi excluído, nem política de retenção — as duas
+  estão registradas no PRD como decisões conscientes, com o porquê.
+
+A `checklist-de-paridade.md` descreve o que seria preciso verificar antes de
+desligar um sistema real. Ela é um **artefato da Story 4.4** — a separação entre
+o que um sistema prova sozinho e o que exige alguém olhando —, não um plano em
+execução.
 
 ---
 
