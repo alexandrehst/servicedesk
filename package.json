@@ -37,7 +37,7 @@
     "drizzle-orm": "0.45.2",
     "imapflow": "^1.6.6",
     "mailparser": "^3.9.15",
-    "nodemailer": "^9.0.5",
+    "nodemailer": "^9.1.1",
     "postgres": "3.4.9",
     "zod": "4.4.3"
   },
