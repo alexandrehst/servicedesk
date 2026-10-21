@@ -33,7 +33,7 @@
     "vitest": "4.1.10"
   },
   "dependencies": {
-    "@modelcontextprotocol/server": "2.0.0",
+    "@modelcontextprotocol/server": "2.3.0",
     "drizzle-orm": "0.45.2",
     "imapflow": "^1.6.6",
     "mailparser": "^3.9.15",
